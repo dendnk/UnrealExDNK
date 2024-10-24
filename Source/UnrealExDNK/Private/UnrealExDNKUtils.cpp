@@ -1,8 +1,8 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+#include "UnrealExDNKUtils.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
-#include "UnrealExDNKUtils.h"
 
 
 APlayerController* UUnrealExDNKUtils::GetPlayerController(UObject* WorldContextObject)
