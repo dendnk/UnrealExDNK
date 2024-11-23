@@ -39,4 +39,12 @@ public:
 	*/
 	UFUNCTION(BlueprintCallable, Category = "UnrealExDNK Utils", meta = (WorldContext = "WorldContextObject"))
 	static APlayerController* GetPlayerController(UObject* WorldContextObject);
+
+	/**
+	* Returns current git commit hash
+	* 
+	* @return Git commit hash or "unknown" in failed case 
+	*/
+	UFUNCTION(BlueprintCallable, Category = "UnrealExDNK Utils")
+	static FString GetGitCommitHash();
 };

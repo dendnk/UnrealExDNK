@@ -1,8 +1,10 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "UnrealExDNKUtils.h"
+#include "HAL/PlatformProcess.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
+#include "Misc/Paths.h"
 
 
 APlayerController* UUnrealExDNKUtils::GetPlayerController(UObject* WorldContextObject)
@@ -23,4 +25,16 @@ APlayerController* UUnrealExDNKUtils::GetPlayerController(UObject* WorldContextO
     }
 
 	return nullptr;
+}
+
+FString UUnrealExDNKUtils::GetGitCommitHash()
+{
+    FString GitPath = TEXT("git");
+    FString RepoPath = FPaths::ProjectDir();
+    FString Command = TEXT("rev-parse --short HEAD");
+    FString Result;
+    int32 ExitCode;
+
+    FPlatformProcess::ExecProcess(*GitPath, *Command, &ExitCode, &Result, nullptr);
+    return (ExitCode == 0) ? Result.TrimEnd() : TEXT("Unknown");
 }
