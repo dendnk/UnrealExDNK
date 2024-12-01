@@ -72,7 +72,7 @@ FString UUnrealExDNKUtils::GetGitCommitHash()
         UE_LOG(LogTemp, Log, TEXT("The project is not connected to any source control."));
     }
 
-    return TEXT("Unknown");
-
 #endif // WITH_EDITOR
+
+    return TEXT("Unknown");
 }
