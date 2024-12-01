@@ -38,6 +38,7 @@ public class UnrealExDNK : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
+				"SourceControl"
 				// ... add private dependencies that you statically link with here ...
 			}
 			);

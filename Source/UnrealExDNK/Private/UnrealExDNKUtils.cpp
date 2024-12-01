@@ -1,7 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "UnrealExDNKUtils.h"
-#include "HAL/PlatformProcess.h"
+
+#include "ISourceControlModule.h"
+#include "ISourceControlProvider.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "Misc/Paths.h"
@@ -29,12 +31,48 @@ APlayerController* UUnrealExDNKUtils::GetPlayerController(UObject* WorldContextO
 
 FString UUnrealExDNKUtils::GetGitCommitHash()
 {
-    FString GitPath = TEXT("git");
-    FString RepoPath = FPaths::ProjectDir();
-    FString Command = TEXT("rev-parse --short HEAD");
-    FString Result;
-    int32 ExitCode;
+#if WITH_EDITOR
 
-    FPlatformProcess::ExecProcess(*GitPath, *Command, &ExitCode, &Result, nullptr);
-    return (ExitCode == 0) ? Result.TrimEnd() : TEXT("Unknown");
+    ISourceControlModule& SourceControlModule = FModuleManager::LoadModuleChecked<ISourceControlModule>("SourceControl");
+    if (SourceControlModule.IsEnabled() && SourceControlModule.GetProvider().IsAvailable())
+    {
+        FString ProviderName = SourceControlModule.GetProvider().GetName().ToString();
+
+        UE_LOG(LogTemp, Log, TEXT("Project is connected to Source Control: %s"), *ProviderName);
+
+        if (ProviderName == TEXT("Git"))
+        {
+            FString GitPath = TEXT("git");
+            FString RepoPath = FPaths::ProjectDir();
+            FString Command = TEXT("rev-parse --short HEAD");
+            FString Result;
+            int32 ExitCode;
+
+            FPlatformProcess::ExecProcess(*GitPath, *Command, &ExitCode, &Result, nullptr);
+            if (ExitCode == 0)
+            {
+                return Result.TrimEnd();
+            }
+        }
+        else if (ProviderName == TEXT("Perforce"))
+        {
+            UE_LOG(LogTemp, Log, TEXT("The project is using Perforce for source control."));
+        }
+        else if (ProviderName == TEXT("Plastic SCM"))
+        {
+            UE_LOG(LogTemp, Log, TEXT("The project is using Plastic SCM for source control."));
+        }
+        else
+        {
+            UE_LOG(LogTemp, Log, TEXT("The project is using an unknown source control system: %s"), *ProviderName);
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Log, TEXT("The project is not connected to any source control."));
+    }
+
+    return TEXT("Unknown");
+
+#endif // WITH_EDITOR
 }
