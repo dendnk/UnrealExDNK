@@ -47,4 +47,12 @@ public:
 	*/
 	UFUNCTION(BlueprintCallable, Category = "UnrealExDNK Utils")
 	static FString GetGitCommitHash();
+
+	/**
+	* Generate random Vector Direction in the XZ plane
+	* 
+	* @return Direction in XZ plane
+	*/
+	UFUNCTION(BlueprintCallable, Category = "UnrealExDNK Utils")
+	static FVector GenerateRandomDirectionXZ();
 };
