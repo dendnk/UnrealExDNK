@@ -1,4 +1,4 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+// Copyright 2024 [UnrealExDNK: Denis Kruchok]. All rights reserved.
 
 using UnrealBuildTool;
 
@@ -26,6 +26,7 @@ public class UnrealExDNK : ModuleRules
 			new string[]
 			{
 				"Core",
+                "UMG",
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);

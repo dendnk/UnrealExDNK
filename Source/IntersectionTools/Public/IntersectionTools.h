@@ -1,8 +1,7 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+// Copyright 2024 [UnrealExDNK: Denis Kruchok]. All rights reserved.
 
 #pragma once
 
-#include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
 
 class FIntersectionToolsModule : public IModuleInterface

@@ -1,3 +1,5 @@
+// Copyright 2024 [UnrealExDNK: Denis Kruchok]. All rights reserved.
+
 using UnrealBuildTool;
 
 public class IntersectionTools : ModuleRules
