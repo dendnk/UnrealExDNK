@@ -2,7 +2,7 @@
 
 #include "UIWidgetComponent.h"
 #include "Blueprint/UserWidget.h"
-#include "GameFramework/PlayerController.h"
+#include "UnrealExDNKUtils.h"
 
 
 UUIWidgetComponent::UUIWidgetComponent()
@@ -25,14 +25,14 @@ void UUIWidgetComponent::CreateAndAttachWidget()
         return;
     }
 
-    OwningController = Cast<APlayerController>(GetOwner());
-    if (!IsValid(OwningController))
+    OwningPlayerController = UUnrealExDNKUtils::GetPlayerController(GetOwner());
+    if (!IsValid(OwningPlayerController))
     {
         UE_LOG(LogTemp, Warning, TEXT("OwningController is not valid for component: %s"), *GetName());
         return;
     }
 
-    WidgetInstance = CreateWidget<UUserWidget>(OwningController, UIClass);
+    WidgetInstance = CreateWidget<UUserWidget>(OwningPlayerController, UIClass);
     if (IsValid(WidgetInstance))
     {
         WidgetInstance->AddToViewport();

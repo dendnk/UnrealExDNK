@@ -5,6 +5,7 @@
 #include "Components/ActorComponent.h"
 #include "UIWidgetComponent.generated.h"
 
+class APlayerController;
 class UUserWidget;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
@@ -26,5 +27,5 @@ protected:
     TObjectPtr<UUserWidget> WidgetInstance;
 
     UPROPERTY(BlueprintReadOnly)
-    TObjectPtr<APlayerController> OwningController;
+    TObjectPtr<APlayerController> OwningPlayerController;
 };
