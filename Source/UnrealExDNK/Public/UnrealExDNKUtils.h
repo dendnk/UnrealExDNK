@@ -22,6 +22,18 @@ class APlayerController;
 			*FString::Printf(TEXT(Format), ##__VA_ARGS__)); \
 }
 
+template <typename TEnum>
+FString EnumToString(TEnum EnumValue)
+{
+	const UEnum* EnumPtr = StaticEnum<TEnum>();
+	if (!EnumPtr)
+	{
+		return TEXT("Invalid Enum");
+	}
+
+	return EnumPtr->GetNameByValue(static_cast<int64>(EnumValue)).ToString();
+}
+
 /**
  * 
  */
@@ -33,7 +45,7 @@ class UNREALEXDNK_API UUnrealExDNKUtils : public UBlueprintFunctionLibrary
 public:
 	/**
 	* Returns the owning Player Controller.
-	* 
+	*
 	* @param WorldContextObject Object context from which to derive the player controller.
 	* @return The owning Player Controller or nullptr if not found.
 	*/
@@ -42,7 +54,7 @@ public:
 
 	/**
 	* Returns current git commit hash
-	* 
+	*
 	* @return Git commit hash or "unknown" in failed case 
 	*/
 	UFUNCTION(BlueprintCallable, Category = "UnrealExDNK Utils")
@@ -50,9 +62,17 @@ public:
 
 	/**
 	* Generate random Vector Direction in the XZ plane
-	* 
+	*
 	* @return Direction in XZ plane
 	*/
 	UFUNCTION(BlueprintCallable, Category = "UnrealExDNK Utils")
 	static FVector GenerateRandomDirectionXZ();
+
+	/**
+	* Checking if a value lies within a range defined by FVector2D
+	*
+	* @return true if Value lies within a range
+	*/
+	UFUNCTION(BlueprintCallable, Category = "UnrealExDNK Utils")
+	static bool IsWithinRange(const float Value, const FVector2D& Range);
 };

@@ -82,3 +82,8 @@ FVector UUnrealExDNKUtils::GenerateRandomDirectionXZ()
     float RandomAngle = FMath::RandRange(0.f, 2 * PI);
     return FVector(FMath::Cos(RandomAngle), 0.f, FMath::Sin(RandomAngle));
 }
+
+bool UUnrealExDNKUtils::IsWithinRange(const float Value, const FVector2D& Range)
+{
+    return Value >= Range.GetMin() && Value <= Range.GetMax();
+}
