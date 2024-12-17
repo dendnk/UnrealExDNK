@@ -77,9 +77,9 @@ FString UUnrealExDNKUtils::GetGitCommitHash()
     return TEXT("Unknown");
 }
 
-FVector UUnrealExDNKUtils::GenerateRandomDirectionXZ()
+FVector UUnrealExDNKUtils::GenerateRandomDirectionXZ(const FVector2D& RangeRadians)
 {
-    float RandomAngle = FMath::RandRange(0.f, 2 * PI);
+    float RandomAngle = FMath::RandRange(RangeRadians.GetMin(), RangeRadians.GetMax());
     return FVector(FMath::Cos(RandomAngle), 0.f, FMath::Sin(RandomAngle));
 }
 

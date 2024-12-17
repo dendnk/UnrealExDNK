@@ -61,12 +61,12 @@ public:
 	static FString GetGitCommitHash();
 
 	/**
-	* Generate random Vector Direction in the XZ plane
+	* Generate random Vector Direction in the XZ plane in the specified range in radians
 	*
 	* @return Direction in XZ plane
 	*/
 	UFUNCTION(BlueprintCallable, Category = "UnrealExDNK Utils")
-	static FVector GenerateRandomDirectionXZ();
+	static FVector GenerateRandomDirectionXZ(const FVector2D& RangeRadians);
 
 	/**
 	* Checking if a value lies within a range defined by FVector2D
