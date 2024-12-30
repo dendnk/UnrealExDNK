@@ -37,7 +37,7 @@ void UUIWidgetComponent::CreateAndAttachWidget()
     if (IsValid(WidgetInstance))
     {
         IOwningActorInterface* OwningActorInterface = Cast<IOwningActorInterface>(WidgetInstance);
-        OwningActorInterface->SetOwningActor(GetOwner());
+        OwningActorInterface->Execute_SetOwningActor(WidgetInstance, GetOwner());
 
         WidgetInstance->AddToViewport();
     }
