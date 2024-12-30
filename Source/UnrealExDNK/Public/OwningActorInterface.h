@@ -20,5 +20,8 @@ class UNREALEXDNK_API IOwningActorInterface
 
 public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = OwningActor)
-	AActor* GetOwningActor() const;	
+	AActor* GetOwningActor() const;
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = OwningActor)
+	void SetOwningActor(AActor* InOwningActor);
 };

@@ -2,6 +2,7 @@
 
 #include "UIWidgetComponent.h"
 #include "Blueprint/UserWidget.h"
+#include "OwningActorInterface.h"
 #include "UnrealExDNKUtils.h"
 
 
@@ -35,6 +36,9 @@ void UUIWidgetComponent::CreateAndAttachWidget()
     WidgetInstance = CreateWidget<UUserWidget>(OwningPlayerController, UIClass);
     if (IsValid(WidgetInstance))
     {
+        IOwningActorInterface* OwningActorInterface = Cast<IOwningActorInterface>(WidgetInstance);
+        OwningActorInterface->SetOwningActor(GetOwner());
+
         WidgetInstance->AddToViewport();
     }
 }

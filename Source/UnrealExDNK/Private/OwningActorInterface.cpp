@@ -2,6 +2,3 @@
 
 
 #include "OwningActorInterface.h"
-
-
-// Add default functionality here for any IOwningActorInterface functions that are not pure virtual.
