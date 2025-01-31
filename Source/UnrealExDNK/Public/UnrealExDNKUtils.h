@@ -18,7 +18,7 @@ class APlayerController;
 #define UE_DNK_LOG(Category, Verbosity, Format, ...) \
 { \
 	UE_LOG(Category, Verbosity, TEXT("[%s]-[%s]-[%s] : %s"), \
-			*GetNameSafe(this), NETMODE_WORLD, TEXT(__FUNCTION__), \
+			*GetNameSafe(this), NETMODE_WORLD, ANSI_TO_TCHAR(__FUNCTION__), \
 			*FString::Printf(TEXT(Format), ##__VA_ARGS__)); \
 }
 
