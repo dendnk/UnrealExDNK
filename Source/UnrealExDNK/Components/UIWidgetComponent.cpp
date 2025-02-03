@@ -15,21 +15,27 @@ void UUIWidgetComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	CreateAndAttachWidget();
+    if (bShouldHaveUIWidget)
+    {
+        CreateAndAttachWidget();
+    }
 }
 
 void UUIWidgetComponent::CreateAndAttachWidget()
 {
-    if (!IsValid(UIClass))
+    FString OwnerName = GetOwner() != nullptr ? *GetOwner()->GetName() : TEXT("Owner is nullptr!");
+    if (IsValid(UIClass) == false)
     {
-        UE_LOG(LogTemp, Warning, TEXT("UIClass is not specified for component: %s"), *GetName());
+        UE_DNK_LOG(LogTemp, Warning, "UIClass is not specified for component [%s] | Owner [%s]. If it was done intentionally, set bShouldHaveUIWidget to false!"
+            , *GetName()
+            , *OwnerName);
         return;
     }
 
     OwningPlayerController = UUnrealExDNKUtils::GetPlayerController(GetOwner());
-    if (!IsValid(OwningPlayerController))
+    if (IsValid(OwningPlayerController) == false)
     {
-        UE_LOG(LogTemp, Warning, TEXT("OwningController is not valid for component: %s"), *GetName());
+        UE_DNK_LOG(LogTemp, Warning, "OwningController is not valid for component [%s] | Owner [%s]", *GetName(), *OwnerName);
         return;
     }
 

@@ -20,12 +20,15 @@ protected:
 	virtual void BeginPlay() override;
     virtual void CreateAndAttachWidget();
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI")
+    UPROPERTY(EditDefaultsOnly, Category = UIWidgetComponent)
+    bool bShouldHaveUIWidget = true;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = UIWidgetComponent)
     TSubclassOf<UUserWidget> UIClass;
 
-    UPROPERTY(BlueprintReadOnly, Category = "UI")
+    UPROPERTY(BlueprintReadOnly, Category = UIWidgetComponent)
     TObjectPtr<UUserWidget> WidgetInstance;
 
-    UPROPERTY(BlueprintReadOnly)
+    UPROPERTY(BlueprintReadOnly, Category = UIWidgetComponent)
     TObjectPtr<APlayerController> OwningPlayerController;
 };
