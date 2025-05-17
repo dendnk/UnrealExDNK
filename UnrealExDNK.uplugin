@@ -18,7 +18,10 @@
 		{
 			"Name": "UnrealExDNK",
 			"Type": "Runtime",
-			"LoadingPhase": "Default"
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"CoreUObject"
+			]
 		},
 		{
 			"Name": "IntersectionTools",

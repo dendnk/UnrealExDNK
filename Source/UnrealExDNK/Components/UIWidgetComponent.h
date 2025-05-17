@@ -8,7 +8,7 @@
 class APlayerController;
 class UUserWidget;
 
-UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
+UCLASS(Blueprintable, ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class UNREALEXDNK_API UUIWidgetComponent : public UActorComponent
 {
 	GENERATED_BODY()
