@@ -3,6 +3,7 @@
 #pragma once
 
 #include "Kismet/BlueprintFunctionLibrary.h"
+#include "Engine/World.h"
 #include "UnrealExDNKUtils.generated.h"
 
 class APlayerController;
@@ -15,11 +16,15 @@ class APlayerController;
 	: TEXT("Standalone") \
 	)
 
+/** Use only for UObject based classes */
 #define UE_DNK_LOG(Category, Verbosity, Format, ...) \
 { \
-	UE_LOG(Category, Verbosity, TEXT("[%s]-[%s]-[%s] : %s"), \
-			*GetNameSafe(this), NETMODE_WORLD, ANSI_TO_TCHAR(__FUNCTION__), \
-			*FString::Printf(TEXT(Format), ##__VA_ARGS__)); \
+	if (const UObject* AsUObject = Cast<UObject>(this)) \
+	{ \
+		UE_LOG(Category, Verbosity, TEXT("[%s]-[%s]-[%s] : %s"), \
+			* GetNameSafe(AsUObject), NETMODE_WORLD, ANSI_TO_TCHAR(__FUNCTION__), \
+			* FString::Printf(TEXT(Format), ##__VA_ARGS__)); \
+	} \
 }
 
 template <typename TEnum>

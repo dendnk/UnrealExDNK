@@ -1,8 +1,10 @@
-// Copyright Zapilili Games. All Rights Reserved.
+// Copyright 2025 [UnrealExDNK: Denis Kruchok]. All rights reserved.
 
 
 #include "PropertyEditorComponent.h"
+#include "UObject/UnrealType.h"
 
+#if WITH_EDITOR
 void UPropertyEditorComponent::GetEditableProperties(TArray<FPropertyInfo>& OutProperties)
 {
     if (TObjectPtr<AActor> Actor = GetOwner())
@@ -83,13 +85,18 @@ void UPropertyEditorComponent::GetEditableProperties(TArray<FPropertyInfo>& OutP
     }
 }
 
-bool UPropertyEditorComponent::ApplyPropertyValue(UObject* TargetObject, FProperty* Property, const FString& NewValueAsString)
+bool UPropertyEditorComponent::ApplyPropertyValue(UObject* TargetObject, const FString& PropertyName, const FString& NewValueAsString)
 {
     if (IsValid(TargetObject) == false)
     {
         return false;
     }
+    if (IsValid(TargetObject->GetClass()) == false)
+    {
+        return false;
+    }
 
+    FProperty* Property = TargetObject->GetClass()->FindPropertyByName(*PropertyName);
     if (IsPropertyEditable(Property) == false)
     {
         return false;
@@ -156,3 +163,4 @@ bool UPropertyEditorComponent::IsPropertyEditable(FProperty* Property)
             (Property->HasAnyPropertyFlags(CPF_EditConst | CPF_DisableEditOnInstance) == false) &&
             (Property->HasAnyPropertyFlags(CPF_Edit | CPF_BlueprintVisible) == true);
 }
+#endif

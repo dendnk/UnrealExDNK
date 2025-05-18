@@ -26,7 +26,8 @@ public class UnrealExDNK : ModuleRules
 			new string[]
 			{
 				"Core",
-                "UMG",
+				"CoreUObject",
+				"UMG",
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
@@ -35,7 +36,6 @@ public class UnrealExDNK : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"CoreUObject",
 				"Engine",
 				"Slate",
 				"SlateCore",

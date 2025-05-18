@@ -1,12 +1,11 @@
-// Copyright Zapilili Games. All Rights Reserved.
+// Copyright 2025 [UnrealExDNK: Denis Kruchok]. All rights reserved.
 
 #pragma once
 
 #include "UIWidgetComponent.h"
-#include "UnrealExDNKUtils.h"
-#include "UObject/UnrealType.h"
 #include "PropertyEditorComponent.generated.h"
 
+class FProperty;
 
 USTRUCT(BlueprintType)
 struct FPropertyInfo
@@ -24,7 +23,7 @@ struct FPropertyInfo
 
     void Log() const
     {
-        UE_DNK_LOG(LogTemp, Log, TEXT("%s (%s): %s"), *Name, *Type, *Value);
+        UE_LOG(LogTemp, Log, TEXT("%s (%s): %s"), *Name, *Type, *Value);
     }
 };
 
@@ -37,16 +36,15 @@ UCLASS()
 class UNREALEXDNK_API UPropertyEditorComponent : public UUIWidgetComponent
 {
 	GENERATED_BODY()
-	
+
+#if WITH_EDITOR
 public:
-    // Get properties of this actor (and optionally its components)
     UFUNCTION(BlueprintCallable)
     void GetEditableProperties(TArray<FPropertyInfo>& OutProperties);
 
-    // Apply new value to a given property
     UFUNCTION(BlueprintCallable)
-    bool ApplyPropertyValue(UObject* TargetObject, FProperty* Property, const FString& NewValueAsString);
-    
-    UFUNCTION(BlueprintCallable, BlueprintPure)
+    bool ApplyPropertyValue(UObject* TargetObject, const FString& PropertyName, const FString& NewValueAsString);
+
     static bool IsPropertyEditable(FProperty* Property);
+#endif
 };
