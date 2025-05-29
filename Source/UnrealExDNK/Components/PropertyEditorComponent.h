@@ -32,19 +32,17 @@ struct FPropertyInfo
  *  Allows users (via UI) to edit values at runtime
  *  Applies changes back to the actor/components
  */
-UCLASS()
+UCLASS(Blueprintable, BlueprintType, ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class UNREALEXDNK_API UPropertyEditorComponent : public UUIWidgetComponent
 {
 	GENERATED_BODY()
 
-#if WITH_EDITOR
 public:
     UFUNCTION(BlueprintCallable)
-    void GetEditableProperties(TArray<FPropertyInfo>& OutProperties);
+    TArray<FPropertyInfo> GetEditableProperties() const;
 
     UFUNCTION(BlueprintCallable)
     bool ApplyPropertyValue(UObject* TargetObject, const FString& PropertyName, const FString& NewValueAsString);
 
     static bool IsPropertyEditable(FProperty* Property);
-#endif
 };

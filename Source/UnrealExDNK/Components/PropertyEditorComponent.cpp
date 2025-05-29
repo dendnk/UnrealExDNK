@@ -4,9 +4,11 @@
 #include "PropertyEditorComponent.h"
 #include "UObject/UnrealType.h"
 
-#if WITH_EDITOR
-void UPropertyEditorComponent::GetEditableProperties(TArray<FPropertyInfo>& OutProperties)
+
+TArray<FPropertyInfo> UPropertyEditorComponent::GetEditableProperties() const
 {
+    TArray<FPropertyInfo> ResultProperties;
+
     if (TObjectPtr<AActor> Actor = GetOwner())
     {
         if (TObjectPtr<UClass> ActorClass = Actor->GetClass())
@@ -78,11 +80,13 @@ void UPropertyEditorComponent::GetEditableProperties(TArray<FPropertyInfo>& OutP
                     }
 
                     PropertyData.Log();
-                    OutProperties.Emplace(PropertyData);
+                    ResultProperties.Emplace(PropertyData);
                 }
             }
         }
     }
+
+    return ResultProperties;
 }
 
 bool UPropertyEditorComponent::ApplyPropertyValue(UObject* TargetObject, const FString& PropertyName, const FString& NewValueAsString)
@@ -163,4 +167,3 @@ bool UPropertyEditorComponent::IsPropertyEditable(FProperty* Property)
             (Property->HasAnyPropertyFlags(CPF_EditConst | CPF_DisableEditOnInstance) == false) &&
             (Property->HasAnyPropertyFlags(CPF_Edit | CPF_BlueprintVisible) == true);
 }
-#endif
