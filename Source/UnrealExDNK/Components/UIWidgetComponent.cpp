@@ -42,8 +42,10 @@ void UUIWidgetComponent::CreateAndAttachWidget()
     WidgetInstance = CreateWidget<UUserWidget>(OwningPlayerController, UIClass);
     if (IsValid(WidgetInstance))
     {
-        IOwningActorInterface* OwningActorInterface = Cast<IOwningActorInterface>(WidgetInstance);
-        OwningActorInterface->Execute_SetOwningActor(WidgetInstance, GetOwner());
+        if (IOwningActorInterface* OwningActorInterface = Cast<IOwningActorInterface>(WidgetInstance))
+        {
+            OwningActorInterface->Execute_SetOwningActor(WidgetInstance, GetOwner());
+        }
 
         WidgetInstance->AddToViewport();
     }
