@@ -39,6 +39,179 @@ FString EnumToString(TEnum EnumValue)
 	return EnumPtr->GetNameByValue(static_cast<int64>(EnumValue)).ToString();
 }
 
+UENUM(BlueprintType)
+enum class EParameterType : uint8
+{
+	Undefined,
+	Boolean,
+	Integer,
+	Float,
+	String,
+	Name,
+	Vector,
+	Rotator
+};
+
+USTRUCT(BlueprintType)
+struct FStructElement
+{
+	GENERATED_BODY()
+
+	FStructElement() {}
+
+	FStructElement(const FString& InName, const EParameterType& InType, const FString& InValue)
+		:	ParameterName(InName)
+		,	ParameterType(InType)
+		,	ParameterValue(InValue)
+	{}
+
+	UPROPERTY(BlueprintReadWrite)
+	FString ParameterName;
+
+	UPROPERTY(BlueprintReadWrite)
+	EParameterType ParameterType;
+
+	UPROPERTY(BlueprintReadWrite)
+	FString ParameterValue;
+};
+
+template<typename T>
+TArray<FStructElement> ConvertStructToArrayOfElements(const T& StructInstance)
+{
+	static_assert(TIsDerivedFrom<T, FTableRowBase>::IsDerived || TStructOpsTypeTraits<T>::WithSerializer,
+		"Struct must be a USTRUCT");
+
+	TArray<FStructElement> Results;
+
+	const UStruct* Struct = T::StaticStruct();
+	for (TFieldIterator<FProperty> It(Struct); It; ++It)
+	{
+		const FProperty* Property = *It;
+		const void* ValuePtr = Property->ContainerPtrToValuePtr<void>(&StructInstance);
+
+		FStructElement StructElement;
+		StructElement.ParameterName = *Property->GetName();
+
+		if (FBoolProperty* BoolProp = CastField<FBoolProperty>(Property))
+		{
+			StructElement.ParameterType = EParameterType::Boolean;
+			bool bValue = BoolProp->GetPropertyValue(ValuePtr);
+			StructElement.ParameterValue = bValue ? TEXT("true") : TEXT("false");
+		}
+		else if (FFloatProperty* FloatProp = CastField<FFloatProperty>(Property))
+		{
+			StructElement.ParameterType = EParameterType::Float;
+			float Value = FloatProp->GetPropertyValue(ValuePtr);
+			StructElement.ParameterValue = FString::SanitizeFloat(Value);
+		}
+		else if (FIntProperty* IntProp = CastField<FIntProperty>(Property))
+		{
+			StructElement.ParameterType = EParameterType::Integer;
+			int32 Value = IntProp->GetPropertyValue(ValuePtr);
+			StructElement.ParameterValue = FString::FromInt(Value);
+		}
+		else if (FStrProperty* StrProp = CastField<FStrProperty>(Property))
+		{
+			StructElement.ParameterType = EParameterType::String;
+			StructElement.ParameterValue = StrProp->GetPropertyValue(ValuePtr);
+		}
+		else if (FNameProperty* NameProp = CastField<FNameProperty>(Property))
+		{
+			StructElement.ParameterType = EParameterType::Name;
+			FName Value = NameProp->GetPropertyValue(ValuePtr);
+			StructElement.ParameterValue = Value.ToString();
+		}
+		else
+		{
+			StructElement.ParameterType = EParameterType::Undefined;
+			Property->ExportTextItem(StructElement.ParameterValue, ValuePtr, nullptr, nullptr, PPF_None);
+		}
+
+
+		Results.Emplace(StructElement);
+
+
+		UE_LOG(LogTemp, Log, TEXT(	"StructElement:"
+									"Name : %s"
+									"Value : %s"
+									"Type : %s"),
+			*StructElement.ParameterName,
+			StructElement.ParameterValue,
+			EnumToString<EParameterType>(StructElement.ParameterType))
+	}
+
+	return Results;
+}
+
+template<typename T>
+bool ApplyStructElementToStruct(T& StructInstance, const FStructElement& Element)
+{
+	static_assert(TIsDerivedFrom<T, FTableRowBase>::IsDerived || TStructOpsTypeTraits<T>::WithSerializer,
+		"Struct must be a USTRUCT");
+
+	const UStruct* Struct = T::StaticStruct();
+	FProperty* Property = Struct->FindPropertyByName(*Element.ParameterName);
+
+	if (!Property)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Property '%s' not found in struct."), *Element.ParameterName);
+		return false;
+	}
+
+	void* ValuePtr = Property->ContainerPtrToValuePtr<void>(&StructInstance);
+
+	switch (Element.ParameterType)
+	{
+	case EParameterType::Boolean:
+		if (FBoolProperty* BoolProp = CastField<FBoolProperty>(Property))
+		{
+			BoolProp->SetPropertyValue(ValuePtr, Element.ParameterValue.ToBool());
+			return true;
+		}
+		break;
+
+	case EParameterType::Float:
+		if (FFloatProperty* FloatProp = CastField<FFloatProperty>(Property))
+		{
+			FloatProp->SetPropertyValue(ValuePtr, FCString::Atof(*Element.ParameterValue));
+			return true;
+		}
+		break;
+
+	case EParameterType::Integer:
+		if (FIntProperty* IntProp = CastField<FIntProperty>(Property))
+		{
+			IntProp->SetPropertyValue(ValuePtr, FCString::Atoi(*Element.ParameterValue));
+			return true;
+		}
+		break;
+
+	case EParameterType::String:
+		if (FStrProperty* StrProp = CastField<FStrProperty>(Property))
+		{
+			StrProp->SetPropertyValue(ValuePtr, Element.ParameterValue);
+			return true;
+		}
+		break;
+
+	case EParameterType::Name:
+		if (FNameProperty* NameProp = CastField<FNameProperty>(Property))
+		{
+			NameProp->SetPropertyValue(ValuePtr, FName(*Element.ParameterValue));
+			return true;
+		}
+		break;
+
+	default:
+		break;
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("Failed to apply value to property '%s'. Type mismatch or unsupported type."),
+		*Element.ParameterName);
+	return false;
+
+}
+
 /**
  * 
  */
