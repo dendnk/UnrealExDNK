@@ -76,10 +76,22 @@ struct FStructElement
 };
 
 template<typename T>
+constexpr bool IsUStruct()
+{
+	if constexpr (TIsDerivedFrom<T, FTableRowBase>::IsDerived)
+	{
+		return true;
+	}
+	else
+	{
+		return T::StaticStruct() != nullptr;
+	}
+}
+
+template<typename T>
 TArray<FStructElement> ConvertStructToArrayOfElements(const T& StructInstance)
 {
-	static_assert(TIsDerivedFrom<T, FTableRowBase>::IsDerived || TStructOpsTypeTraits<T>::WithSerializer,
-		"Struct must be a USTRUCT");
+	//static_assert(IsUStruct(StructInstance) == false, "Struct must be a USTRUCT");
 
 	TArray<FStructElement> Results;
 
@@ -92,30 +104,30 @@ TArray<FStructElement> ConvertStructToArrayOfElements(const T& StructInstance)
 		FStructElement StructElement;
 		StructElement.ParameterName = *Property->GetName();
 
-		if (FBoolProperty* BoolProp = CastField<FBoolProperty>(Property))
+		if (const FBoolProperty* BoolProp = CastField<const FBoolProperty>(Property))
 		{
 			StructElement.ParameterType = EParameterType::Boolean;
 			bool bValue = BoolProp->GetPropertyValue(ValuePtr);
 			StructElement.ParameterValue = bValue ? TEXT("true") : TEXT("false");
 		}
-		else if (FFloatProperty* FloatProp = CastField<FFloatProperty>(Property))
+		else if (const FFloatProperty* FloatProp = CastField<const FFloatProperty>(Property))
 		{
 			StructElement.ParameterType = EParameterType::Float;
 			float Value = FloatProp->GetPropertyValue(ValuePtr);
 			StructElement.ParameterValue = FString::SanitizeFloat(Value);
 		}
-		else if (FIntProperty* IntProp = CastField<FIntProperty>(Property))
+		else if (const FIntProperty* IntProp = CastField<const FIntProperty>(Property))
 		{
 			StructElement.ParameterType = EParameterType::Integer;
 			int32 Value = IntProp->GetPropertyValue(ValuePtr);
 			StructElement.ParameterValue = FString::FromInt(Value);
 		}
-		else if (FStrProperty* StrProp = CastField<FStrProperty>(Property))
+		else if (const FStrProperty* StrProp = CastField<const FStrProperty>(Property))
 		{
 			StructElement.ParameterType = EParameterType::String;
 			StructElement.ParameterValue = StrProp->GetPropertyValue(ValuePtr);
 		}
-		else if (FNameProperty* NameProp = CastField<FNameProperty>(Property))
+		else if (const FNameProperty* NameProp = CastField<const FNameProperty>(Property))
 		{
 			StructElement.ParameterType = EParameterType::Name;
 			FName Value = NameProp->GetPropertyValue(ValuePtr);
@@ -124,7 +136,7 @@ TArray<FStructElement> ConvertStructToArrayOfElements(const T& StructInstance)
 		else
 		{
 			StructElement.ParameterType = EParameterType::Undefined;
-			Property->ExportTextItem(StructElement.ParameterValue, ValuePtr, nullptr, nullptr, PPF_None);
+			Property->ExportTextItem_Direct(StructElement.ParameterValue, ValuePtr, nullptr, nullptr, PPF_None);
 		}
 
 
@@ -136,8 +148,8 @@ TArray<FStructElement> ConvertStructToArrayOfElements(const T& StructInstance)
 									"Value : %s"
 									"Type : %s"),
 			*StructElement.ParameterName,
-			StructElement.ParameterValue,
-			EnumToString<EParameterType>(StructElement.ParameterType))
+			*StructElement.ParameterValue,
+			*EnumToString<EParameterType>(StructElement.ParameterType))
 	}
 
 	return Results;
@@ -146,8 +158,7 @@ TArray<FStructElement> ConvertStructToArrayOfElements(const T& StructInstance)
 template<typename T>
 bool ApplyStructElementToStruct(T& StructInstance, const FStructElement& Element)
 {
-	static_assert(TIsDerivedFrom<T, FTableRowBase>::IsDerived || TStructOpsTypeTraits<T>::WithSerializer,
-		"Struct must be a USTRUCT");
+	//static_assert(TIsDerivedFrom<T, FTableRowBase>::IsDerived || TStructOpsTypeTraits<T>::WithSerializer, "Struct must be a USTRUCT");
 
 	const UStruct* Struct = T::StaticStruct();
 	FProperty* Property = Struct->FindPropertyByName(*Element.ParameterName);
