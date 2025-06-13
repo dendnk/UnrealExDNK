@@ -233,35 +233,44 @@ class UNREALEXDNK_API UUnrealExDNKUtils : public UBlueprintFunctionLibrary
 	
 public:
 	/**
-	* Returns the owning Player Controller.
-	*
-	* @param WorldContextObject Object context from which to derive the player controller.
-	* @return The owning Player Controller or nullptr if not found.
-	*/
+	 * Returns the owning Player Controller.
+	 *
+	 * @param WorldContextObject Object context from which to derive the player controller.
+	 * @return The owning Player Controller or nullptr if not found.
+	 */
 	UFUNCTION(BlueprintCallable, Category = "UnrealExDNK Utils", meta = (WorldContext = "WorldContextObject"))
 	static APlayerController* GetPlayerController(UObject* WorldContextObject);
 
 	/**
-	* Returns current git commit hash
-	*
-	* @return Git commit hash or "unknown" in failed case 
-	*/
+	 * Returns current git commit hash
+	 *
+	 * @return Git commit hash or "unknown" in failed case 
+	 */
 	UFUNCTION(BlueprintCallable, Category = "UnrealExDNK Utils")
 	static FString GetGitCommitHash();
 
 	/**
-	* Generate random Vector Direction in the XZ plane in the specified range in radians
-	*
-	* @return Direction in XZ plane
-	*/
+	 * Generate random Vector Direction in the XZ plane in the specified range in radians
+	 *
+	 * @return Direction in XZ plane
+	 */
 	UFUNCTION(BlueprintCallable, Category = "UnrealExDNK Utils")
 	static FVector GenerateRandomDirectionXZ(const FVector2D& RangeRadians);
 
 	/**
-	* Checking if a value lies within a range defined by FVector2D
-	*
-	* @return true if Value lies within a range
-	*/
+	 * Checking if a value lies within a range defined by FVector2D
+	 *
+	 * @return true if Value lies within a range
+	 */
 	UFUNCTION(BlueprintCallable, Category = "UnrealExDNK Utils")
 	static bool IsWithinRange(const float Value, const FVector2D& Range);
+
+	/**
+	 * This is equivalent to FLT_MAX and can be used when initializing variables
+	 * for comparison in min/max calculations or when representing a very large number.
+	 *
+	 * @return The largest possible float value (FLT_MAX).
+	 */
+	UFUNCTION(BlueprintPure, Category = "Math")
+	static float GetMaxFloat() { return FLT_MAX; }
 };
