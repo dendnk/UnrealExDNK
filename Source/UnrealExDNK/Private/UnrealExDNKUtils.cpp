@@ -87,3 +87,18 @@ bool UUnrealExDNKUtils::IsWithinRange(const float Value, const FVector2D& Range)
 {
     return Value >= Range.GetMin() && Value <= Range.GetMax();
 }
+
+int32 UUnrealExDNKUtils::SumIntArray(const TArray<int32>& Array)
+{
+    return SumArray_Internal<int32>(Array);
+}
+
+float UUnrealExDNKUtils::SumFloatArray(const TArray<float>& Array)
+{
+    return SumArray_Internal<float>(Array);
+}
+
+uint8 UUnrealExDNKUtils::SumByteArray(const TArray<uint8>& Array)
+{
+    return SumArray_Internal<uint8>(Array);
+}

@@ -223,6 +223,17 @@ bool ApplyStructElementToStruct(T& StructInstance, const FStructElement& Element
 
 }
 
+template <typename T>
+T SumArray_Internal(const TArray<T>& Array)
+{
+	T Sum = 0;
+	for (const T& Value : Array)
+	{
+		Sum += Value;
+	}
+	return Sum;
+}
+
 /**
  * 
  */
@@ -273,4 +284,17 @@ public:
 	 */
 	UFUNCTION(BlueprintPure, Category = "Math")
 	static float GetMaxFloat() { return FLT_MAX; }
+
+	/** Sums an array of integers */
+	UFUNCTION(BlueprintPure, Category = "Math|Array")
+	static int32 SumIntArray(const TArray<int32>& Array);
+
+	/** Sums an array of floats */
+	UFUNCTION(BlueprintPure, Category = "Math|Array")
+	static float SumFloatArray(const TArray<float>& Array);
+
+	/** Sums an array of bytes (uint8) */
+	UFUNCTION(BlueprintPure, Category = "Math|Array")
+	static uint8 SumByteArray(const TArray<uint8>& Array);
+
 };
