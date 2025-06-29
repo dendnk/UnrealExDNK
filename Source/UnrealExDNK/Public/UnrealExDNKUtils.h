@@ -249,7 +249,7 @@ public:
 	 * @param WorldContextObject Object context from which to derive the player controller.
 	 * @return The owning Player Controller or nullptr if not found.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "UnrealExDNK Utils", meta = (WorldContext = "WorldContextObject"))
+	UFUNCTION(BlueprintCallable, Category = "Player Controller", meta = (WorldContext = "WorldContextObject"))
 	static APlayerController* GetPlayerController(UObject* WorldContextObject);
 
 	/**
@@ -257,7 +257,7 @@ public:
 	 *
 	 * @return Git commit hash or "unknown" in failed case 
 	 */
-	UFUNCTION(BlueprintCallable, Category = "UnrealExDNK Utils")
+	UFUNCTION(BlueprintCallable, Category = "Version Control Systems")
 	static FString GetGitCommitHash();
 
 	/**
@@ -265,7 +265,7 @@ public:
 	 *
 	 * @return Direction in XZ plane
 	 */
-	UFUNCTION(BlueprintCallable, Category = "UnrealExDNK Utils")
+	UFUNCTION(BlueprintCallable, Category = "Math")
 	static FVector GenerateRandomDirectionXZ(const FVector2D& RangeRadians);
 
 	/**
@@ -273,7 +273,7 @@ public:
 	 *
 	 * @return true if Value lies within a range
 	 */
-	UFUNCTION(BlueprintCallable, Category = "UnrealExDNK Utils")
+	UFUNCTION(BlueprintCallable, Category = "Math")
 	static bool IsWithinRange(const float Value, const FVector2D& Range);
 
 	/**
@@ -297,4 +297,16 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Math|Array")
 	static uint8 SumByteArray(const TArray<uint8>& Array);
 
+	/**
+	 * Attempts to retrieve the relative scale of the first UStaticMeshComponent
+	 * found in the Class Default Object (CDO) of the given Actor class.
+	 *
+	 * This is useful when you want to know how a mesh is scaled in a Blueprint-derived
+	 * class before actually spawning an instance of it.
+	 *
+	 * @param ActorClass The actor class to inspect (can be a Blueprint or native class).
+	 * @return The relative scale (X, Y, Z) of the mesh component if found; otherwise, FVector::OneVector.
+	 */
+	UFUNCTION(BlueprintPure, Category = "CDO")
+	static FVector TryGetMeshScaleFromCDO(TSubclassOf<AActor> ActorClass);
 };

@@ -102,3 +102,24 @@ uint8 UUnrealExDNKUtils::SumByteArray(const TArray<uint8>& Array)
 {
     return SumArray_Internal<uint8>(Array);
 }
+
+FVector UUnrealExDNKUtils::TryGetMeshScaleFromCDO(TSubclassOf<AActor> ActorClass)
+{
+    if (IsValid(ActorClass) == false)
+    {
+        return FVector::OneVector;
+    }
+
+    const AActor* DefaultObject = ActorClass->GetDefaultObject<AActor>();
+    if (IsValid(DefaultObject) == false)
+    {
+        return FVector::OneVector;
+    }
+
+    if (const UStaticMeshComponent* MeshComponent = DefaultObject->FindComponentByClass<UStaticMeshComponent>())
+    {
+        return MeshComponent->GetRelativeScale3D();
+    }
+
+    return FVector::OneVector;
+}
