@@ -264,4 +264,17 @@ public:
 	*/
 	UFUNCTION(BlueprintCallable, Category = "UnrealExDNK Utils")
 	static bool IsWithinRange(const float Value, const FVector2D& Range);
+
+
+	// Compress float [-1,1] into uint8 [0,255]
+	static uint8 CompressFloatToByte(float Value)
+	{
+		return FMath::Clamp(FMath::RoundToInt((Value * 0.5f + 0.5f) * 255.f), 0, 255);
+	}
+
+	// Decompress uint8 [0,255] back to float [-1,1]
+	static float DecompressByteToFloat(uint8 ByteValue)
+	{
+		return ((float)ByteValue / 255.f) * 2.f - 1.f;
+	}
 };
