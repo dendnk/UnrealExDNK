@@ -255,7 +255,7 @@ public:
 	/**
 	 * Returns current git commit hash
 	 *
-	 * @return Git commit hash or "unknown" in failed case 
+	 * @return Git commit hash or "unknown" in failed case
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Version Control Systems")
 	static FString GetGitCommitHash();
@@ -285,17 +285,66 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Math")
 	static float GetMaxFloat() { return FLT_MAX; }
 
-	/** Sums an array of integers */
+	/**
+	 * Calculates the sum of all elements in an integer array.
+	 *
+	 * This utility function returns the total of all int32 values contained in the provided array.
+	 * Internally uses a templated helper function to support type reuse.
+	 *
+	 * @param Array The array of int32 values to be summed.
+	 * @return The sum of all elements in the array. Returns 0 if the array is empty.
+	 */
 	UFUNCTION(BlueprintPure, Category = "Math|Array")
 	static int32 SumIntArray(const TArray<int32>& Array);
 
-	/** Sums an array of floats */
+	/**
+	 * Calculates the sum of all elements in an float array.
+	 *
+	 * This utility function returns the total of all int32 values contained in the provided array.
+	 * Internally uses a templated helper function to support type reuse.
+	 *
+	 * @param Array The array of int32 values to be summed.
+	 * @return The sum of all elements in the array. Returns 0 if the array is empty.
+	 */
 	UFUNCTION(BlueprintPure, Category = "Math|Array")
 	static float SumFloatArray(const TArray<float>& Array);
 
-	/** Sums an array of bytes (uint8) */
+	/**
+	 * Calculates the sum of all elements in a byte array.
+	 *
+	 * This utility function returns the total of all int32 values contained in the provided array.
+	 * Internally uses a templated helper function to support type reuse.
+	 *
+	 * @param Array The array of int32 values to be summed.
+	 * @return The sum of all elements in the array. Returns 0 if the array is empty.
+	 */
 	UFUNCTION(BlueprintPure, Category = "Math|Array")
 	static uint8 SumByteArray(const TArray<uint8>& Array);
+
+	/**
+	 * Compresses a float in the range [-1.0, 1.0] to an 8-bit unsigned integer [0, 255].
+	 *
+	 * This is useful for network serialization or GPU packing, where a normalized float
+	 * needs to be stored in a single byte. Values outside the range are clamped.
+	 *
+	 * @param Value A float value expected to be in the range [-1.0, 1.0].
+	 * @return An 8-bit unsigned integer representing the compressed float in [0, 255].
+	 */
+	UFUNCTION(BlueprintPure, Category = "Math|Compressing")
+	static uint8 CompressFloatToByte(float Value);
+
+	/**
+	 * Decompresses an 8-bit unsigned integer [0, 255] back into a float in the range [-1.0, 1.0].
+	 *
+	 * This is the inverse of CompressFloatToByte. It maps a byte value back to its
+	 * original normalized float representation, useful when decoding values from network
+	 * packets, GPU buffers, or packed data formats.
+	 *
+	 * @param ByteValue An 8-bit unsigned integer representing the compressed float.
+	 * @return The decompressed float value in the range [-1.0, 1.0].
+	 */
+	UFUNCTION(BlueprintPure, Category = "Math|Compressing")
+	static float DecompressByteToFloat(uint8 ByteValue);
 
 	/**
 	 * Attempts to retrieve the relative scale of the first UStaticMeshComponent

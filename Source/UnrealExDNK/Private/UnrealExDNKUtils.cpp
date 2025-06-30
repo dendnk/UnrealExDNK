@@ -103,6 +103,16 @@ uint8 UUnrealExDNKUtils::SumByteArray(const TArray<uint8>& Array)
     return SumArray_Internal<uint8>(Array);
 }
 
+uint8 UUnrealExDNKUtils::CompressFloatToByte(float Value)
+{
+    return FMath::Clamp(FMath::RoundToInt((Value * 0.5f + 0.5f) * 255.f), 0, 255);
+}
+
+float UUnrealExDNKUtils::DecompressByteToFloat(uint8 ByteValue)
+{
+    return ((float)ByteValue / 255.f) * 2.f - 1.f;
+}
+
 FVector UUnrealExDNKUtils::TryGetMeshScaleFromCDO(TSubclassOf<AActor> ActorClass)
 {
     if (IsValid(ActorClass) == false)
