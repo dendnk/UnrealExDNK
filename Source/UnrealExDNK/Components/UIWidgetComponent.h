@@ -16,12 +16,12 @@ class UNREALEXDNK_API UUIWidgetComponent : public UActorComponent
 public:	
 	UUIWidgetComponent();
 
+    UPROPERTY(EditDefaultsOnly, Category = UIWidgetComponent)
+    bool bShouldHaveUIWidget = true;
+
 protected:
 	virtual void BeginPlay() override;
     virtual void CreateAndAttachWidget();
-
-    UPROPERTY(EditDefaultsOnly, Category = UIWidgetComponent)
-    bool bShouldHaveUIWidget = true;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = UIWidgetComponent)
     TSubclassOf<UUserWidget> UIClass;
@@ -30,5 +30,5 @@ protected:
     TObjectPtr<UUserWidget> WidgetInstance;
 
     UPROPERTY(BlueprintReadOnly, Category = UIWidgetComponent)
-    TObjectPtr<APlayerController> OwningPlayerController;
+    TWeakObjectPtr<APlayerController> OwningPlayerController;
 };

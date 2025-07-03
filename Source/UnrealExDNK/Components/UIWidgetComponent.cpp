@@ -33,13 +33,13 @@ void UUIWidgetComponent::CreateAndAttachWidget()
     }
 
     OwningPlayerController = UUnrealExDNKUtils::GetPlayerController(GetOwner());
-    if (IsValid(OwningPlayerController) == false)
+    if (OwningPlayerController.IsValid() == false)
     {
         UE_DNK_LOG(LogTemp, Warning, "OwningController is not valid for component [%s] | Owner [%s]", *GetName(), *OwnerName);
         return;
     }
 
-    WidgetInstance = CreateWidget<UUserWidget>(OwningPlayerController, UIClass);
+    WidgetInstance = CreateWidget<UUserWidget>(OwningPlayerController.Get(), UIClass);
     if (IsValid(WidgetInstance))
     {
         if (IOwningActorInterface* OwningActorInterface = Cast<IOwningActorInterface>(WidgetInstance))
