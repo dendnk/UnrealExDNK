@@ -3,7 +3,7 @@
 #pragma once
 
 #include "WeaponComponentBase.h"
-#include "URocketLauncherComponent.generated.h"
+#include "RocketLauncherComponent.generated.h"
 
 
 /**

@@ -3,7 +3,7 @@
 #pragma once
 
 #include "WeaponComponentBase.h"
-#include "UQuadGunComponent.generated.h"
+#include "QuadGunComponent.generated.h"
 
 
 UCLASS(Blueprintable, ClassGroup = (Weapons), meta = (BlueprintSpawnableComponent))

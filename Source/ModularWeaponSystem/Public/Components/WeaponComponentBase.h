@@ -3,7 +3,7 @@
 #pragma once
 
 #include "Components/ActorComponent.h"
-#include "UWeaponComponentBase.generated.h"
+#include "WeaponComponentBase.generated.h"
 
 
 /**
