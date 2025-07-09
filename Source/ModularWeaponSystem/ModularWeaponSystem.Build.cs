@@ -37,8 +37,7 @@ public class ModularWeaponSystem : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
-                "GameplayTags",
-                "GameplayAbilities"
+                "GameplayTags"
 				// ... add private dependencies that you statically link with here ...
 			}
 			);
