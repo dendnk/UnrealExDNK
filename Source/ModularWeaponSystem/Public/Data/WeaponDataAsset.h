@@ -3,11 +3,6 @@
 #pragma once
 
 #include "Engine/DataAsset.h"
-#include "WeaponAmmoData.h"
-#include "WeaponDamageData.h"
-#include "WeaponFiringData.h"
-#include "WeaponFXData.h"
-#include "WeaponReloadData.h"
 #include "WeaponTypes.h"
 
 #include "WeaponDataAsset.generated.h"
@@ -16,7 +11,7 @@
  * Base data asset for defining weapon parameters.
  */
 UCLASS(BlueprintType)
-class UNREALEXDNK_API UWeaponDataAsset : public UDataAsset
+class UNREALEXDNK_API UWeaponDataAsset : public UPrimaryDataAsset
 {
 	GENERATED_BODY()
 
@@ -44,4 +39,11 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FX")
 	FWeaponFXData FX;
+
+
+	virtual FPrimaryAssetId GetPrimaryAssetId() const override
+	{
+		static const FName PrimaryAssetType = TEXT("WeaponData");
+		return FPrimaryAssetId(PrimaryAssetType, GetFName());
+	}
 };
