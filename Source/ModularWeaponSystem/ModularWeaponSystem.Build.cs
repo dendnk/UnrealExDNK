@@ -1,4 +1,4 @@
-// Copyright 2025 [UnrealExDNK: Denis Kruchok]. All rights reserved.
+// Copyright 2025 [UnrealExDNK | Modular Weapon System : Denis Kruchok]. All rights reserved.
 
 using UnrealBuildTool;
 
@@ -11,6 +11,7 @@ public class ModularWeaponSystem : ModuleRules
 		PublicIncludePaths.AddRange(
 			new string[] {
 				// ... add public include paths required here ...
+				"ModularWeaponSystem/Public"
 			}
 			);
 
@@ -18,6 +19,7 @@ public class ModularWeaponSystem : ModuleRules
 		PrivateIncludePaths.AddRange(
 			new string[] {
 				// ... add other private include paths required here ...
+				"ModularWeaponSystem/Private"
 			}
 			);
 

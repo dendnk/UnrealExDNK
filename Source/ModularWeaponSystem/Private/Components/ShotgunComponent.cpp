@@ -1,6 +1,6 @@
-// Copyright 2025 [UnrealExDNK: Denis Kruchok]. All rights reserved.
+// Copyright 2025 [UnrealExDNK | Modular Weapon System : Denis Kruchok]. All rights reserved.
 
-#include "ShotgunComponent.h"
+#include "Components/ShotgunComponent.h"
 
 
 UShotgunComponent::UShotgunComponent()

@@ -1,17 +1,19 @@
-// Copyright 2025 [UnrealExDNK: Denis Kruchok]. All rights reserved.
+// Copyright 2025 [UnrealExDNK | Modular Weapon System : Denis Kruchok]. All rights reserved.
 
 #pragma once
 
 #include "Engine/DataAsset.h"
-#include "WeaponTypes.h"
+#include "Types/WeaponTypes.h"
 
 #include "WeaponDataAsset.generated.h"
+
+class UWeaponComponentBase;
 
 /**
  * Base data asset for defining weapon parameters.
  */
 UCLASS(BlueprintType)
-class UNREALEXDNK_API UWeaponDataAsset : public UPrimaryDataAsset
+class MODULARWEAPONSYSTEM_API UWeaponDataAsset : public UPrimaryDataAsset
 {
 	GENERATED_BODY()
 
@@ -23,7 +25,7 @@ public:
 
 	/** Class of weapon component that implements this weapon's behavior */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	TSubclassOf<class UWeaponComponent> WeaponComponentClass;
+	TSubclassOf<UWeaponComponentBase> WeaponComponentClass;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Firing")
 	FWeaponFiringData Firing;

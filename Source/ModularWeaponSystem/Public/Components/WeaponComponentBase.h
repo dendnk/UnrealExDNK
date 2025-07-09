@@ -1,4 +1,4 @@
-// Copyright 2025 [UnrealExDNK: Denis Kruchok]. All rights reserved.
+// Copyright 2025 [UnrealExDNK | Modular Weapon System : Denis Kruchok]. All rights reserved.
 
 #pragma once
 
@@ -10,15 +10,15 @@
  * Base Weapon Component Class
  */
 UCLASS(Abstract, Blueprintable, ClassGroup = (Weapons), meta = (BlueprintSpawnableComponent))
-class UNREALEXDNK_API UWeaponComponentBase : public UActorComponent
+class MODULARWEAPONSYSTEM_API UWeaponComponentBase : public UActorComponent
 {
     GENERATED_BODY()
 
 public:
-    UFUNCTION(BlueprintNativeEvent)
-    void Fire();
+    UFUNCTION(BlueprintNativeEvent, DisplayName = "Fire")
+    void BP_Fire();
 
-    virtual void Fire_Implementation();
+    virtual void Fire();
 
     UFUNCTION(BlueprintCallable)
     virtual bool CanFire() const;

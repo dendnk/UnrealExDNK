@@ -1,6 +1,6 @@
-// Copyright 2025 [UnrealExDNK: Denis Kruchok]. All rights reserved.
+// Copyright 2025 [UnrealExDNK | Modular Weapon System : Denis Kruchok]. All rights reserved.
 
-#include "MachineGunComponent.h"
+#include "Components/MachineGunComponent.h"
 
 
 UMachineGunComponent::UMachineGunComponent()

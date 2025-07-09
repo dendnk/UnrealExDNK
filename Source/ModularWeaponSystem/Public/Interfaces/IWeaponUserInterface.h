@@ -1,4 +1,4 @@
-// Copyright 2025 [UnrealExDNK: Denis Kruchok]. All rights reserved.
+// Copyright 2025 [UnrealExDNK | Modular Weapon System : Denis Kruchok]. All rights reserved.
 
 #pragma once
 
@@ -6,7 +6,7 @@
 #include "IWeaponUserInterface.generated.h"
 
 UINTERFACE(Blueprintable)
-class UNREALEXDNK_API UWeaponUserInterface : public UInterface
+class MODULARWEAPONSYSTEM_API UWeaponUserInterface : public UInterface
 {
     GENERATED_BODY()
 };
@@ -14,7 +14,7 @@ class UNREALEXDNK_API UWeaponUserInterface : public UInterface
 /**
  * Interface for actors that can use weapons.
  */
-class UNREALEXDNK_API IWeaponUserInterface
+class MODULARWEAPONSYSTEM_API IWeaponUserInterface
 {
     GENERATED_BODY()
 
