@@ -3,12 +3,14 @@
 #pragma once
 
 #include "Engine/DataAsset.h"
-#include "WeaponType.h"
-#include "WeaponDataAsset.generated.h"
+#include "WeaponAmmoData.h"
+#include "WeaponDamageData.h"
+#include "WeaponFiringData.h"
+#include "WeaponFXData.h"
+#include "WeaponReloadData.h"
+#include "WeaponTypes.h"
 
-class USoundBase;
-class UAnimMontage;
-class AProjectileBase;
+#include "WeaponDataAsset.generated.h"
 
 /**
  * Base data asset for defining weapon parameters.
@@ -24,35 +26,22 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	EWeaponType WeaponType;
 
-	/** Class to spawn when firing (for projectile-based weapons) */
+	/** Class of weapon component that implements this weapon's behavior */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	TSubclassOf<AProjectileBase> ProjectileClass;
+	TSubclassOf<class UWeaponComponent> WeaponComponentClass;
 
-	/** Fire rate in shots per second */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	float FireRate = 1.0f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Firing")
+	FWeaponFiringData Firing;
 
-	/** Base damage this weapon deals */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	float Damage = 20.0f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Damage")
+	FWeaponDamageData Damage;
 
-	/** Max range of hitscan or projectile */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	float Range = 10000.0f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ammo")
+	FWeaponAmmoData Ammo;
 
-	/** Sound played when firing */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	TObjectPtr<USoundBase> FireSound = nullptr;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reload")
+	FWeaponReloadData Reload;
 
-	/** Optional animation when firing */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	TObjectPtr<UAnimMontage> FireAnimation = nullptr;
-
-	/** Spread angle (in degrees), for shotguns or inaccurate weapons */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	float SpreadAngle = 0.0f;
-
-	/** Number of projectiles per shot (useful for shotguns) */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	int32 ProjectilesPerShot = 1;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FX")
+	FWeaponFXData FX;
 };

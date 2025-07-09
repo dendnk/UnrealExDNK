@@ -18,7 +18,7 @@ class UNREALEXDNK_API URocketLauncherComponent : public UWeaponComponentBase
 public:
     URocketLauncherComponent();
 
-    virtual void Fire_Implementation() override;
+    virtual void Fire() override;
 
 protected:
     virtual void BeginPlay() override;
