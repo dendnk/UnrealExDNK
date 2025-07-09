@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "Components/ActorComponent.h"
+#include "UnrealExDNK/Components/UIWidgetComponent.h"
 #include "WeaponComponentBase.generated.h"
 
 
@@ -10,7 +10,7 @@
  * Base Weapon Component Class
  */
 UCLASS(Abstract, Blueprintable, ClassGroup = (Weapons), meta = (BlueprintSpawnableComponent))
-class MODULARWEAPONSYSTEM_API UWeaponComponentBase : public UActorComponent
+class MODULARWEAPONSYSTEM_API UWeaponComponentBase : public UUIWidgetComponent
 {
     GENERATED_BODY()
 
