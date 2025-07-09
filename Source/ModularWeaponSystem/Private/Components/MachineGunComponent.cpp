@@ -13,3 +13,11 @@ void UMachineGunComponent::Fire()
     UE_LOG(LogTemp, Log, TEXT("Machine gun fired!"));
     // Add bullet spawning and spread logic here
 }
+
+void UMachineGunComponent::StartFiring()
+{
+}
+
+void UMachineGunComponent::StopFiring()
+{
+}

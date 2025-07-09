@@ -2,12 +2,13 @@
 
 #pragma once
 
+#include "GameFramework/DamageType.h"
+#include "NiagaraSystem.h"
+#include "Sound/SoundBase.h"
 #include "WeaponTypes.generated.h"
 
 class AActor;
 class UDamageType;
-class UNiagaraSystem;
-class USoundBase;
 
 UENUM(BlueprintType)
 enum class EWeaponType : uint8
@@ -87,7 +88,10 @@ struct FWeaponFXData
 {
 	GENERATED_BODY()
 
-	/** Niagara muzzle flash effect */
+	/**
+	 * Niagara system to spawn at the muzzle when firing.
+	 * Usually attached to a socket at the muzzle tip.
+	 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TObjectPtr<UNiagaraSystem> MuzzleFlashFX = nullptr;
 

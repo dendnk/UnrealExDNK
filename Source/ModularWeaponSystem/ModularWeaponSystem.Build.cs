@@ -30,7 +30,8 @@ public class ModularWeaponSystem : ModuleRules
 				"Core",
                 "CoreUObject",
                 "Engine",
-                "InputCore"
+                "InputCore",
+                "Niagara"
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);

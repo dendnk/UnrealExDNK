@@ -7,3 +7,12 @@ void UWeaponComponentBase::BP_Fire_Implementation()
 {
 	Fire();
 }
+
+void UWeaponComponentBase::Fire()
+{
+}
+
+bool UWeaponComponentBase::CanFire() const
+{
+	return false;
+}

@@ -22,6 +22,4 @@ protected:
 
     UPROPERTY(EditDefaultsOnly, Category = "Laser")
     float DamagePerSecond;
-
-    void DealLaserDamage();
 };
