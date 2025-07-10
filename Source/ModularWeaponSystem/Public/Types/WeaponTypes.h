@@ -13,17 +13,27 @@ class UDamageType;
 UENUM(BlueprintType)
 enum class EFireType : uint8
 {
-	Hitscan,	// Instant line trace + optional tracer
-	Projectile,	// Projectile actor
-	Beam,		// Visible beam FX
+	// Instant line trace + optional tracer
+	Hitscan,
+
+	// Projectile actor
+	Projectile,
+
+	// Visible beam FX
+	Beam,
 };
 
 UENUM(BlueprintType)
 enum class EFiringMode : uint8
 {
-	SemiAuto,	// Fires once per input press
-	FullAuto,	// Continues firing while input is held
-	Burst,		// Fires a fixed number of shots per input press
+	// Fires once per input press
+	SemiAuto,
+
+	// Continues firing while input is held
+	FullAuto,
+
+	// Fires a fixed number of shots per input press
+	Burst,
 };
 
 
