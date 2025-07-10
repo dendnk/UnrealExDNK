@@ -23,15 +23,5 @@ public:
 protected:
     virtual void BeginPlay() override;
 
-    /** Class of the rocket projectile to spawn */
-    UPROPERTY(EditAnywhere, Category = "Rocket")
-    TSubclassOf<AActor> RocketClass;
-
-    /** Optional socket name to spawn the rocket from */
-    UPROPERTY(EditAnywhere, Category = "Rocket")
-    FName MuzzleSocketName;
-
-    /** Initial speed or impulse applied to the rocket */
-    UPROPERTY(EditAnywhere, Category = "Rocket")
-    float LaunchSpeed = 1500.0f;
+    void SpawnProjectile();
 };

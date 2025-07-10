@@ -11,16 +11,14 @@ public class ModularWeaponSystem : ModuleRules
 		PublicIncludePaths.AddRange(
 			new string[] {
 				// ... add public include paths required here ...
-				"ModularWeaponSystem/Public"
-			}
+            }
 			);
 
 
 		PrivateIncludePaths.AddRange(
 			new string[] {
 				// ... add other private include paths required here ...
-				"ModularWeaponSystem/Private"
-			}
+            }
 			);
 
 

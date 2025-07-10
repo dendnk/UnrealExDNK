@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "UnrealExDNK/Components/UIWidgetComponent.h"
+#include "UIWidgetComponent.h"
 #include "Data/WeaponDataAsset.h"
 #include "WeaponComponentBase.generated.h"
 
