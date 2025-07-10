@@ -12,4 +12,5 @@ void URocketLauncherComponent::Fire()
 
 void URocketLauncherComponent::BeginPlay()
 {
+	Super::BeginPlay();
 }

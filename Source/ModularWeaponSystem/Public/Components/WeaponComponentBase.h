@@ -3,6 +3,7 @@
 #pragma once
 
 #include "UnrealExDNK/Components/UIWidgetComponent.h"
+#include "Data/WeaponDataAsset.h"
 #include "WeaponComponentBase.generated.h"
 
 
@@ -23,6 +24,6 @@ public:
     UFUNCTION(BlueprintCallable)
     virtual bool CanFire() const;
 
-protected:
-    // Common weapon properties (e.g., cooldown, ammo, etc.)
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon Config")
+    TObjectPtr<UWeaponDataAsset> WeaponData;
 };

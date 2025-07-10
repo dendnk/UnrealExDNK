@@ -11,36 +11,24 @@ class AActor;
 class UDamageType;
 
 UENUM(BlueprintType)
-enum class EWeaponType : uint8
+enum class EFireType : uint8
 {
-	RocketLauncher		UMETA(DisplayName = "RocketLauncher"),
-	MachineGun			UMETA(DisplayName = "MachineGun"),
-	Quadgun				UMETA(DisplayName = "Quadgun"),
-	Shotgun				UMETA(DisplayName = "Shotgun"),
-	Laser				UMETA(DisplayName = "Laser"),
-	Custom				UMETA(DisplayName = "Custom")
+	Hitscan,	// Instant line trace + optional tracer
+	Projectile,	// Projectile actor
+	Beam,		// Visible beam FX
 };
 
-USTRUCT(BlueprintType)
-struct FWeaponAmmoData
+UENUM(BlueprintType)
+enum class EFiringMode : uint8
 {
-	GENERATED_BODY()
-
-	/** Max ammo capacity */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	int32 MaxAmmo = 100;
-
-	/** Ammo consumed per shot */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	int32 AmmoPerShot = 1;
-
-	/** If true, ammo doesn't decrease on firing */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	bool bInfiniteAmmo = false;
+	SemiAuto,	// Fires once per input press
+	FullAuto,	// Continues firing while input is held
+	Burst,		// Fires a fixed number of shots per input press
 };
 
+
 USTRUCT(BlueprintType)
-struct FWeaponDamageData
+struct FDamageData
 {
 	GENERATED_BODY()
 
@@ -54,37 +42,7 @@ struct FWeaponDamageData
 };
 
 USTRUCT(BlueprintType)
-struct FWeaponFiringData
-{
-	GENERATED_BODY()
-
-	/** Cooldown between shots (in seconds) */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	float CooldownTime = 0.1f;
-
-	/** Does the weapon support automatic fire? */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	bool bAutomaticFire = true;
-
-	/** How many projectiles per shot (e.g., for shotguns) */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	int32 ProjectilesPerShot = 1;
-
-	/** Angle (degrees) of spread for random deviation */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	float BulletSpreadAngle = 1.0f;
-
-	/** Projectile class to spawn (for rockets, grenades, etc.) */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	TSubclassOf<AActor> ProjectileClass;
-
-	/** Muzzle socket name to spawn projectiles or FX */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	FName MuzzleSocketName = "Muzzle";
-};
-
-USTRUCT(BlueprintType)
-struct FWeaponFXData
+struct FFXData
 {
 	GENERATED_BODY()
 
@@ -105,7 +63,7 @@ struct FWeaponFXData
 };
 
 USTRUCT(BlueprintType)
-struct FWeaponReloadData
+struct FReloadData
 {
 	GENERATED_BODY()
 
