@@ -27,6 +27,14 @@ class APlayerController;
 	} \
 }
 
+/** Log stack */
+#define DNK_LOG_STACK_TRACE() \
+{ \
+	ANSICHAR StackBuffer[4096]; \
+	FPlatformStackWalk::StackWalkAndDump(StackBuffer, sizeof(StackBuffer), 0, nullptr); \
+	UE_LOG(LogTemp, Warning, TEXT("Stack:\n%s"), ANSI_TO_TCHAR(StackBuffer)); \
+}
+
 template <typename TEnum>
 FString EnumToString(TEnum EnumValue)
 {
