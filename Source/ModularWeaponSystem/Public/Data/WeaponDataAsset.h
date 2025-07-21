@@ -7,6 +7,7 @@
 
 #include "WeaponDataAsset.generated.h"
 
+class AProjectileBase;
 class UWeaponComponentBase;
 
 /**
@@ -64,7 +65,7 @@ public:
 	bool bIsProjectile = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Projectile", meta = (EditCondition = "bIsProjectile", EditConditionHides = true))
-	TSubclassOf<AActor> ProjectileClass;
+	TSubclassOf<AProjectileBase> ProjectileClass;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Projectile", meta = (EditCondition = "bIsProjectile", EditConditionHides = true))
 	float ProjectileSpeed;

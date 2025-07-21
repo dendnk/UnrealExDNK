@@ -5,6 +5,7 @@
 #include "WeaponComponentBase.h"
 #include "RocketLauncherComponent.generated.h"
 
+class AProjectileBase;
 
 /**
  * Rocket launcher component that fires projectile-based rockets.
@@ -22,6 +23,11 @@ public:
 
 protected:
     virtual void BeginPlay() override;
+    virtual void SetupSpawnedProjectile(AProjectileBase* SpawnedProjectile) override;
 
-    void SpawnProjectile();
+private:
+    void ResetCachedRocketBounds();
+
+    FBoxSphereBounds CachedRocketBounds;
+    TSubclassOf<AProjectileBase> CurrentRocketClass;
 };

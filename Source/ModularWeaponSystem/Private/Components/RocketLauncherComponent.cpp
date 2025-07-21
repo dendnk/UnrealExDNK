@@ -2,22 +2,25 @@
 
 #include "Components/RocketLauncherComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
+#include "Projectiles/ProjectileBase.h"
 #include "UnrealExDNKUtils.h"
 
 URocketLauncherComponent::URocketLauncherComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
+
+    ResetCachedRocketBounds();
 }
 
 void URocketLauncherComponent::Fire()
 {
-    if (!WeaponData || WeaponData->FireType != EFireType::Projectile)
+    if (WeaponDataRuntime->FireType != EFireType::Projectile)
     {
-        UE_DNK_LOG(LogTemp, Warning, "Invalid FireType or missing WeaponData.");
+        UE_DNK_LOG(LogTemp, Warning, "Invalid FireType!");
         return;
     }
 
-    SpawnProjectile();
+    Super::Fire();
 }
 
 void URocketLauncherComponent::BeginPlay()
@@ -25,50 +28,20 @@ void URocketLauncherComponent::BeginPlay()
 	Super::BeginPlay();
 }
 
-void URocketLauncherComponent::SpawnProjectile()
+void URocketLauncherComponent::SetupSpawnedProjectile(AProjectileBase* SpawnedProjectile)
 {
-    AActor* OwnerActor = GetOwner();
-    if (!OwnerActor || !WeaponData->ProjectileClass)
+    if (SpawnedProjectile)
     {
-        UE_DNK_LOG(LogTemp, Warning, "Missing owner or ProjectileClass.");
-        return;
-    }
-
-    // Try to find a muzzle socket from a SkeletalMeshComponent (if any)
-    FTransform MuzzleTransform;
-    if (USkeletalMeshComponent* Mesh = OwnerActor->FindComponentByClass<USkeletalMeshComponent>())
-    {
-        if (Mesh->DoesSocketExist(WeaponData->MuzzleSocketName))
+        if (UProjectileMovementComponent* Movement = SpawnedProjectile->FindComponentByClass<UProjectileMovementComponent>())
         {
-            MuzzleTransform = Mesh->GetSocketTransform(WeaponData->MuzzleSocketName);
-        }
-        else
-        {
-            MuzzleTransform = Mesh->GetComponentTransform();
+            Movement->Velocity = BP_GetMuzzleTransform().GetRotation().Vector() * WeaponDataRuntime->ProjectileSpeed;
         }
     }
-    else
-    {
-        MuzzleTransform = OwnerActor->GetActorTransform();
-    }
+}
 
-    FActorSpawnParameters SpawnParams;
-    SpawnParams.Owner = OwnerActor;
-    SpawnParams.Instigator = OwnerActor->GetInstigator();
-
-    AActor* Projectile = GetWorld()->SpawnActor<AActor>(
-        WeaponData->ProjectileClass,
-        MuzzleTransform.GetLocation(),
-        MuzzleTransform.GetRotation().Rotator(),
-        SpawnParams
-    );
-
-    // Apply velocity if it has ProjectileMovementComponent
-    if (Projectile)
-    {
-        if (UProjectileMovementComponent* Movement = Projectile->FindComponentByClass<UProjectileMovementComponent>())
-        {
-            Movement->Velocity = MuzzleTransform.GetRotation().Vector() * WeaponData->ProjectileSpeed;
-        }
-    }
+void URocketLauncherComponent::ResetCachedRocketBounds()
+{
+    CachedRocketBounds.Origin = FVector::ZeroVector;
+    CachedRocketBounds.BoxExtent = FVector::ZeroVector;
+    CachedRocketBounds.SphereRadius = 0.f;
 }
