@@ -85,3 +85,9 @@ struct FReloadData
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	float ReloadTime = 2.5f;
 };
+
+namespace WeaponSystemNames
+{
+	static const FName ProjectileMesh(TEXT("ProjectileMesh"));
+	static const FName ProjectileMovement(TEXT("ProjectileMovement"));
+}
