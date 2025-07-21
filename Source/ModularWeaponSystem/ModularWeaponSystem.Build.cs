@@ -29,8 +29,12 @@ public class ModularWeaponSystem : ModuleRules
                 "CoreUObject",
                 "Engine",
                 "InputCore",
+				"UMG",
+				"Slate",
+				"SlateCore",
                 "Niagara",
-				"UnrealExDNK"
+				"UnrealExDNK",
+                "ModelViewViewModel"
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
