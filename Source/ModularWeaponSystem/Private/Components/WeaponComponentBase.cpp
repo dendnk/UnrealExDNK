@@ -27,6 +27,7 @@ void UWeaponComponentBase::BeginPlay()
 	if (UWeaponComponentBaseWidget* WeaponWidget = Cast<UWeaponComponentBaseWidget>(WidgetInstance))
 	{
 		WeaponWidget->SetViewModel(WeaponViewModel);
+		return;
 	}
 
 	UE_DNK_LOG(LogTemp, Error, "UI widget is not UWeaponComponentBaseWidget!");
