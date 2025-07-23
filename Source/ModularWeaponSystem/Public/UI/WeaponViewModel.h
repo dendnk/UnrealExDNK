@@ -22,14 +22,17 @@ class MODULARWEAPONSYSTEM_API UWeaponViewModel : public UMVVMViewModelBase
 	UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
 	EFiringMode FiringMode;
 
-	//UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
-	//int32 MaxAmmo;
-	//
-	//UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
-	//int32 AmmoPerShot;
+	UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
+	int32 MaxAmmo;
 
-	//UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
-	//bool bInfiniteAmmo;
+	UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
+	int32 AmmoPerShot;
+
+	UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
+	int32 CurrentAmmo;
+
+	UPROPERTY(BlueprintReadWrite, FieldNotify, Setter = SetIsInfiniteAmmo, Getter = IsInfiniteAmmo, meta = (AllowPrivateAccess))
+	bool bInfiniteAmmo;
 
 	//UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
 	//float CooldownTime;
@@ -119,11 +122,20 @@ public:
 		return FText::FromString(GetFiringModeAsString());
 	}
 
-	/*void SetFiringMode(EFiringMode NewFiringMode);
 	void SetMaxAmmo(int32 NewMaxAmmo);
+	int32 GetMaxAmmo() const { return MaxAmmo; };
+
 	void SetAmmoPerShot(int32 NewAmmoPerShot);
+	int32 GetAmmoPerShot() const { return AmmoPerShot; };
+
 	void SetCurrentAmmo(int32 NewCurrentAmmo);
-	void SetIsInfiniteAmmo(bool IsInfiniteAmmo);
+	int32 GetCurrentAmmo() const { return CurrentAmmo; };
+
+	void SetIsInfiniteAmmo(bool NewIsInfiniteAmmo);
+	bool IsInfiniteAmmo() const { return bInfiniteAmmo; };
+
+	/*
+
 	void SetCooldownTime(float NewAmmo);
 	void SetBaseDamage(float NewBaseDamage);
 

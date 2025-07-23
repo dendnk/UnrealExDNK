@@ -27,6 +27,8 @@ void UWeaponViewModel::ApplyToWeaponDataAsset(UWeaponDataAsset* DataAsset)
 
 	DataAsset->FireType = GetFireType();
 	DataAsset->FiringMode = GetFiringMode();
+	DataAsset->MaxAmmo = GetMaxAmmo();
+	DataAsset->AmmoPerShot = GetAmmoPerShot();
 }
 
 void UWeaponViewModel::SetFireType(EFireType NewFireType)
@@ -37,6 +39,26 @@ void UWeaponViewModel::SetFireType(EFireType NewFireType)
 void UWeaponViewModel::SetFiringMode(EFiringMode NewFiringMode)
 {
 	UE_MVVM_SET_PROPERTY_VALUE(FiringMode, NewFiringMode);
+}
+
+void UWeaponViewModel::SetMaxAmmo(int32 NewMaxAmmo)
+{
+	UE_MVVM_SET_PROPERTY_VALUE(MaxAmmo, NewMaxAmmo);
+}
+
+void UWeaponViewModel::SetAmmoPerShot(int32 NewAmmoPerShot)
+{
+	UE_MVVM_SET_PROPERTY_VALUE(AmmoPerShot, NewAmmoPerShot);
+}
+
+void UWeaponViewModel::SetCurrentAmmo(int32 NewCurrentAmmo)
+{
+	UE_MVVM_SET_PROPERTY_VALUE(CurrentAmmo, NewCurrentAmmo);
+}
+
+void UWeaponViewModel::SetIsInfiniteAmmo(bool NewIsInfiniteAmmo)
+{
+	UE_MVVM_SET_PROPERTY_VALUE(bInfiniteAmmo, NewIsInfiniteAmmo);
 }
 
 //void UWeaponViewModel::SetMaxAmmo(int32 NewMaxAmmo)
