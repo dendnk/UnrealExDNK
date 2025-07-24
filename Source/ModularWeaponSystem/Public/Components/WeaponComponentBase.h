@@ -32,13 +32,13 @@ private:
     virtual void FireBeam();
 
 public:
-    UFUNCTION(BlueprintNativeEvent, DisplayName = "Weapon|Muzzle")
+    UFUNCTION(BlueprintNativeEvent, DisplayName = "GetMuzzleTransform", Category = "Weapon|Muzzle")
     FTransform BP_GetMuzzleTransform();
 
-    UFUNCTION(BlueprintNativeEvent, DisplayName = "Weapon|Fire")
+    UFUNCTION(BlueprintNativeEvent, DisplayName = "Fire", Category = "Weapon|Fire")
     void BP_Fire();
 
-    UFUNCTION(BlueprintPure, DisplayName = "Weapon|Fire")
+    UFUNCTION(BlueprintPure, Category = "Weapon|Fire")
     virtual bool CanFire() const;
 
     UFUNCTION(BlueprintPure, Category = "Weapon|Data")
