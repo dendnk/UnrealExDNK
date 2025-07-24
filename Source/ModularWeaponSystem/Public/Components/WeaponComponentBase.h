@@ -35,7 +35,7 @@ public:
     UFUNCTION(BlueprintNativeEvent, DisplayName = "GetMuzzleTransform", Category = "Weapon|Muzzle")
     FTransform BP_GetMuzzleTransform();
 
-    UFUNCTION(BlueprintNativeEvent, DisplayName = "Fire", Category = "Weapon|Fire")
+    UFUNCTION(BlueprintCallable, BlueprintNativeEvent, DisplayName = "Fire", Category = "Weapon|Fire")
     void BP_Fire();
 
     UFUNCTION(BlueprintPure, Category = "Weapon|Fire")
