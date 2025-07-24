@@ -47,6 +47,12 @@ public:
     UFUNCTION(BlueprintPure, Category = "Weapon|Data")
     UWeaponDataAsset* GetWeaponDataRuntime() const { return WeaponDataRuntime; };
 
+    UFUNCTION(BlueprintPure, Category = "Weapon|Data")
+    int32 GetCurrentAmmo() const { return CurrentAmmo; };
+
+    UFUNCTION(BlueprintCallable, Category = "Weapon|Data")
+    void SetCurrentAmmo(int32 NewCurrentAmmo);
+
     UFUNCTION(BlueprintPure, Category = "Weapon|UI")
     UWeaponViewModel* GetViewModel() const { return WeaponViewModel; }
 
@@ -58,7 +64,7 @@ protected:
     UPROPERTY(Transient, BlueprintReadWrite, Category = "Weapon|Data", meta = (AllowPrivateAccess))
     TObjectPtr<UWeaponDataAsset> WeaponDataRuntime;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon|Data", meta = (AllowPrivateAccess))
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Weapon|Data", meta = (AllowPrivateAccess))
     int32 CurrentAmmo;
 
     UPROPERTY(Transient)

@@ -2,8 +2,33 @@
 
 
 #include "UI/WeaponViewModel.h"
+#include "Components/WeaponComponentBase.h"
 #include "Data/WeaponDataAsset.h"
 #include "UnrealExDNKUtils.h"
+
+void UWeaponViewModel::InitializeFromWeapon(UWeaponComponentBase* Weapon)
+{
+	if (IsValid(Weapon) == false)
+	{
+		UE_DNK_LOG(LogTemp, Error, "Invalid Weapon!");
+		return;
+	}
+
+	InitializeFromWeaponDataAsset(Weapon->GetWeaponDataRuntime());
+	SetCurrentAmmo(Weapon->GetCurrentAmmo());
+}
+
+void UWeaponViewModel::ApplyToWeapon(UWeaponComponentBase* Weapon)
+{
+	if (IsValid(Weapon) == false)
+	{
+		UE_DNK_LOG(LogTemp, Error, "Invalid Weapon!");
+		return;
+	}
+
+	ApplyToWeaponDataAsset(Weapon->GetWeaponDataRuntime());
+	Weapon->SetCurrentAmmo(GetCurrentAmmo());
+}
 
 void UWeaponViewModel::InitializeFromWeaponDataAsset(UWeaponDataAsset* DataAsset)
 {
@@ -15,6 +40,9 @@ void UWeaponViewModel::InitializeFromWeaponDataAsset(UWeaponDataAsset* DataAsset
 
 	SetFireType(DataAsset->FireType);
 	SetFiringMode(DataAsset->FiringMode);
+	SetMaxAmmo(DataAsset->MaxAmmo);
+	SetAmmoPerShot(DataAsset->AmmoPerShot);
+	SetIsInfiniteAmmo(DataAsset->bInfiniteAmmo);
 }
 
 void UWeaponViewModel::ApplyToWeaponDataAsset(UWeaponDataAsset* DataAsset)

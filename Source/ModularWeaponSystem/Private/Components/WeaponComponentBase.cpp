@@ -17,7 +17,7 @@ void UWeaponComponentBase::BeginPlay()
 	InitWeaponData();
 
 	WeaponViewModel = NewObject<UWeaponViewModel>(this);
-	WeaponViewModel->InitializeFromWeaponDataAsset(WeaponDataRuntime);
+	WeaponViewModel->InitializeFromWeapon(this);
 
 	if (bShouldHaveUIWidget == false)
 	{
@@ -195,6 +195,14 @@ void UWeaponComponentBase::BP_Fire_Implementation()
 bool UWeaponComponentBase::CanFire() const
 {
 	return true;
+}
+
+void UWeaponComponentBase::SetCurrentAmmo(int32 NewCurrentAmmo)
+{
+	if (CurrentAmmo != NewCurrentAmmo)
+	{
+		CurrentAmmo = NewCurrentAmmo;
+	}
 }
 
 void UWeaponComponentBase::SetupSpawnedProjectile(AProjectileBase* SpawnedProjectile)

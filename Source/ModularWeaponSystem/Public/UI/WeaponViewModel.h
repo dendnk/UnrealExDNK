@@ -6,6 +6,7 @@
 #include "Types/WeaponTypes.h"
 #include "WeaponViewModel.generated.h"
 
+class UWeaponComponentBase;
 class UWeaponDataAsset;
 
 /**
@@ -86,12 +87,18 @@ class MODULARWEAPONSYSTEM_API UWeaponViewModel : public UMVVMViewModelBase
 
 public:
 	UFUNCTION(BlueprintCallable)
-	void InitializeFromWeaponDataAsset(UWeaponDataAsset* DataAsset);
+	void InitializeFromWeapon(UWeaponComponentBase* Weapon);
 
 	UFUNCTION(BlueprintCallable)
+	void ApplyToWeapon(UWeaponComponentBase* Weapon);
+
+
+private:
+	void InitializeFromWeaponDataAsset(UWeaponDataAsset* DataAsset);
 	void ApplyToWeaponDataAsset(UWeaponDataAsset* DataAsset);
 
 
+public:
 	void SetFireType(EFireType NewFireType);
 	EFireType GetFireType() const { return FireType; };
 
