@@ -61,7 +61,7 @@ void UWeaponComponentBaseWidget::UpdateUIFromViewModel()
 		return;
 	}
 
-	PopulateEnumOptions<EFiringMode>(FireTypeComboBox);
+	PopulateEnumOptions<EFireType>(FireTypeComboBox);
 	PopulateEnumOptions<EFiringMode>(FiringModeComboBox);
 
 	FireTypeComboBox->SetSelectedOption(ViewModel->GetFireTypeAsString());
