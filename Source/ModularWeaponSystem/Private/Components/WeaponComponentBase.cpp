@@ -116,7 +116,7 @@ void UWeaponComponentBase::FireProjectile()
 		return;
 	}
 
-	if (WeaponDataRuntime->ProjectileClass != nullptr)
+	if (WeaponDataRuntime->ProjectileClass == nullptr)
 	{
 		UE_DNK_LOG(LogTemp, Warning, "Invalid ProjectileClass!");
 		return;
