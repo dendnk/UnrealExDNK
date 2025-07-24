@@ -25,6 +25,8 @@ void UWeaponComponentBaseWidget::SetViewModel(UWeaponViewModel* InViewModel)
 
 	ViewModel = InViewModel;
 	UpdateUIFromViewModel();
+
+	OnSetViewModel.Broadcast(ViewModel);
 }
 
 void UWeaponComponentBaseWidget::UpdateUIFromViewModel()

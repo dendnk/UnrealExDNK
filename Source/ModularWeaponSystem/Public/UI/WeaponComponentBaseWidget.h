@@ -10,6 +10,8 @@ class UCheckBox;
 class UEditableTextBox;
 class UWeaponViewModel;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSetViewModelDelegate, UWeaponViewModel*, WeaponViewModel);
+
 /**
  * Widget for showing weapon component parameters
  */
@@ -24,6 +26,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void SetViewModel(UWeaponViewModel* InViewModel);
+
+	UPROPERTY(BlueprintAssignable)
+	FOnSetViewModelDelegate OnSetViewModel;
 
 
 protected:

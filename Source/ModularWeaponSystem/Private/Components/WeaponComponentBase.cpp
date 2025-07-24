@@ -1,6 +1,8 @@
 // Copyright 2025 [UnrealExDNK | Modular Weapon System : Denis Kruchok]. All rights reserved.
 
 #include "Components/WeaponComponentBase.h"
+#include "Blueprint/UserWidget.h"
+#include "Blueprint/WidgetTree.h"
 #include <Kismet/GameplayStatics.h>
 #include "Projectiles/ProjectileBase.h"
 #include "UI/WeaponComponentBaseWidget.h"
@@ -29,8 +31,21 @@ void UWeaponComponentBase::BeginPlay()
 		WeaponWidget->SetViewModel(WeaponViewModel);
 		return;
 	}
+	else
+	{
+		TArray<UWidget*> AllWidgets;
+		WidgetInstance->WidgetTree->GetAllWidgets(AllWidgets);
+		for (UWidget* Widget : AllWidgets)
+		{
+			if (UWeaponComponentBaseWidget* WeaponChildWidget = Cast<UWeaponComponentBaseWidget>(Widget))
+			{
+				WeaponChildWidget->SetViewModel(WeaponViewModel);
+				return;	//	assuming we have only one UWeaponComponentBaseWidget as a child
+			}
+		}
+	}
 
-	UE_DNK_LOG(LogTemp, Error, "UI widget is not UWeaponComponentBaseWidget!");
+	UE_DNK_LOG(LogTemp, Error, "The UI widget is not a UWeaponComponentBaseWidget or does not contain a UWeaponComponentBaseWidget!");
 }
 
 void UWeaponComponentBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
