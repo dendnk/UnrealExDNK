@@ -62,7 +62,7 @@ void UWeaponViewModel::InitializeFromWeaponDataAsset(UWeaponDataAsset* DataAsset
 
 void UWeaponViewModel::ApplyToWeaponDataAsset(UWeaponDataAsset* DataAsset)
 {
-	if (IsValid(DataAsset))
+	if (IsValid(DataAsset) == false)
 	{
 		UE_DNK_LOG(LogTemp, Error, "Invalid DataAsset!");
 		return;
