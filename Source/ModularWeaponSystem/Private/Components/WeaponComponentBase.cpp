@@ -106,26 +106,33 @@ void UWeaponComponentBase::FireProjectile()
 	UWorld* World = GetWorld();
 	if (IsValid(World) == false)
 	{
-		UE_DNK_LOG(LogTemp, Warning, "Invalid World!");
+		UE_DNK_LOG(LogTemp, Error, "Invalid World!");
 		return;
 	}
 
 	if (IsValid(WeaponDataRuntime) == false)
 	{
-		UE_DNK_LOG(LogTemp, Warning, "Invalid WeaponData!");
+		UE_DNK_LOG(LogTemp, Error, "Invalid WeaponData!");
+		return;
+	}
+
+	if (WeaponDataRuntime->FireType != EFireType::Projectile)
+	{
+		UE_DNK_LOG(LogTemp, Error, "Wrong FireType [%s]!",
+			*StaticEnum<EFireType>()->GetDisplayNameTextByValue(static_cast<int64>(WeaponDataRuntime->FireType)).ToString());
 		return;
 	}
 
 	if (WeaponDataRuntime->ProjectileClass == nullptr)
 	{
-		UE_DNK_LOG(LogTemp, Warning, "Invalid ProjectileClass!");
+		UE_DNK_LOG(LogTemp, Error, "Invalid ProjectileClass!");
 		return;
 	}
 
 	AActor* Owner = GetOwner();
 	if (IsValid(Owner) == false)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Invalid Owner!"));
+		UE_LOG(LogTemp, Error, TEXT("Invalid Owner!"));
 		return;
 	}
 
@@ -135,7 +142,7 @@ void UWeaponComponentBase::FireProjectile()
 	SpawnParams.Owner = Owner;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
-	for (int32 i = 0; i < WeaponDataRuntime->ProjectilesPerShot; ++i)
+	for (int32 i = 0; i < WeaponDataRuntime->AmmoPerShot; ++i)
 	{
 		AProjectileBase* Projectile = World->SpawnActor<AProjectileBase>(
 			WeaponDataRuntime->ProjectileClass,
@@ -158,7 +165,7 @@ void UWeaponComponentBase::FireHitscan()
 	FVector End = Start + (ShotDirection * WeaponDataRuntime->HitscanRange);
 
 	// Apply spread
-	float SpreadAngleRad = FMath::DegreesToRadians(WeaponDataRuntime->Spread);
+	float SpreadAngleRad = FMath::DegreesToRadians(WeaponDataRuntime->HitscanSpread);
 	ShotDirection = FMath::VRandCone(ShotDirection, SpreadAngleRad);
 	End = Start + (ShotDirection * WeaponDataRuntime->HitscanRange);
 
@@ -188,12 +195,16 @@ void UWeaponComponentBase::FireHitscan()
 
 void UWeaponComponentBase::FireBeam()
 {
-	if (!WeaponDataRuntime->bIsBeam)
+	if (WeaponDataRuntime->FireType != EFireType::Beam)
+	{
+		UE_DNK_LOG(LogTemp, Error, "Wrong FireType [%s]!",
+			*StaticEnum<EFireType>()->GetDisplayNameTextByValue(static_cast<int64>(WeaponDataRuntime->FireType)).ToString());
 		return;
+	}
 
 	// Spawn a beam FX from muzzle
 	// Optionally attach a timer to apply DoT every X seconds
-	if (WeaponDataRuntime->bApplyDoT)
+	if (WeaponDataRuntime->DamageData.DamagePerTick > 0)
 	{
 		// Start a timer to apply WeaponData->DamagePerTick over WeaponData->BeamDuration
 	}

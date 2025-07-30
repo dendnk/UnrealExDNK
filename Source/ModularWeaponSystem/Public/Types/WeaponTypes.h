@@ -46,6 +46,10 @@ struct FDamageData
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	float BaseDamage = 25.0f;
 
+	/** Damage over time / damage per tick */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float DamagePerTick = 0.f;
+
 	/** Damage type (optional) */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSubclassOf<UDamageType> DamageType;

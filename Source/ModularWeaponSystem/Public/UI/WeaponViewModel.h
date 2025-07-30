@@ -35,51 +35,35 @@ class MODULARWEAPONSYSTEM_API UWeaponViewModel : public UMVVMViewModelBase
 	UPROPERTY(BlueprintReadWrite, FieldNotify, Setter = SetIsInfiniteAmmo, Getter = IsInfiniteAmmo, meta = (AllowPrivateAccess))
 	bool bInfiniteAmmo;
 
-	//UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
-	//float CooldownTime;
+	UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
+	float CooldownTime;
 
-	//UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
-	//bool bNeedsReload;
+	UPROPERTY(BlueprintReadWrite, FieldNotify, Setter = SetIsNeedReload, Getter = IsNeedReload, meta = (AllowPrivateAccess))
+	bool bNeedsReload;
 
-	//UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
-	//float ReloadTime;
+	UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
+	float ReloadTime;
 
-	//UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
-	//float BaseDamage;
+	UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
+	float BaseDamage;
 
-
-	//UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
-	//float bIsHitscan;
-
-	//UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
-	//float HitscanRange;
-
-	//UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
-	//float Spread;
+	UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
+	float DamagePerTick;
 
 
-	//UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
-	//float bIsProjectile;
+	UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
+	float HitscanRange;
 
-	//UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
-	//float ProjectileSpeed;
-
-	//UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
-	//int32 ProjectilesPerShot;
+	UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
+	float HitscanSpread;
 
 
-	//UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
-	//float bIsBeam;
+	UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
+	float ProjectileSpeed;
 
-	//UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
-	//float BeamDuration;
 
-	//UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
-	//bool bApplyDoT;
-
-	//UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
-	//float DamagePerTick;
-
+	UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
+	float BeamDuration;
 
 	//UPROPERTY(BlueprintReadOnly, FieldNotify, Setter, meta = (AllowPrivateAccess))
 	//TObjectPtr<UWeaponDataAsset> WeaponData;
@@ -141,21 +125,30 @@ public:
 	void SetIsInfiniteAmmo(bool NewIsInfiniteAmmo);
 	bool IsInfiniteAmmo() const { return bInfiniteAmmo; };
 
-	/*
+	void SetCooldownTime(float NewCooldownTime);
+	float GetCooldownTime() const { return CooldownTime; };
 
-	void SetCooldownTime(float NewAmmo);
+	void SetIsNeedReload(bool NewIsNeedReload);
+	bool IsNeedReload() const { return bNeedsReload; };
+
+	void SetReloadTime(float NewReloadTime);
+	float GetReloadTime() const { return ReloadTime; };
+
 	void SetBaseDamage(float NewBaseDamage);
+	float GetBaseDamage() const { return BaseDamage; };
 
-	void SetIsHitScan(bool NewAmmo);
+	void SetDamagePerTick(float NewDamagePerTick);
+	float GetDamagePerTick() const { return DamagePerTick; };
+
 	void SetHitscanRange(float NewHitscanRange);
-	void SetSpread(bool NewSpread);
+	float GetHitscanRange() const { return HitscanRange; };
 
-	void SetIsProjectile(bool NewIsProjectile);
+	void SetHitscanSpread(float NewHitscanSpread);
+	float GetHitscanSpread() const { return HitscanSpread; };
+
 	void SetProjectileSpeed(float NewProjectileSpeed);
-	void SetProjectilesPerShot(int32 NewProjectilesPerShot);
+	float GetProjectileSpeed() const { return ProjectileSpeed; };
 
-	void SetIsBeam(bool NewIsBeam);
 	void SetBeamDuration(float NewBeamDuration);
-	void SetIsApplyDoT(bool NewIsApplyDoT);
-	void SetDamagePerTick(float NewDamagePerTick);*/
+	float GetBeamDuration() const { return BeamDuration; };
 };

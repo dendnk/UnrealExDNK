@@ -43,6 +43,15 @@ void UWeaponViewModel::InitializeFromWeaponDataAsset(UWeaponDataAsset* DataAsset
 	SetMaxAmmo(DataAsset->MaxAmmo);
 	SetAmmoPerShot(DataAsset->AmmoPerShot);
 	SetIsInfiniteAmmo(DataAsset->bInfiniteAmmo);
+	SetCooldownTime(DataAsset->CooldownTime);
+	SetIsNeedReload(DataAsset->ReloadData.bNeedsReload);
+	SetReloadTime(DataAsset->ReloadData.ReloadTime);
+	SetBaseDamage(DataAsset->DamageData.BaseDamage);
+	SetDamagePerTick(DataAsset->DamageData.DamagePerTick);
+	SetHitscanRange(DataAsset->HitscanRange);
+	SetHitscanSpread(DataAsset->HitscanSpread);
+	SetProjectileSpeed(DataAsset->ProjectileSpeed);
+	SetBeamDuration(DataAsset->BeamDuration);
 }
 
 void UWeaponViewModel::ApplyToWeaponDataAsset(UWeaponDataAsset* DataAsset)
@@ -57,6 +66,16 @@ void UWeaponViewModel::ApplyToWeaponDataAsset(UWeaponDataAsset* DataAsset)
 	DataAsset->FiringMode = GetFiringMode();
 	DataAsset->MaxAmmo = GetMaxAmmo();
 	DataAsset->AmmoPerShot = GetAmmoPerShot();
+	DataAsset->bInfiniteAmmo = IsInfiniteAmmo();
+	DataAsset->CooldownTime = GetCooldownTime();
+	DataAsset->ReloadData.bNeedsReload = IsNeedReload();
+	DataAsset->ReloadData.ReloadTime = GetReloadTime();
+	DataAsset->DamageData.BaseDamage = GetBaseDamage();
+	DataAsset->DamageData.DamagePerTick = GetDamagePerTick();
+	DataAsset->HitscanRange = GetHitscanRange();
+	DataAsset->HitscanSpread = GetHitscanSpread();
+	DataAsset->ProjectileSpeed = GetProjectileSpeed();
+	DataAsset->BeamDuration = GetBeamDuration();
 }
 
 void UWeaponViewModel::SetFireType(EFireType NewFireType)
@@ -89,66 +108,47 @@ void UWeaponViewModel::SetIsInfiniteAmmo(bool NewIsInfiniteAmmo)
 	UE_MVVM_SET_PROPERTY_VALUE(bInfiniteAmmo, NewIsInfiniteAmmo);
 }
 
-//void UWeaponViewModel::SetMaxAmmo(int32 NewMaxAmmo)
-//{
-//}
-//
-//void UWeaponViewModel::SetAmmoPerShot(int32 NewAmmoPerShot)
-//{
-//}
-//
-//void UWeaponViewModel::SetCurrentAmmo(int32 NewCurrentAmmo)
-//{
-//}
-//
-//void UWeaponViewModel::SetIsInfiniteAmmo(bool IsInfiniteAmmo)
-//{
-//}
-//
-//void UWeaponViewModel::SetCooldownTime(float NewAmmo)
-//{
-//}
-//
-//void UWeaponViewModel::SetBaseDamage(float NewBaseDamage)
-//{
-//}
-//
-//void UWeaponViewModel::SetIsHitScan(bool NewAmmo)
-//{
-//}
-//
-//void UWeaponViewModel::SetHitscanRange(float NewHitscanRange)
-//{
-//}
-//
-//void UWeaponViewModel::SetSpread(bool NewSpread)
-//{
-//}
-//
-//void UWeaponViewModel::SetIsProjectile(bool NewIsProjectile)
-//{
-//}
-//
-//void UWeaponViewModel::SetProjectileSpeed(float NewProjectileSpeed)
-//{
-//}
-//
-//void UWeaponViewModel::SetProjectilesPerShot(int32 NewProjectilesPerShot)
-//{
-//}
-//
-//void UWeaponViewModel::SetIsBeam(bool NewIsBeam)
-//{
-//}
-//
-//void UWeaponViewModel::SetBeamDuration(float NewBeamDuration)
-//{
-//}
-//
-//void UWeaponViewModel::SetIsApplyDoT(bool NewIsApplyDoT)
-//{
-//}
-//
-//void UWeaponViewModel::SetDamagePerTick(float NewDamagePerTick)
-//{
-//}
+void UWeaponViewModel::SetCooldownTime(float NewCooldownTime)
+{
+	UE_MVVM_SET_PROPERTY_VALUE(CooldownTime, NewCooldownTime);
+}
+
+void UWeaponViewModel::SetIsNeedReload(bool NewIsNeedReload)
+{
+	UE_MVVM_SET_PROPERTY_VALUE(bNeedsReload, NewIsNeedReload);
+}
+
+void UWeaponViewModel::SetReloadTime(float NewReloadTime)
+{
+	UE_MVVM_SET_PROPERTY_VALUE(ReloadTime, NewReloadTime);
+}
+
+void UWeaponViewModel::SetBaseDamage(float NewBaseDamage)
+{
+	UE_MVVM_SET_PROPERTY_VALUE(BaseDamage, NewBaseDamage);
+}
+
+void UWeaponViewModel::SetDamagePerTick(float NewDamagePerTick)
+{
+	UE_MVVM_SET_PROPERTY_VALUE(DamagePerTick, NewDamagePerTick);
+}
+
+void UWeaponViewModel::SetHitscanRange(float NewHitscanRange)
+{
+	UE_MVVM_SET_PROPERTY_VALUE(HitscanRange, NewHitscanRange);
+}
+
+void UWeaponViewModel::SetHitscanSpread(float NewHitscanSpread)
+{
+	UE_MVVM_SET_PROPERTY_VALUE(HitscanSpread, NewHitscanSpread);
+}
+
+void UWeaponViewModel::SetProjectileSpeed(float NewProjectileSpeed)
+{
+	UE_MVVM_SET_PROPERTY_VALUE(ProjectileSpeed, NewProjectileSpeed);
+}
+
+void UWeaponViewModel::SetBeamDuration(float NewBeamDuration)
+{
+	UE_MVVM_SET_PROPERTY_VALUE(BeamDuration, NewBeamDuration);
+}

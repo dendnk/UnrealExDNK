@@ -27,6 +27,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SetViewModel(UWeaponViewModel* InViewModel);
 
+	UFUNCTION(BlueprintCallable)
+	void UpdateViewModelFromUI();
+
 	UPROPERTY(BlueprintAssignable)
 	FOnSetViewModelDelegate OnSetViewModel;
 
@@ -53,6 +56,33 @@ protected:
 	UFUNCTION()
 	void OnInfiniteAmmoChanged(bool bIsChecked);
 
+	UFUNCTION()
+	void OnCooldownTimeCommitted(const FText& Text, ETextCommit::Type CommitMethod);
+
+	UFUNCTION()
+	void OnNeedsReloadChanged(bool bIsChecked);
+
+	UFUNCTION()
+	void OnReloadTimeCommitted(const FText& Text, ETextCommit::Type CommitMethod);
+
+	UFUNCTION()
+	void OnBaseDamageCommitted(const FText& Text, ETextCommit::Type CommitMethod);
+
+	UFUNCTION()
+	void OnDamagePerTickCommitted(const FText& Text, ETextCommit::Type CommitMethod);
+
+	UFUNCTION()
+	void OnHitscanRangeCommitted(const FText& Text, ETextCommit::Type CommitMethod);
+
+	UFUNCTION()
+	void OnHitscanSpreadCommitted(const FText& Text, ETextCommit::Type CommitMethod);
+
+	UFUNCTION()
+	void OnProjectileSpeedCommitted(const FText& Text, ETextCommit::Type CommitMethod);
+
+	UFUNCTION()
+	void OnBeamDurationCommitted(const FText& Text, ETextCommit::Type CommitMethod);
+
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UComboBoxString> FireTypeComboBox;
@@ -71,6 +101,33 @@ protected:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UCheckBox> InfiniteAmmoCheckBox;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UEditableTextBox> CooldownTimeTextBox;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UCheckBox> NeedsReloadCheckBox;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UEditableTextBox> ReloadTimeTextBox;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UEditableTextBox> BaseDamageTextBox;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UEditableTextBox> DamagePerTickTextBox;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UEditableTextBox> HitscanRangeTextBox;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UEditableTextBox> HitscanSpreadTextBox;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UEditableTextBox> ProjectileSpeedTextBox;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UEditableTextBox> BeamDurationTextBox;
 
 
 	UPROPERTY(Transient, meta = (BindWidgetViewModel))

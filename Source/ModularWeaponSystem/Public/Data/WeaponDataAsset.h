@@ -51,40 +51,23 @@ public:
 	FFXData FXData;
 
 
-	UPROPERTY(VisibleAnywhere, Transient, Category = "Weapon|Condition")
-	bool bIsHitscan = false;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Hitscan", meta = (EditCondition = "bIsHitscan", EditConditionHides = true))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Hitscan")
 	float HitscanRange;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Hitscan", meta = (EditCondition = "bIsHitscan", EditConditionHides = true))
-	float Spread;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Hitscan")
+	float HitscanSpread;
 
 
-	UPROPERTY(VisibleAnywhere, Transient, Category = "Weapon|Condition")
-	bool bIsProjectile = false;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Projectile", meta = (EditCondition = "bIsProjectile", EditConditionHides = true))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Projectile")
 	TSubclassOf<AProjectileBase> ProjectileClass;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Projectile", meta = (EditCondition = "bIsProjectile", EditConditionHides = true))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Projectile")
 	float ProjectileSpeed;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Projectile", meta = (EditCondition = "bIsProjectile", EditConditionHides = true))
-	int32 ProjectilesPerShot = 1;
 
-
-	UPROPERTY(VisibleAnywhere, Transient, Category = "Weapon|Condition")
-	bool bIsBeam = false;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Beam", meta = (EditCondition = "bIsBeam", EditConditionHides = true))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Beam")
 	float BeamDuration;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Beam", meta = (EditCondition = "bIsBeam", EditConditionHides = true))
-	bool bApplyDoT;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Beam", meta = (EditCondition = "bApplyDoT && bIsBeam", EditConditionHides = true))
-	float DamagePerTick;
 
 	virtual FPrimaryAssetId GetPrimaryAssetId() const override
 	{
@@ -96,13 +79,6 @@ public:
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override
 	{
 		Super::PostEditChangeProperty(PropertyChangedEvent);
-
-		if (PropertyChangedEvent.Property && PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(UWeaponDataAsset, FireType))
-		{
-			bIsHitscan = (FireType == EFireType::Hitscan);
-			bIsProjectile = (FireType == EFireType::Projectile);
-			bIsBeam = (FireType == EFireType::Beam);
-		}
 	}
 #endif
 };
