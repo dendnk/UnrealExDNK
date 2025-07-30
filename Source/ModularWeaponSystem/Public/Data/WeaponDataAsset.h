@@ -35,6 +35,9 @@ public:
 	bool bInfiniteAmmo = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
+	int32 BurstCount = 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
 	float CooldownTime = 0.1f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")

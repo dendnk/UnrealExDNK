@@ -89,6 +89,7 @@ void UWeaponComponentBaseWidget::UpdateUIFromViewModel()
 		{ TEXT("AmmoPerShotTextBox"), AmmoPerShotTextBox },
 		{ TEXT("CurrentAmmoTextBox"), CurrentAmmoTextBox },
 		{ TEXT("InfiniteAmmoCheckBox"), InfiniteAmmoCheckBox },
+		{ TEXT("BurstCountTextBox"), BurstCountTextBox },
 		{ TEXT("CooldownTimeTextBox"), CooldownTimeTextBox },
 		{ TEXT("NeedsReloadCheckBox"), NeedsReloadCheckBox },
 		{ TEXT("ReloadTimeTextBox"), ReloadTimeTextBox },
@@ -124,6 +125,7 @@ void UWeaponComponentBaseWidget::UpdateUIFromViewModel()
 	AmmoPerShotTextBox->SetText(FText::FromString(FString::FromInt(ViewModel->GetAmmoPerShot())));
 	CurrentAmmoTextBox->SetText(FText::FromString(FString::FromInt(ViewModel->GetCurrentAmmo())));
 	InfiniteAmmoCheckBox->SetIsChecked(ViewModel->IsInfiniteAmmo());
+	BurstCountTextBox->SetText(FText::FromString(FString::SanitizeFloat(ViewModel->GetBurstCount())));
 	CooldownTimeTextBox->SetText(FText::FromString(FString::SanitizeFloat(ViewModel->GetCooldownTime())));
 	NeedsReloadCheckBox->SetIsChecked(ViewModel->IsNeedReload());
 	ReloadTimeTextBox->SetText(FText::FromString(FString::SanitizeFloat(ViewModel->GetReloadTime())));
@@ -141,6 +143,7 @@ void UWeaponComponentBaseWidget::UpdateUIFromViewModel()
 	AmmoPerShotTextBox->OnTextCommitted.AddDynamic(this, &ThisClass::OnAmmoPerShotCommitted);
 	CurrentAmmoTextBox->OnTextCommitted.AddDynamic(this, &ThisClass::OnCurrentAmmoCommitted);
 	InfiniteAmmoCheckBox->OnCheckStateChanged.AddDynamic(this, &ThisClass::OnInfiniteAmmoChanged);
+	BurstCountTextBox->OnTextCommitted.AddDynamic(this, &ThisClass::OnBurstCountCommitted);
 	CooldownTimeTextBox->OnTextCommitted.AddDynamic(this, &ThisClass::OnCooldownTimeCommitted);
 	NeedsReloadCheckBox->OnCheckStateChanged.AddDynamic(this, &ThisClass::OnNeedsReloadChanged);
 	ReloadTimeTextBox->OnTextCommitted.AddDynamic(this, &ThisClass::OnReloadTimeCommitted);
@@ -202,6 +205,15 @@ void UWeaponComponentBaseWidget::OnInfiniteAmmoChanged(bool bIsChecked)
 	if (ViewModel)
 	{
 		ViewModel->SetIsInfiniteAmmo(bIsChecked);
+	}
+}
+
+void UWeaponComponentBaseWidget::OnBurstCountCommitted(const FText& Text, ETextCommit::Type CommitMethod)
+{
+	if (ViewModel && Text.IsNumeric())
+	{
+		int32 Value = FCString::Atoi(*Text.ToString());
+		ViewModel->SetBurstCount(Value);
 	}
 }
 

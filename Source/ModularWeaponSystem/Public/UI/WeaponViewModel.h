@@ -36,6 +36,9 @@ class MODULARWEAPONSYSTEM_API UWeaponViewModel : public UMVVMViewModelBase
 	bool bInfiniteAmmo;
 
 	UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
+	int32 BurstCount;
+
+	UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
 	float CooldownTime;
 
 	UPROPERTY(BlueprintReadWrite, FieldNotify, Setter = SetIsNeedReload, Getter = IsNeedReload, meta = (AllowPrivateAccess))
@@ -124,6 +127,9 @@ public:
 
 	void SetIsInfiniteAmmo(bool NewIsInfiniteAmmo);
 	bool IsInfiniteAmmo() const { return bInfiniteAmmo; };
+
+	void SetBurstCount(int32 NewBurstCount);
+	int32 GetBurstCount() const { return BurstCount; };
 
 	void SetCooldownTime(float NewCooldownTime);
 	float GetCooldownTime() const { return CooldownTime; };

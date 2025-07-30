@@ -108,6 +108,11 @@ void UWeaponViewModel::SetIsInfiniteAmmo(bool NewIsInfiniteAmmo)
 	UE_MVVM_SET_PROPERTY_VALUE(bInfiniteAmmo, NewIsInfiniteAmmo);
 }
 
+void UWeaponViewModel::SetBurstCount(int32 NewBurstCount)
+{
+	UE_MVVM_SET_PROPERTY_VALUE(BurstCount, NewBurstCount);
+}
+
 void UWeaponViewModel::SetCooldownTime(float NewCooldownTime)
 {
 	UE_MVVM_SET_PROPERTY_VALUE(CooldownTime, NewCooldownTime);

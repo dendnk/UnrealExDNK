@@ -57,6 +57,9 @@ protected:
 	void OnInfiniteAmmoChanged(bool bIsChecked);
 
 	UFUNCTION()
+	void OnBurstCountCommitted(const FText& Text, ETextCommit::Type CommitMethod);
+
+	UFUNCTION()
 	void OnCooldownTimeCommitted(const FText& Text, ETextCommit::Type CommitMethod);
 
 	UFUNCTION()
@@ -101,6 +104,9 @@ protected:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UCheckBox> InfiniteAmmoCheckBox;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UEditableTextBox> BurstCountTextBox;
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UEditableTextBox> CooldownTimeTextBox;
