@@ -49,6 +49,7 @@ void UWeaponViewModel::InitializeFromWeaponDataAsset(UWeaponDataAsset* DataAsset
 	SetMaxAmmo(DataAsset->MaxAmmo);
 	SetAmmoPerShot(DataAsset->AmmoPerShot);
 	SetIsInfiniteAmmo(DataAsset->bInfiniteAmmo);
+	SetBurstCount(DataAsset->BurstCount);
 	SetCooldownTime(DataAsset->CooldownTime);
 	SetIsNeedReload(DataAsset->ReloadData.bNeedsReload);
 	SetReloadTime(DataAsset->ReloadData.ReloadTime);
