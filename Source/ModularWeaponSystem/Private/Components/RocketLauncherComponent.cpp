@@ -12,17 +12,6 @@ URocketLauncherComponent::URocketLauncherComponent()
     ResetCachedRocketBounds();
 }
 
-void URocketLauncherComponent::Fire()
-{
-    if (WeaponDataRuntime->FireType != EFireType::Projectile)
-    {
-        UE_DNK_LOG(LogTemp, Warning, "Invalid FireType!");
-        return;
-    }
-
-    Super::Fire();
-}
-
 void URocketLauncherComponent::BeginPlay()
 {
 	Super::BeginPlay();

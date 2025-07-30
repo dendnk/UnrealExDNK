@@ -23,10 +23,13 @@ protected:
     virtual void InitWeaponData();
 
 public:
-    virtual void Fire();
+    virtual void StartFire();
+    virtual void StopFire();
+    virtual void HandleBurstFire();
     virtual void SetupSpawnedProjectile(AProjectileBase* SpawnedProjectile);
 
 private:
+    virtual void Fire();
     virtual void FireProjectile();
     virtual void FireHitscan();
     virtual void FireBeam();
@@ -37,9 +40,6 @@ public:
 
     UFUNCTION(BlueprintCallable, BlueprintNativeEvent, DisplayName = "Fire", Category = "Weapon|Fire")
     void BP_Fire();
-
-    UFUNCTION(BlueprintPure, Category = "Weapon|Fire")
-    virtual bool CanFire() const;
 
     UFUNCTION(BlueprintPure, Category = "Weapon|Data")
     UWeaponDataAsset* GetWeaponDataAsset() const { return WeaponDataAsset; };
@@ -67,6 +67,15 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Weapon|Data", meta = (AllowPrivateAccess))
     int32 CurrentAmmo;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Fire")
+    bool bCanFire = true;
+
     UPROPERTY(Transient)
     TObjectPtr<UWeaponViewModel> WeaponViewModel;
+
+
+private:
+    FTimerHandle FireLoopHandle;
+    FTimerHandle BurstHandle;
+    int32 CurrentBurstCount = 0;
 };

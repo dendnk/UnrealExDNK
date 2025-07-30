@@ -67,7 +67,7 @@ void UWeaponComponentBase::InitWeaponData()
 	CurrentAmmo = WeaponDataRuntime->MaxAmmo;
 }
 
-void UWeaponComponentBase::Fire()
+void UWeaponComponentBase::StartFire()
 {
 	if (IsValid(WeaponDataRuntime) == false)
 	{
@@ -81,6 +81,33 @@ void UWeaponComponentBase::Fire()
 		return;
 	}
 
+	switch (WeaponDataRuntime->FiringMode)
+	{
+	case EFiringMode::SemiAuto:
+		Fire();
+		break;
+
+	case EFiringMode::FullAuto:
+		Fire();
+		GetWorld()->GetTimerManager().SetTimer(FireLoopHandle, this, &ThisClass::Fire, WeaponDataRuntime->CooldownTime, true);
+		break;
+
+	case EFiringMode::Burst:
+		Fire();
+		CurrentBurstCount = 1;
+		GetWorld()->GetTimerManager().SetTimer(BurstHandle, this, &ThisClass::HandleBurstFire, WeaponDataRuntime->CooldownTime, true);
+		break;
+	}
+}
+
+void UWeaponComponentBase::StopFire()
+{
+	GetWorld()->GetTimerManager().ClearTimer(FireLoopHandle);
+	GetWorld()->GetTimerManager().ClearTimer(BurstHandle);
+}
+
+void UWeaponComponentBase::Fire()
+{
 	switch (WeaponDataRuntime->FireType)
 	{
 	case EFireType::Projectile:
@@ -98,6 +125,18 @@ void UWeaponComponentBase::Fire()
 	default:
 		UE_DNK_LOG(LogTemp, Warning, "Unknown FireType in WeaponComponent");
 		break;
+	}
+}
+
+void UWeaponComponentBase::HandleBurstFire()
+{
+	if (++CurrentBurstCount <= WeaponDataRuntime->BurstCount)
+	{
+		Fire();
+	}
+	else
+	{
+		GetWorld()->GetTimerManager().ClearTimer(BurstHandle);
 	}
 }
 
@@ -212,15 +251,10 @@ void UWeaponComponentBase::FireBeam()
 
 void UWeaponComponentBase::BP_Fire_Implementation()
 {
-	if (CanFire())
+	if (bCanFire)
 	{
 		Fire();
 	}
-}
-
-bool UWeaponComponentBase::CanFire() const
-{
-	return true;
 }
 
 void UWeaponComponentBase::SetCurrentAmmo(int32 NewCurrentAmmo)
