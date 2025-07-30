@@ -33,6 +33,9 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FOnSetViewModelDelegate OnSetViewModel;
 
+	UPROPERTY(BlueprintAssignable)
+	FOnSetViewModelDelegate OnUpdateViewModelFromUI;
+
 
 protected:
 	UFUNCTION()

@@ -38,8 +38,11 @@ public:
     UFUNCTION(BlueprintNativeEvent, DisplayName = "GetMuzzleTransform", Category = "Weapon|Muzzle")
     FTransform BP_GetMuzzleTransform();
 
-    UFUNCTION(BlueprintCallable, BlueprintNativeEvent, DisplayName = "Fire", Category = "Weapon|Fire")
-    void BP_Fire();
+    UFUNCTION(BlueprintCallable, DisplayName = "StartFire", Category = "Weapon|Fire")
+    void BP_StartFire();
+
+    UFUNCTION(BlueprintCallable, DisplayName = "StopFire", Category = "Weapon|Fire")
+    void BP_StopFire();
 
     UFUNCTION(BlueprintPure, Category = "Weapon|Data")
     UWeaponDataAsset* GetWeaponDataAsset() const { return WeaponDataAsset; };

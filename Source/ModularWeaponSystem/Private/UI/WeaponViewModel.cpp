@@ -6,21 +6,22 @@
 #include "Data/WeaponDataAsset.h"
 #include "UnrealExDNKUtils.h"
 
-void UWeaponViewModel::InitializeFromWeapon(UWeaponComponentBase* Weapon)
+void UWeaponViewModel::InitializeFromWeapon(UWeaponComponentBase* InWeapon)
 {
-	if (IsValid(Weapon) == false)
+	if (IsValid(InWeapon) == false)
 	{
 		UE_DNK_LOG(LogTemp, Error, "Invalid Weapon!");
 		return;
 	}
 
+	Weapon = InWeapon;
 	InitializeFromWeaponDataAsset(Weapon->GetWeaponDataRuntime());
 	SetCurrentAmmo(Weapon->GetCurrentAmmo());
 }
 
-void UWeaponViewModel::ApplyToWeapon(UWeaponComponentBase* Weapon)
+void UWeaponViewModel::ApplyToCurrentWeapon()
 {
-	if (IsValid(Weapon) == false)
+	if (Weapon.IsValid() == false)
 	{
 		UE_DNK_LOG(LogTemp, Error, "Invalid Weapon!");
 		return;
@@ -28,6 +29,11 @@ void UWeaponViewModel::ApplyToWeapon(UWeaponComponentBase* Weapon)
 
 	ApplyToWeaponDataAsset(Weapon->GetWeaponDataRuntime());
 	Weapon->SetCurrentAmmo(GetCurrentAmmo());
+}
+
+void UWeaponViewModel::Deinit()
+{
+	Weapon.Reset();
 }
 
 void UWeaponViewModel::InitializeFromWeaponDataAsset(UWeaponDataAsset* DataAsset)

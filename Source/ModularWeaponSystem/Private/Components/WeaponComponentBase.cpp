@@ -50,6 +50,7 @@ void UWeaponComponentBase::BeginPlay()
 
 void UWeaponComponentBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	WeaponViewModel->Deinit();
 	WeaponViewModel = nullptr;
 
 	Super::EndPlay(EndPlayReason);
@@ -69,6 +70,12 @@ void UWeaponComponentBase::InitWeaponData()
 
 void UWeaponComponentBase::StartFire()
 {
+	if (bCanFire == false)
+	{
+		UE_DNK_LOG(LogTemp, Warning, "bCanFire is false");
+		return;
+	}
+
 	if (IsValid(WeaponDataRuntime) == false)
 	{
 		UE_DNK_LOG(LogTemp, Error, "WeaponData is null");
@@ -249,12 +256,17 @@ void UWeaponComponentBase::FireBeam()
 	}
 }
 
-void UWeaponComponentBase::BP_Fire_Implementation()
+void UWeaponComponentBase::BP_StartFire()
 {
 	if (bCanFire)
 	{
-		Fire();
+		StartFire();
 	}
+}
+
+void UWeaponComponentBase::BP_StopFire()
+{
+	StopFire();
 }
 
 void UWeaponComponentBase::SetCurrentAmmo(int32 NewCurrentAmmo)

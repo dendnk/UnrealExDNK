@@ -57,10 +57,11 @@ void UWeaponComponentBaseWidget::UpdateViewModelFromUI()
 		UE_DNK_LOG(LogTemp, Warning, "Check value in FiringModeComboBox! FiringMode will not be applied!");
 	}
 
-	ViewModel->SetMaxAmmo(FCString::Atof(*MaxAmmoTextBox->GetText().ToString()));
-	ViewModel->SetAmmoPerShot(FCString::Atof(*AmmoPerShotTextBox->GetText().ToString()));
-	ViewModel->SetCurrentAmmo(FCString::Atof(*CurrentAmmoTextBox->GetText().ToString()));
+	ViewModel->SetMaxAmmo(FCString::Atoi(*MaxAmmoTextBox->GetText().ToString()));
+	ViewModel->SetAmmoPerShot(FCString::Atoi(*AmmoPerShotTextBox->GetText().ToString()));
+	ViewModel->SetCurrentAmmo(FCString::Atoi(*CurrentAmmoTextBox->GetText().ToString()));
 	ViewModel->SetIsInfiniteAmmo(InfiniteAmmoCheckBox->IsChecked());
+	ViewModel->SetBurstCount(FCString::Atoi(*MaxAmmoTextBox->GetText().ToString()));
 	ViewModel->SetCooldownTime(FCString::Atof(*CooldownTimeTextBox->GetText().ToString()));
 	ViewModel->SetIsNeedReload(NeedsReloadCheckBox->IsChecked());
 	ViewModel->SetReloadTime(FCString::Atof(*ReloadTimeTextBox->GetText().ToString()));
@@ -70,6 +71,10 @@ void UWeaponComponentBaseWidget::UpdateViewModelFromUI()
 	ViewModel->SetHitscanSpread(FCString::Atof(*HitscanSpreadTextBox->GetText().ToString()));
 	ViewModel->SetProjectileSpeed(FCString::Atof(*ProjectileSpeedTextBox->GetText().ToString()));
 	ViewModel->SetBeamDuration(FCString::Atof(*BeamDurationTextBox->GetText().ToString()));
+
+	ViewModel->ApplyToCurrentWeapon();
+
+	OnUpdateViewModelFromUI.Broadcast(ViewModel);
 }
 
 void UWeaponComponentBaseWidget::UpdateUIFromViewModel()
@@ -125,7 +130,7 @@ void UWeaponComponentBaseWidget::UpdateUIFromViewModel()
 	AmmoPerShotTextBox->SetText(FText::FromString(FString::FromInt(ViewModel->GetAmmoPerShot())));
 	CurrentAmmoTextBox->SetText(FText::FromString(FString::FromInt(ViewModel->GetCurrentAmmo())));
 	InfiniteAmmoCheckBox->SetIsChecked(ViewModel->IsInfiniteAmmo());
-	BurstCountTextBox->SetText(FText::FromString(FString::SanitizeFloat(ViewModel->GetBurstCount())));
+	BurstCountTextBox->SetText(FText::FromString(FString::FromInt(ViewModel->GetBurstCount())));
 	CooldownTimeTextBox->SetText(FText::FromString(FString::SanitizeFloat(ViewModel->GetCooldownTime())));
 	NeedsReloadCheckBox->SetIsChecked(ViewModel->IsNeedReload());
 	ReloadTimeTextBox->SetText(FText::FromString(FString::SanitizeFloat(ViewModel->GetReloadTime())));

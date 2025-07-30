@@ -74,10 +74,13 @@ class MODULARWEAPONSYSTEM_API UWeaponViewModel : public UMVVMViewModelBase
 
 public:
 	UFUNCTION(BlueprintCallable)
-	void InitializeFromWeapon(UWeaponComponentBase* Weapon);
+	void InitializeFromWeapon(UWeaponComponentBase* InWeapon);
 
 	UFUNCTION(BlueprintCallable)
-	void ApplyToWeapon(UWeaponComponentBase* Weapon);
+	void ApplyToCurrentWeapon();
+
+	UFUNCTION(BlueprintCallable)
+	void Deinit();
 
 
 private:
@@ -157,4 +160,7 @@ public:
 
 	void SetBeamDuration(float NewBeamDuration);
 	float GetBeamDuration() const { return BeamDuration; };
+
+private:
+	TWeakObjectPtr<UWeaponComponentBase> Weapon;
 };
