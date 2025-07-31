@@ -46,9 +46,6 @@ public:
     TObjectPtr<UStaticMeshComponent> MeshComponent;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = BaseRocket)
-    TObjectPtr<UNiagaraSystem> ShootEffect;
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = BaseRocket)
     TObjectPtr<UNiagaraSystem> ExplosionEffect;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = BaseRocket)
