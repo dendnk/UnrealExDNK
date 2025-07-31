@@ -61,7 +61,7 @@ void UWeaponComponentBaseWidget::UpdateViewModelFromUI()
 	ViewModel->SetAmmoPerShot(FCString::Atoi(*AmmoPerShotTextBox->GetText().ToString()));
 	ViewModel->SetCurrentAmmo(FCString::Atoi(*CurrentAmmoTextBox->GetText().ToString()));
 	ViewModel->SetIsInfiniteAmmo(InfiniteAmmoCheckBox->IsChecked());
-	ViewModel->SetBurstCount(FCString::Atoi(*MaxAmmoTextBox->GetText().ToString()));
+	ViewModel->SetBurstCount(FCString::Atoi(*BurstCountTextBox->GetText().ToString()));
 	ViewModel->SetCooldownTime(FCString::Atof(*CooldownTimeTextBox->GetText().ToString()));
 	ViewModel->SetIsNeedReload(NeedsReloadCheckBox->IsChecked());
 	ViewModel->SetReloadTime(FCString::Atof(*ReloadTimeTextBox->GetText().ToString()));
