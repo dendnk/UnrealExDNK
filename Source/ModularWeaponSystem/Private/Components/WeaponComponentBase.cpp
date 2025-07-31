@@ -31,7 +31,7 @@ void UWeaponComponentBase::BeginPlay()
 		WeaponWidget->SetViewModel(WeaponViewModel);
 		return;
 	}
-	else
+	else if (IsValid(WidgetInstance))
 	{
 		TArray<UWidget*> AllWidgets;
 		WidgetInstance->WidgetTree->GetAllWidgets(AllWidgets);
