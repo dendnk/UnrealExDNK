@@ -3,9 +3,11 @@
 #pragma once
 
 #include "GameFramework/Actor.h"
+#include "Types/WeaponTypes.h"
 #include "ProjectileBase.generated.h"
 
 class UAudioComponent;
+class UInitialActiveSoundParams;
 class UNiagaraSystem;
 class UProjectileMovementComponent;
 class USoundBase;
@@ -29,6 +31,9 @@ public:
 
 protected:
     virtual void BeginPlay() override;
+    virtual UAudioComponent* CustomSpawnSoundAttached(USoundBase* Sound, USceneComponent* AttachToComponent, FName AttachPointName = NAME_None, FVector Location = FVector(ForceInit), FRotator Rotation = FRotator::ZeroRotator, EAttachLocation::Type LocationType = EAttachLocation::KeepRelativeOffset, bool bStopWhenAttachedToDestroyed = false, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, float StartTime = 0.f, USoundAttenuation* AttenuationSettings = nullptr, USoundConcurrency* ConcurrencySettings = nullptr, bool bAutoDestroy = true);
+    virtual float CustomApplyDamage(float Damage, AActor* DamageCauser, AActor* OtherActor);
+    virtual void CustomPlaySoundAtLocation(const UObject* WorldContextObject, USoundBase* Sound, FVector Location, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, float StartTime = 0.f, class USoundAttenuation* AttenuationSettings = nullptr, USoundConcurrency* ConcurrencySettings = nullptr, const UInitialActiveSoundParams* InitialParams = nullptr);
 
 public:
     virtual void Tick(float DeltaTime) override;
@@ -51,6 +56,9 @@ public:
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = BaseRocket)
     TObjectPtr<USoundBase> IdleSound;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = BaseRocket)
+    FProjectileConfig Config;
 
 private:
     UPROPERTY()

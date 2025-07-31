@@ -4,6 +4,7 @@
 #include "Projectiles/ProjectileBase.h"
 #include "Components/AudioComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
+#include <Kismet/GameplayStatics.h>
 #include "NiagaraFunctionLibrary.h"
 #include "Types/WeaponTypes.h"
 
@@ -24,26 +25,44 @@ void AProjectileBase::PostInitProperties()
 {
     Super::PostInitProperties();
 
-    //if (IsValid(MovementComponent))
-    //{
-        //ProjectileMovement->InitialSpeed = RocketConfig.InitialSpeed;
-        //ProjectileMovement->MaxSpeed = RocketConfig.MaxSpeed;
-        //ProjectileMovement->bRotationFollowsVelocity = RocketConfig.bRotationFollowsVelocity;
-        //ProjectileMovement->bRotationRemainsVertical = RocketConfig.bRotationRemainsVertical;
-        //ProjectileMovement->bShouldBounce = RocketConfig.bShouldBounce;
-    //}
+    if (IsValid(MovementComponent))
+    {
+        MovementComponent->InitialSpeed = Config.InitialSpeed;
+        MovementComponent->MaxSpeed = Config.MaxSpeed;
+        MovementComponent->bRotationFollowsVelocity = Config.bRotationFollowsVelocity;
+        MovementComponent->bRotationRemainsVertical = Config.bRotationRemainsVertical;
+        MovementComponent->bShouldBounce = Config.bShouldBounce;
+    }
 }
 
 void AProjectileBase::BeginPlay()
 {
     Super::BeginPlay();
 
-    //IdleAudioComponent = UHeliAceFuntionsLibrary::SpawnSoundAttached(IdleSound, RocketMesh, NAME_None, FVector(ForceInit), FRotator::ZeroRotator, EAttachLocation::KeepRelativeOffset, true, 1.f, 1.f, 0.f, nullptr, nullptr, false);
+    IdleAudioComponent = CustomSpawnSoundAttached(IdleSound, MeshComponent, NAME_None, FVector(ForceInit), FRotator::ZeroRotator, EAttachLocation::KeepRelativeOffset, true, 1.f, 1.f, 0.f, nullptr, nullptr, false);
 
     if (ShootEffect != nullptr)
     {
         UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, ShootEffect, GetActorLocation());
     }
+}
+
+UAudioComponent* AProjectileBase::CustomSpawnSoundAttached(USoundBase* Sound, USceneComponent* AttachToComponent, FName AttachPointName, FVector Location, FRotator Rotation, EAttachLocation::Type LocationType, bool bStopWhenAttachedToDestroyed, float VolumeMultiplier, float PitchMultiplier, float StartTime, USoundAttenuation* AttenuationSettings, USoundConcurrency* ConcurrencySettings, bool bAutoDestroy)
+{
+    return UGameplayStatics::SpawnSoundAttached(Sound, AttachToComponent, AttachPointName, Location, LocationType, bStopWhenAttachedToDestroyed, VolumeMultiplier, PitchMultiplier, StartTime, AttenuationSettings, ConcurrencySettings, bAutoDestroy);
+}
+
+float AProjectileBase::CustomApplyDamage(float Damage, AActor* DamageCauser, AActor* OtherActor)
+{
+    AController* InstigatorController = DamageCauser != nullptr
+                                        ? DamageCauser->GetInstigatorController()
+                                        : nullptr;
+    return UGameplayStatics::ApplyDamage(OtherActor, Damage, InstigatorController, DamageCauser, nullptr);
+}
+
+void AProjectileBase::CustomPlaySoundAtLocation(const UObject* WorldContextObject, USoundBase* Sound, FVector Location, float VolumeMultiplier, float PitchMultiplier, float StartTime, USoundAttenuation* AttenuationSettings, USoundConcurrency* ConcurrencySettings, const UInitialActiveSoundParams* InitialParams)
+{
+    return UGameplayStatics::PlaySoundAtLocation(WorldContextObject, Sound, Location, VolumeMultiplier, PitchMultiplier, StartTime, AttenuationSettings, ConcurrencySettings, InitialParams);
 }
 
 void AProjectileBase::Tick(float DeltaTime)
@@ -74,7 +93,7 @@ void AProjectileBase::OnProjectileHit(UPrimitiveComponent* HitComponent, AActor*
     //    *GetNameSafe(OtherComp)
     //    );
 
-    //UHeliAceFuntionsLibrary::ApplyDamage(RocketConfig.Damage, this, OtherActor);
+    CustomApplyDamage(Config.Damage, this, OtherActor);
 
     if (ExplosionEffect != nullptr)
     {
@@ -88,7 +107,7 @@ void AProjectileBase::OnProjectileHit(UPrimitiveComponent* HitComponent, AActor*
 
     if (ExplosionSound != nullptr)
     {
-        //UHeliAceFuntionsLibrary::PlaySoundAtLocation(this, ExplosionSound, GetActorLocation());
+        CustomPlaySoundAtLocation(this, ExplosionSound, GetActorLocation());
     }
 
     Destroy();

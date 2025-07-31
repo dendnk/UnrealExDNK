@@ -10,6 +10,12 @@
 class AActor;
 class UDamageType;
 
+namespace WeaponSystemNames
+{
+	static const FName ProjectileMesh(TEXT("ProjectileMesh"));
+	static const FName ProjectileMovement(TEXT("ProjectileMovement"));
+}
+
 UENUM(BlueprintType)
 enum class EFireType : uint8
 {
@@ -90,8 +96,26 @@ struct FReloadData
 	float ReloadTime = 2.5f;
 };
 
-namespace WeaponSystemNames
+USTRUCT(BlueprintType)
+struct FProjectileConfig
 {
-	static const FName ProjectileMesh(TEXT("ProjectileMesh"));
-	static const FName ProjectileMovement(TEXT("ProjectileMovement"));
-}
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
+	float Damage = -1.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
+	float InitialSpeed = -1.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
+	float MaxSpeed = -1.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
+	uint8 bRotationFollowsVelocity : 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile, meta = (EditCondition = "bRotationFollowsVelocity"))
+	uint8 bRotationRemainsVertical : 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
+	uint8 bShouldBounce : 1;
+};
