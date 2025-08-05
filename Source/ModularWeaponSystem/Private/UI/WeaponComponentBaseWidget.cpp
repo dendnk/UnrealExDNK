@@ -75,75 +75,99 @@ void UWeaponComponentBaseWidget::UpdateUIFromViewModel()
 
 		if (FBoolProperty* BoolProperty = CastField<FBoolProperty>(Property))
 		{
-			UBoundCheckBox* BoundCheckBox = WidgetTree->ConstructWidget<UBoundCheckBox>(UBoundCheckBox::StaticClass());
-			UCheckBox* CheckBox = WidgetTree->ConstructWidget<UCheckBox>(UCheckBox::StaticClass());
-			BoundCheckBox->CheckBox = CheckBox;
-			BoundCheckBox->BoundPropertyName = PropertyName;
-			BoundCheckBox->WidgetInputReceiver = TScriptInterface<IWidgetInputReceiver>(this);
+			if (BoundCheckBoxClass != nullptr)
+			{
+				if (UBoundCheckBox* BoundCheckBox = WidgetTree->ConstructWidget<UBoundCheckBox>(BoundCheckBoxClass))
+				{
+					BoundCheckBox->BoundPropertyName = PropertyName;
+					BoundCheckBox->WidgetInputReceiver = TScriptInterface<IWidgetInputReceiver>(this);
 
-			void* ValuePtr = BoolProperty->ContainerPtrToValuePtr<void>(ViewModel.Get());
-			bool bValue = BoolProperty->GetPropertyValue(ValuePtr);
+					void* ValuePtr = BoolProperty->ContainerPtrToValuePtr<void>(ViewModel.Get());
+					bool bValue = BoolProperty->GetPropertyValue(ValuePtr);
 
-			BoundCheckBox->CheckBox->SetIsChecked(bValue);
-			InputWidget = BoundCheckBox;
+					BoundCheckBox->CheckBox->SetIsChecked(bValue);
+					InputWidget = BoundCheckBox;
+				}
+			}
+			else
+			{
+				UE_DNK_LOG(LogTemp, Error, "BoundCheckBoxClass is INVALID!");
+			}
 		}
 		else if (FEnumProperty* EnumProperty = CastField<FEnumProperty>(Property))
 		{
-			UBoundComboBox* BoundComboBoxWidget = WidgetTree->ConstructWidget<UBoundComboBox>(UBoundComboBox::StaticClass());
-			UComboBoxString* ComboBox = WidgetTree->ConstructWidget<UComboBoxString>(UComboBoxString::StaticClass());
-			BoundComboBoxWidget->ComboBox = ComboBox;
-			BoundComboBoxWidget->BoundPropertyName = PropertyName;
-			BoundComboBoxWidget->WidgetInputReceiver = TScriptInterface<IWidgetInputReceiver>(this);
-
-			UEnum* Enum = EnumProperty->GetEnum();
-			if (Enum)
+			if (BoundComboBoxClass != nullptr)
 			{
-				int32 NumEnums = Enum->NumEnums();
-				for (int32 i = 0; i < NumEnums; ++i)
+				if (UBoundComboBox* BoundComboBoxWidget = WidgetTree->ConstructWidget<UBoundComboBox>(BoundComboBoxClass))
 				{
-					// Skip _MAX or hidden entries if needed
-					if (!Enum->HasMetaData(TEXT("Hidden"), i))
+					BoundComboBoxWidget->BoundPropertyName = PropertyName;
+					BoundComboBoxWidget->WidgetInputReceiver = TScriptInterface<IWidgetInputReceiver>(this);
+
+					UEnum* Enum = EnumProperty->GetEnum();
+					if (Enum)
 					{
-						FString EnumName = Enum->GetNameStringByIndex(i);
-						BoundComboBoxWidget->ComboBox->AddOption(EnumName);
+						int32 NumEnums = Enum->NumEnums();
+						for (int32 i = 0; i < NumEnums; ++i)
+						{
+							// Skip _MAX or hidden entries if needed
+							if (!Enum->HasMetaData(TEXT("Hidden"), i))
+							{
+								FString EnumName = Enum->GetNameStringByIndex(i);
+								BoundComboBoxWidget->ComboBox->AddOption(EnumName);
+							}
+						}
 					}
+
+					void* PropValuePtr = EnumProperty->ContainerPtrToValuePtr<void>(ViewModel.Get());
+					int64 EnumIntValue = EnumProperty->GetUnderlyingProperty()->GetSignedIntPropertyValue(PropValuePtr);
+
+					FString SelectedOption = Enum->GetNameStringByValue(EnumIntValue);
+					BoundComboBoxWidget->ComboBox->SetSelectedOption(SelectedOption);
+					InputWidget = BoundComboBoxWidget;
 				}
 			}
-
-			void* PropValuePtr = EnumProperty->ContainerPtrToValuePtr<void>(ViewModel.Get());
-			int64 EnumIntValue = EnumProperty->GetUnderlyingProperty()->GetSignedIntPropertyValue(PropValuePtr);
-
-			FString SelectedOption = Enum->GetNameStringByValue(EnumIntValue);
-			BoundComboBoxWidget->ComboBox->SetSelectedOption(SelectedOption);
-			InputWidget = BoundComboBoxWidget;
+			else
+			{
+				UE_DNK_LOG(LogTemp, Error, "BoundComboBoxClass is INVALID!");
+			}
 		}
 		else if (FIntProperty* IntProperty = CastField<FIntProperty>(Property))
 		{
-			UBoundEditableTextBox* BoundTextBox = WidgetTree->ConstructWidget<UBoundEditableTextBox>(UBoundEditableTextBox::StaticClass());
-			UEditableTextBox* TextBox = WidgetTree->ConstructWidget<UEditableTextBox>(UEditableTextBox::StaticClass());
-			BoundTextBox->TextBox = TextBox;
-			BoundTextBox->BoundPropertyName = PropertyName;
-			BoundTextBox->WidgetInputReceiver = TScriptInterface<IWidgetInputReceiver>(this);
+			if (BoundEditableTextBoxClass != nullptr)
+			{
+				if (UBoundEditableTextBox* BoundTextBox = WidgetTree->ConstructWidget<UBoundEditableTextBox>(BoundEditableTextBoxClass))
+				{
+					BoundTextBox->BoundPropertyName = PropertyName;
+					BoundTextBox->WidgetInputReceiver = TScriptInterface<IWidgetInputReceiver>(this);
 
-			void* ValuePtr = IntProperty->ContainerPtrToValuePtr<void>(ViewModel.Get());
-			int32 Value = IntProperty->GetPropertyValue(ValuePtr);
+					void* ValuePtr = IntProperty->ContainerPtrToValuePtr<void>(ViewModel.Get());
+					int32 Value = IntProperty->GetPropertyValue(ValuePtr);
 
-			BoundTextBox->TextBox->SetText(FText::AsNumber(Value));
-			InputWidget = BoundTextBox;
+					BoundTextBox->TextBox->SetText(FText::AsNumber(Value));
+					InputWidget = BoundTextBox;
+				}
+			}
+			else
+			{
+				UE_DNK_LOG(LogTemp, Error, "BoundEditableTextBoxClass is INVALID!");
+			}
 		}
 		else if (FFloatProperty* FloatProperty = CastField<FFloatProperty>(Property))
 		{
-			UBoundEditableTextBox* BoundTextBox = WidgetTree->ConstructWidget<UBoundEditableTextBox>(UBoundEditableTextBox::StaticClass());
-			UEditableTextBox* TextBox = WidgetTree->ConstructWidget<UEditableTextBox>(UEditableTextBox::StaticClass());
-			BoundTextBox->TextBox = TextBox;
-			BoundTextBox->BoundPropertyName = PropertyName;
-			BoundTextBox->WidgetInputReceiver = TScriptInterface<IWidgetInputReceiver>(this);
+			if (BoundEditableTextBoxClass != nullptr)
+			{
+				if (UBoundEditableTextBox* BoundTextBox = WidgetTree->ConstructWidget<UBoundEditableTextBox>(UBoundEditableTextBox::StaticClass()))
+				{
+					BoundTextBox->BoundPropertyName = PropertyName;
+					BoundTextBox->WidgetInputReceiver = TScriptInterface<IWidgetInputReceiver>(this);
 
-			void* ValuePtr = FloatProperty->ContainerPtrToValuePtr<void>(ViewModel.Get());
-			float Value = FloatProperty->GetPropertyValue(ValuePtr);
+					void* ValuePtr = FloatProperty->ContainerPtrToValuePtr<void>(ViewModel.Get());
+					float Value = FloatProperty->GetPropertyValue(ValuePtr);
 
-			BoundTextBox->TextBox->SetText(FText::AsNumber(Value));
-			InputWidget = BoundTextBox;
+					BoundTextBox->TextBox->SetText(FText::AsNumber(Value));
+					InputWidget = BoundTextBox;
+				}
+			}
 		}
 
 		if (InputWidget)

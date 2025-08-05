@@ -7,6 +7,9 @@
 #include "WeaponComponentBaseWidget.generated.h"
 
 class UBoundWidgetInputBase;
+class UBoundCheckBox;
+class UBoundComboBox;
+class UBoundEditableTextBox;
 class UVerticalBox;
 class UWeaponViewModel;
 
@@ -37,6 +40,15 @@ public:
 
 	UPROPERTY(BlueprintAssignable)
 	FOnSetViewModelDelegate OnUpdateViewModelFromUI;
+
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<UBoundCheckBox> BoundCheckBoxClass;
+
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<UBoundComboBox> BoundComboBoxClass;
+
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<UBoundEditableTextBox> BoundEditableTextBoxClass;
 
 
 protected:
