@@ -1,17 +1,17 @@
 // Copyright 2024 [UnrealExDNK: Denis Kruchok]. All rights reserved.
 
-#include "UIWidgetComponent.h"
+#include "UserWidgetSpawnerComponent.h"
 #include "Blueprint/UserWidget.h"
-#include "OwningActorInterface.h"
+#include "IOwningActorInterface.h"
 #include "UnrealExDNKUtils.h"
 
 
-UUIWidgetComponent::UUIWidgetComponent()
+UUserWidgetSpawnerComponent::UUserWidgetSpawnerComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
 }
 
-void UUIWidgetComponent::BeginPlay()
+void UUserWidgetSpawnerComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
@@ -21,7 +21,7 @@ void UUIWidgetComponent::BeginPlay()
     }
 }
 
-void UUIWidgetComponent::CreateAndAttachWidget()
+void UUserWidgetSpawnerComponent::CreateAndAttachWidget()
 {
     FString OwnerName = GetOwner() != nullptr ? *GetOwner()->GetName() : TEXT("Owner is nullptr!");
     if (IsValid(UIClass) == false)

@@ -3,18 +3,18 @@
 #pragma once
 
 #include "Components/ActorComponent.h"
-#include "UIWidgetComponent.generated.h"
+#include "UserWidgetSpawnerComponent.generated.h"
 
 class APlayerController;
 class UUserWidget;
 
 UCLASS(Abstract, Blueprintable, ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
-class UNREALEXDNK_API UUIWidgetComponent : public UActorComponent
+class UNREALEXDNK_API UUserWidgetSpawnerComponent : public UActorComponent
 {
 	GENERATED_BODY()
 
-public:	
-	UUIWidgetComponent();
+public:
+    UUserWidgetSpawnerComponent();
 
     UPROPERTY(EditDefaultsOnly, Category = UIWidgetComponent)
     bool bShouldHaveUIWidget = true;
