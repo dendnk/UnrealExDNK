@@ -6,7 +6,7 @@
 #include "Components/ComboBoxString.h"
 #include "BoundComboBox.generated.h"
 
-UCLASS(Abstract, Blueprintable, ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
+UCLASS(Blueprintable, ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class UNREALEXDNK_API UBoundComboBox
     : public UBoundWidgetInputBase
 {

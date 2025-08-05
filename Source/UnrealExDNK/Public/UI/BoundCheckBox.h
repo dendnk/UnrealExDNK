@@ -6,7 +6,7 @@
 #include "Components/CheckBox.h"
 #include "BoundCheckBox.generated.h"
 
-UCLASS(Abstract, Blueprintable, ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
+UCLASS(Blueprintable, ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class UNREALEXDNK_API UBoundCheckBox
     : public UBoundWidgetInputBase
 {
