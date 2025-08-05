@@ -14,7 +14,7 @@ class UNREALEXDNK_API UBoundComboBox
 
 public:
     UPROPERTY(meta = (BindWidget))
-    UComboBoxString* ComboBox;
+    TObjectPtr<UComboBoxString> ComboBox;
 
     virtual void NativeConstruct() override
     {

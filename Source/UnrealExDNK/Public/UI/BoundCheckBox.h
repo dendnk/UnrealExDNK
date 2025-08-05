@@ -14,7 +14,7 @@ class UNREALEXDNK_API UBoundCheckBox
 
 public:
     UPROPERTY(meta = (BindWidget))
-    UCheckBox* CheckBox;
+    TObjectPtr<UCheckBox> CheckBox;
 
     virtual void NativeConstruct() override
     {

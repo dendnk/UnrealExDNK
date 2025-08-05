@@ -14,7 +14,7 @@ class UNREALEXDNK_API UBoundEditableTextBox
 
 public:
     UPROPERTY(meta = (BindWidget))
-    UEditableTextBox* TextBox;
+    TObjectPtr<UEditableTextBox> TextBox;
 
     virtual void NativeConstruct() override
     {
