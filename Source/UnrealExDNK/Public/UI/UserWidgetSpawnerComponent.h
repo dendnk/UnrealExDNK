@@ -16,19 +16,19 @@ class UNREALEXDNK_API UUserWidgetSpawnerComponent : public UActorComponent
 public:
     UUserWidgetSpawnerComponent();
 
-    UPROPERTY(EditDefaultsOnly, Category = UIWidgetComponent)
+    UPROPERTY(EditDefaultsOnly, Category = UserWidgetSpawnerComponent)
     bool bShouldHaveUIWidget = true;
 
 protected:
 	virtual void BeginPlay() override;
     virtual void CreateAndAttachWidget();
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = UIWidgetComponent)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = UserWidgetSpawnerComponent)
     TSubclassOf<UUserWidget> UIClass;
 
-    UPROPERTY(BlueprintReadOnly, Category = UIWidgetComponent)
+    UPROPERTY(BlueprintReadOnly, Category = UserWidgetSpawnerComponent)
     TObjectPtr<UUserWidget> WidgetInstance;
 
-    UPROPERTY(BlueprintReadOnly, Category = UIWidgetComponent)
+    UPROPERTY(BlueprintReadOnly, Category = UserWidgetSpawnerComponent)
     TWeakObjectPtr<APlayerController> OwningPlayerController;
 };

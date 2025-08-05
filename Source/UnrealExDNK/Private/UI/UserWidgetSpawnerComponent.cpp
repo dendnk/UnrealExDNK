@@ -1,6 +1,6 @@
 // Copyright 2024 [UnrealExDNK: Denis Kruchok]. All rights reserved.
 
-#include "UserWidgetSpawnerComponent.h"
+#include "UI/UserWidgetSpawnerComponent.h"
 #include "Blueprint/UserWidget.h"
 #include "IOwningActorInterface.h"
 #include "UnrealExDNKUtils.h"
