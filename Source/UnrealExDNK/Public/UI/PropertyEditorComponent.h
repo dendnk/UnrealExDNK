@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "UIWidgetComponent.h"
+#include "UI/UserWidgetSpawnerComponent.h"
 #include "PropertyEditorComponent.generated.h"
 
 class FProperty;
@@ -33,7 +33,7 @@ struct FPropertyInfo
  *  Applies changes back to the actor/components
  */
 UCLASS(Blueprintable, BlueprintType, ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
-class UNREALEXDNK_API UPropertyEditorComponent : public UUIWidgetComponent
+class UNREALEXDNK_API UPropertyEditorComponent : public UUserWidgetSpawnerComponent
 {
 	GENERATED_BODY()
 

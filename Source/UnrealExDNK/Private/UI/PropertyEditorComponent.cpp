@@ -1,7 +1,7 @@
 // Copyright 2025 [UnrealExDNK: Denis Kruchok]. All rights reserved.
 
 
-#include "PropertyEditorComponent.h"
+#include "UI/PropertyEditorComponent.h"
 #include "UObject/UnrealType.h"
 
 
