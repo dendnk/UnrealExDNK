@@ -40,7 +40,7 @@ public:
         ReportErrorIfInvalid();
         if (WidgetInputReceiver)
         {
-            WidgetInputReceiver->Execute_OnEnumSelectionChanged(WidgetInputReceiver.GetObject(), BoundPropertyName, SelectedItem, SeletionType);
+            WidgetInputReceiver->Execute_OnEnumSelectionChanged(WidgetInputReceiver.GetObject(), BoundPropertyName, SelectedItem, SelectionType);
         }
     }
 };
