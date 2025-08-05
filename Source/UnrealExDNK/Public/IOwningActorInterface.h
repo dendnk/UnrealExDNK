@@ -3,7 +3,7 @@
 #pragma once
 
 #include "UObject/Interface.h"
-#include "OwningActorInterface.generated.h"
+#include "IOwningActorInterface.generated.h"
 
 UINTERFACE(MinimalAPI, Blueprintable)
 class UOwningActorInterface : public UInterface
