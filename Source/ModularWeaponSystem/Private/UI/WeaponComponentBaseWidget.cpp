@@ -2,17 +2,33 @@
 
 
 #include "UI/WeaponComponentBaseWidget.h"
-#include "Components/CheckBox.h"
+#include "Blueprint/WidgetTree.h"
 #include "Components/EditableTextBox.h"
+#include "Components/HorizontalBox.h"
+#include "Components/ScaleBox.h"
+#include "Components/SizeBox.h"
+#include "Components/TextBlock.h"
+#include "Components/VerticalBox.h"
+#include "UI/BoundCheckBox.h"
+#include "UI/BoundComboBox.h"
+#include "UI/BoundEditableTextBox.h"
 #include "UI/WeaponViewModel.h"
 #include "UnrealExDNKUtils.h"
 #include "UObject/Class.h"
-#include "View/MVVMView.h"
+#include "UObject/UnrealType.h"
 
 
 void UWeaponComponentBaseWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
+}
+
+void UWeaponComponentBaseWidget::NativeDestruct()
+{
+	ViewModel = nullptr;
+	PropertyWidgets.Empty();
+
+	Super::NativeDestruct();
 }
 
 void UWeaponComponentBaseWidget::SetViewModel(UWeaponViewModel* InViewModel)
@@ -26,278 +42,272 @@ void UWeaponComponentBaseWidget::SetViewModel(UWeaponViewModel* InViewModel)
 	ViewModel = InViewModel;
 	UpdateUIFromViewModel();
 
-	OnSetViewModel.Broadcast(ViewModel);
+	OnSetViewModel.Broadcast(InViewModel);
 }
 
-void UWeaponComponentBaseWidget::UpdateViewModelFromUI()
+void UWeaponComponentBaseWidget::UpdateUIFromViewModel()
 {
-	if (IsValid(ViewModel) == false)
+	if (ViewModel.IsValid() == false)
 	{
 		UE_DNK_LOG(LogTemp, Error, "ViewModel is invalid!");
 		return;
 	}
 
-	const int64 DesiredFireTypeIndex = StaticEnum<EFireType>()->GetValueByNameString(FireTypeComboBox->GetSelectedOption());
-	if (DesiredFireTypeIndex != INDEX_NONE)
+	PropertyWidgets.Empty();
+
+	for (TFieldIterator<FProperty> PropIt(UWeaponViewModel::StaticClass()); PropIt; ++PropIt)
 	{
-		ViewModel->SetFireType(static_cast<EFireType>(DesiredFireTypeIndex));
+		FProperty* Property = *PropIt;
+		FName PropertyName = Property->GetFName();
+
+		// HorizontalBox row
+		UHorizontalBox* RowBox = WidgetTree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
+
+		// TextBlock for label
+		UTextBlock* Label = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass());
+		Label->SetText(FText::FromName(PropertyName));
+
+		// Right side: SizeBox -> ScaleBox -> Editable Widget
+		USizeBox* SizeBox = WidgetTree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
+		UScaleBox* ScaleBox = WidgetTree->ConstructWidget<UScaleBox>(UScaleBox::StaticClass());
+
+		UBoundWidgetInputBase* InputWidget = nullptr;
+
+		if (FBoolProperty* BoolProperty = CastField<FBoolProperty>(Property))
+		{
+			UBoundCheckBox* BoundCheckBox = WidgetTree->ConstructWidget<UBoundCheckBox >(UBoundCheckBox::StaticClass());
+			BoundCheckBox->BoundPropertyName = PropertyName;
+			BoundCheckBox->WidgetInputReceiver = TScriptInterface<IWidgetInputReceiver>(this);
+
+			void* ValuePtr = BoolProperty->ContainerPtrToValuePtr<void>(ViewModel.Get());
+			bool bValue = BoolProperty->GetPropertyValue(ValuePtr);
+
+			BoundCheckBox->CheckBox->SetIsChecked(bValue);
+			InputWidget = BoundCheckBox;
+		}
+		else if (FEnumProperty* EnumProperty = CastField<FEnumProperty>(Property))
+		{
+			UBoundComboBox* BoundComboBoxWidget = WidgetTree->ConstructWidget<UBoundComboBox>(UBoundComboBox::StaticClass());
+			BoundComboBoxWidget->BoundPropertyName = PropertyName;
+			BoundComboBoxWidget->WidgetInputReceiver = TScriptInterface<IWidgetInputReceiver>(this);
+
+			UEnum* Enum = EnumProperty->GetEnum();
+			if (Enum)
+			{
+				int32 NumEnums = Enum->NumEnums();
+				for (int32 i = 0; i < NumEnums; ++i)
+				{
+					// Skip _MAX or hidden entries if needed
+					if (!Enum->HasMetaData(TEXT("Hidden"), i))
+					{
+						FString EnumName = Enum->GetNameStringByIndex(i);
+						BoundComboBoxWidget->ComboBox->AddOption(EnumName);
+					}
+				}
+			}
+
+			void* PropValuePtr = EnumProperty->ContainerPtrToValuePtr<void>(ViewModel.Get());
+			int64 EnumIntValue = EnumProperty->GetUnderlyingProperty()->GetSignedIntPropertyValue(PropValuePtr);
+
+			FString SelectedOption = Enum->GetNameStringByValue(EnumIntValue);
+			BoundComboBoxWidget->ComboBox->SetSelectedOption(SelectedOption);
+			InputWidget = BoundComboBoxWidget;
+		}
+		else if (FIntProperty* IntProperty = CastField<FIntProperty>(Property))
+		{
+			UBoundEditableTextBox* BoundTextBox = WidgetTree->ConstructWidget<UBoundEditableTextBox>(UBoundEditableTextBox::StaticClass());
+			BoundTextBox->BoundPropertyName = PropertyName;
+			BoundTextBox->WidgetInputReceiver = TScriptInterface<IWidgetInputReceiver>(this);
+
+			void* ValuePtr = IntProperty->ContainerPtrToValuePtr<void>(ViewModel.Get());
+			int32 Value = IntProperty->GetPropertyValue(ValuePtr);
+
+			BoundTextBox->TextBox->SetText(FText::AsNumber(Value));
+			InputWidget = BoundTextBox;
+		}
+		else if (FFloatProperty* FloatProperty = CastField<FFloatProperty>(Property))
+		{
+			UBoundEditableTextBox* BoundTextBox = WidgetTree->ConstructWidget<UBoundEditableTextBox>(UBoundEditableTextBox::StaticClass());
+			BoundTextBox->BoundPropertyName = PropertyName;
+			BoundTextBox->WidgetInputReceiver = TScriptInterface<IWidgetInputReceiver>(this);
+
+			void* ValuePtr = IntProperty->ContainerPtrToValuePtr<void>(ViewModel.Get());
+			float Value = IntProperty->GetPropertyValue(ValuePtr);
+
+			BoundTextBox->TextBox->SetText(FText::AsNumber(Value));
+			InputWidget = BoundTextBox;
+		}
+
+		if (InputWidget)
+		{
+			PropertyWidgets.Add(PropertyName, InputWidget);
+
+			ScaleBox->AddChild(InputWidget);
+			SizeBox->AddChild(ScaleBox);
+
+			RowBox->AddChildToHorizontalBox(Label);
+			RowBox->AddChildToHorizontalBox(SizeBox);
+			PropertiesVerticalBox->AddChildToVerticalBox(RowBox);
+		}
 	}
-	else
+}
+
+void UWeaponComponentBaseWidget::UpdateViewModelFromUI()
+{
+	if (ViewModel.IsValid() == false)
 	{
-		UE_DNK_LOG(LogTemp, Warning, "Check value in FireTypeComboBox! FireType will not be applied!");
+		UE_DNK_LOG(LogTemp, Error, "ViewModel is invalid!");
+		return;
 	}
 
-	const int64 DesiredFiringModeIndex = StaticEnum<EFiringMode>()->GetValueByNameString(FiringModeComboBox->GetSelectedOption());
-	if (DesiredFiringModeIndex != INDEX_NONE)
+	for (TFieldIterator<FProperty> PropIt(UWeaponViewModel::StaticClass()); PropIt; ++PropIt)
 	{
-		ViewModel->SetFiringMode(static_cast<EFiringMode>(DesiredFiringModeIndex));
-	}
-	else
-	{
-		UE_DNK_LOG(LogTemp, Warning, "Check value in FiringModeComboBox! FiringMode will not be applied!");
-	}
+		FProperty* Property = *PropIt;
+		FName PropertyName = Property->GetFName();
 
-	ViewModel->SetMaxAmmo(FCString::Atoi(*MaxAmmoTextBox->GetText().ToString()));
-	ViewModel->SetAmmoPerShot(FCString::Atoi(*AmmoPerShotTextBox->GetText().ToString()));
-	ViewModel->SetCurrentAmmo(FCString::Atoi(*CurrentAmmoTextBox->GetText().ToString()));
-	ViewModel->SetIsInfiniteAmmo(InfiniteAmmoCheckBox->IsChecked());
-	ViewModel->SetBurstCount(FCString::Atoi(*BurstCountTextBox->GetText().ToString()));
-	ViewModel->SetCooldownTime(FCString::Atof(*CooldownTimeTextBox->GetText().ToString()));
-	ViewModel->SetIsNeedReload(NeedsReloadCheckBox->IsChecked());
-	ViewModel->SetReloadTime(FCString::Atof(*ReloadTimeTextBox->GetText().ToString()));
-	ViewModel->SetBaseDamage(FCString::Atof(*BaseDamageTextBox->GetText().ToString()));
-	ViewModel->SetDamagePerTick(FCString::Atof(*DamagePerTickTextBox->GetText().ToString()));
-	ViewModel->SetHitscanRange(FCString::Atof(*HitscanRangeTextBox->GetText().ToString()));
-	ViewModel->SetHitscanSpread(FCString::Atof(*HitscanSpreadTextBox->GetText().ToString()));
-	ViewModel->SetProjectileSpeed(FCString::Atof(*ProjectileSpeedTextBox->GetText().ToString()));
-	ViewModel->SetBeamDuration(FCString::Atof(*BeamDurationTextBox->GetText().ToString()));
+		if (UBoundWidgetInputBase* WidgetPtr = PropertyWidgets.FindRef(PropertyName))
+		{
+			void* ValuePtr = Property->ContainerPtrToValuePtr<void>(ViewModel.Get());
+
+			if (FBoolProperty* BoolProperty = CastField<FBoolProperty>(Property))
+			{
+				if (UBoundCheckBox* CheckBox = Cast<UBoundCheckBox>(WidgetPtr))
+				{
+					bool bIsChecked = CheckBox->CheckBox->IsChecked();
+					BoolProperty->SetPropertyValue(ValuePtr, bIsChecked);
+				}
+			}
+			else if (FEnumProperty* EnumProperty = CastField<FEnumProperty>(Property))
+			{
+				if (UBoundComboBox* ComboBox = Cast<UBoundComboBox>(WidgetPtr))
+				{
+					FString SelectedItem = ComboBox->ComboBox->GetSelectedOption();
+					UEnum* Enum = EnumProperty->GetEnum();
+					int64 EnumValue = Enum->GetValueByNameString(SelectedItem);
+					if (Enum->IsValidEnumValue(EnumValue))
+					{
+						EnumProperty->GetUnderlyingProperty()->SetIntPropertyValue(ValuePtr, EnumValue);
+					}
+				}
+			}
+			else if (FIntProperty* IntProperty = CastField<FIntProperty>(Property))
+			{
+				if (UBoundEditableTextBox* TextBox = Cast<UBoundEditableTextBox>(WidgetPtr))
+				{
+					const FString TextStr = TextBox->TextBox->GetText().ToString();
+					int32 Value = FCString::Atoi(*TextStr);
+					IntProperty->SetPropertyValue(ValuePtr, Value);
+				}
+			}
+			else if (FFloatProperty* FloatProperty = CastField<FFloatProperty>(Property))
+			{
+				if (UBoundEditableTextBox* TextBox = Cast<UBoundEditableTextBox>(WidgetPtr))
+				{
+					const FString TextStr = TextBox->TextBox->GetText().ToString();
+					float Value = FCString::Atof(*TextStr);
+					FloatProperty->SetPropertyValue(ValuePtr, Value);
+				}
+			}
+
+			UE::FieldNotification::FFieldId FieldId = ViewModel->GetFieldNotificationDescriptor().GetField(ViewModel->GetClass(), PropertyName);
+			ViewModel->BroadcastFieldValueChanged(FieldId);
+		}
+	}
 
 	ViewModel->ApplyToCurrentWeapon();
 
 	OnUpdateViewModelFromUI.Broadcast(ViewModel);
 }
 
-void UWeaponComponentBaseWidget::UpdateUIFromViewModel()
+void UWeaponComponentBaseWidget::OnEnumSelectionChanged(FName PropertyName, const FString& SelectedItem)
 {
-	if (IsValid(ViewModel) == false)
+	if (ViewModel.IsValid() == false)
 	{
 		UE_DNK_LOG(LogTemp, Error, "ViewModel is invalid!");
 		return;
 	}
 
-	bool bAllValid = true;
-
-	const TArray<TPair<FString, UObject*>> WidgetChecks = {
-		{ TEXT("FireTypeComboBox"), FireTypeComboBox },
-		{ TEXT("FiringModeComboBox"), FiringModeComboBox },
-		{ TEXT("MaxAmmoTextBox"), MaxAmmoTextBox },
-		{ TEXT("AmmoPerShotTextBox"), AmmoPerShotTextBox },
-		{ TEXT("CurrentAmmoTextBox"), CurrentAmmoTextBox },
-		{ TEXT("InfiniteAmmoCheckBox"), InfiniteAmmoCheckBox },
-		{ TEXT("BurstCountTextBox"), BurstCountTextBox },
-		{ TEXT("CooldownTimeTextBox"), CooldownTimeTextBox },
-		{ TEXT("NeedsReloadCheckBox"), NeedsReloadCheckBox },
-		{ TEXT("ReloadTimeTextBox"), ReloadTimeTextBox },
-		{ TEXT("BaseDamageTextBox"), BaseDamageTextBox },
-		{ TEXT("DamagePerTickTextBox"), DamagePerTickTextBox },
-		{ TEXT("HitscanRangeTextBox"), HitscanRangeTextBox },
-		{ TEXT("HitscanSpreadTextBox"), HitscanSpreadTextBox },
-		{ TEXT("ProjectileSpeedTextBox"), ProjectileSpeedTextBox },
-		{ TEXT("BeamDurationTextBox"), BeamDurationTextBox }
-	};
-
-	for (const auto& [Name, Widget] : WidgetChecks)
+	FProperty* Property = ViewModel->GetClass()->FindPropertyByName(PropertyName);
+	if (!Property)
 	{
-		if (IsValid(Widget) == false)
-		{
-			bAllValid = false;
-			UE_DNK_LOG(LogTemp, Error, "%s is Invalid!", *Name);
-		}
-	}
-
-	if (!bAllValid)
-	{
-		UE_DNK_LOG(LogTemp, Error, "Some of the widgets were not found. Initialization aborted.");
+		UE_DNK_LOG(LogTemp, Error, "Property %s not found on ViewModel!", *PropertyName.ToString());
 		return;
 	}
 
-	PopulateEnumOptions<EFireType>(FireTypeComboBox);
-	PopulateEnumOptions<EFiringMode>(FiringModeComboBox);
-
-	FireTypeComboBox->SetSelectedOption(ViewModel->GetFireTypeAsString());
-	FiringModeComboBox->SetSelectedOption(ViewModel->GetFiringModeAsString());
-	MaxAmmoTextBox->SetText(FText::FromString(FString::FromInt(ViewModel->GetMaxAmmo())));
-	AmmoPerShotTextBox->SetText(FText::FromString(FString::FromInt(ViewModel->GetAmmoPerShot())));
-	CurrentAmmoTextBox->SetText(FText::FromString(FString::FromInt(ViewModel->GetCurrentAmmo())));
-	InfiniteAmmoCheckBox->SetIsChecked(ViewModel->IsInfiniteAmmo());
-	BurstCountTextBox->SetText(FText::FromString(FString::FromInt(ViewModel->GetBurstCount())));
-	CooldownTimeTextBox->SetText(FText::FromString(FString::SanitizeFloat(ViewModel->GetCooldownTime())));
-	NeedsReloadCheckBox->SetIsChecked(ViewModel->IsNeedReload());
-	ReloadTimeTextBox->SetText(FText::FromString(FString::SanitizeFloat(ViewModel->GetReloadTime())));
-	BaseDamageTextBox->SetText(FText::FromString(FString::SanitizeFloat(ViewModel->GetBaseDamage())));
-	DamagePerTickTextBox->SetText(FText::FromString(FString::SanitizeFloat(ViewModel->GetDamagePerTick())));
-	HitscanRangeTextBox->SetText(FText::FromString(FString::SanitizeFloat(ViewModel->GetHitscanRange())));
-	HitscanSpreadTextBox->SetText(FText::FromString(FString::SanitizeFloat(ViewModel->GetHitscanSpread())));
-	ProjectileSpeedTextBox->SetText(FText::FromString(FString::SanitizeFloat(ViewModel->GetProjectileSpeed())));
-	BeamDurationTextBox->SetText(FText::FromString(FString::SanitizeFloat(ViewModel->GetBeamDuration())));
-
-	// Bind selection changed event
-	FireTypeComboBox->OnSelectionChanged.AddDynamic(this, &ThisClass::OnFireTypeChanged);
-	FiringModeComboBox->OnSelectionChanged.AddDynamic(this, &ThisClass::OnFiringModeChanged);
-	MaxAmmoTextBox->OnTextCommitted.AddDynamic(this, &ThisClass::OnMaxAmmoCommitted);
-	AmmoPerShotTextBox->OnTextCommitted.AddDynamic(this, &ThisClass::OnAmmoPerShotCommitted);
-	CurrentAmmoTextBox->OnTextCommitted.AddDynamic(this, &ThisClass::OnCurrentAmmoCommitted);
-	InfiniteAmmoCheckBox->OnCheckStateChanged.AddDynamic(this, &ThisClass::OnInfiniteAmmoChanged);
-	BurstCountTextBox->OnTextCommitted.AddDynamic(this, &ThisClass::OnBurstCountCommitted);
-	CooldownTimeTextBox->OnTextCommitted.AddDynamic(this, &ThisClass::OnCooldownTimeCommitted);
-	NeedsReloadCheckBox->OnCheckStateChanged.AddDynamic(this, &ThisClass::OnNeedsReloadChanged);
-	ReloadTimeTextBox->OnTextCommitted.AddDynamic(this, &ThisClass::OnReloadTimeCommitted);
-	BaseDamageTextBox->OnTextCommitted.AddDynamic(this, &ThisClass::OnBaseDamageCommitted);
-	DamagePerTickTextBox->OnTextCommitted.AddDynamic(this, &ThisClass::OnDamagePerTickCommitted);
-	HitscanRangeTextBox->OnTextCommitted.AddDynamic(this, &ThisClass::OnHitscanRangeCommitted);
-	HitscanSpreadTextBox->OnTextCommitted.AddDynamic(this, &ThisClass::OnHitscanSpreadCommitted);
-	ProjectileSpeedTextBox->OnTextCommitted.AddDynamic(this, &ThisClass::OnProjectileSpeedCommitted);
-	BeamDurationTextBox->OnTextCommitted.AddDynamic(this, &ThisClass::OnBeamDurationCommitted);
-}
-
-void UWeaponComponentBaseWidget::OnFireTypeChanged(FString SelectedItem, ESelectInfo::Type SelectionType)
-{
-	SetEnumFieldSafe<EFireType, UWeaponViewModel>(ViewModel, SelectedItem,
-		[](UWeaponViewModel* WeaponViewModel, EFireType FireType)
+	if (FEnumProperty* EnumProp = CastField<FEnumProperty>(Property))
+	{
+		UEnum* Enum = EnumProp->GetEnum();
+		int64 EnumValue = Enum->GetValueByNameString(SelectedItem);
+		if (Enum->IsValidEnumValue(EnumValue))
 		{
-			WeaponViewModel->SetFireType(FireType);
-		});
-}
+			void* PropValuePtr = EnumProp->ContainerPtrToValuePtr<void>(ViewModel.Get());
+			EnumProp->GetUnderlyingProperty()->SetIntPropertyValue(PropValuePtr, EnumValue);
 
-void UWeaponComponentBaseWidget::OnFiringModeChanged(FString SelectedItem, ESelectInfo::Type)
-{
-	SetEnumFieldSafe<EFiringMode, UWeaponViewModel>(ViewModel, SelectedItem,
-		[](UWeaponViewModel* WeaponViewModel, EFiringMode FiringMode)
-		{
-			WeaponViewModel->SetFiringMode(FiringMode);
-		});
-}
-
-void UWeaponComponentBaseWidget::OnMaxAmmoCommitted(const FText& Text, ETextCommit::Type CommitMethod)
-{
-	if (ViewModel && Text.IsNumeric())
-	{
-		int32 Value = FCString::Atoi(*Text.ToString());
-		ViewModel->SetMaxAmmo(Value);
+			UE::FieldNotification::FFieldId FieldId = ViewModel->GetFieldNotificationDescriptor().GetField(ViewModel->GetClass(), PropertyName);
+			ViewModel->BroadcastFieldValueChanged(FieldId);
+		}
 	}
 }
 
-void UWeaponComponentBaseWidget::OnAmmoPerShotCommitted(const FText& Text, ETextCommit::Type CommitMethod)
+void UWeaponComponentBaseWidget::OnCheckStateChanged(FName PropertyName, bool bIsChecked)
 {
-	if (ViewModel && Text.IsNumeric())
+	if (ViewModel.IsValid() == false)
 	{
-		int32 Value = FCString::Atoi(*Text.ToString());
-		ViewModel->SetAmmoPerShot(Value);
+		UE_DNK_LOG(LogTemp, Error, "ViewModel is invalid!");
+		return;
+	}
+
+	FProperty* Property = ViewModel->GetClass()->FindPropertyByName(PropertyName);
+	if (!Property)
+	{
+		UE_DNK_LOG(LogTemp, Error, "Property %s not found on ViewModel!", *PropertyName.ToString());
+		return;
+	}
+
+	if (FBoolProperty* BoolProperty = CastField<FBoolProperty>(Property))
+	{
+		void* PropValuePtr = BoolProperty->ContainerPtrToValuePtr<void>(ViewModel.Get());
+		BoolProperty->SetPropertyValue(PropValuePtr, bIsChecked);
+
+		UE::FieldNotification::FFieldId FieldId = ViewModel->GetFieldNotificationDescriptor().GetField(ViewModel->GetClass(), PropertyName);
+		ViewModel->BroadcastFieldValueChanged(FieldId);
 	}
 }
 
-void UWeaponComponentBaseWidget::OnCurrentAmmoCommitted(const FText& Text, ETextCommit::Type CommitMethod)
+void UWeaponComponentBaseWidget::OnTextCommitted(FName PropertyName, const FText& NewText, ETextCommit::Type CommitMethod)
 {
-	if (ViewModel && Text.IsNumeric())
+	if (!ViewModel.IsValid())
 	{
-		int32 Value = FCString::Atoi(*Text.ToString());
-		ViewModel->SetCurrentAmmo(Value);
+		UE_DNK_LOG(LogTemp, Error, "ViewModel is invalid!");
+		return;
 	}
-}
 
-void UWeaponComponentBaseWidget::OnInfiniteAmmoChanged(bool bIsChecked)
-{
-	if (ViewModel)
+	FProperty* Property = ViewModel->GetClass()->FindPropertyByName(PropertyName);
+	if (!Property)
 	{
-		ViewModel->SetIsInfiniteAmmo(bIsChecked);
+		UE_DNK_LOG(LogTemp, Error, "Property %s not found on ViewModel!", *PropertyName.ToString());
+		return;
 	}
-}
 
-void UWeaponComponentBaseWidget::OnBurstCountCommitted(const FText& Text, ETextCommit::Type CommitMethod)
-{
-	if (ViewModel && Text.IsNumeric())
+	const FString TextStr = NewText.ToString();
+	if (FIntProperty* IntProperty = CastField<FIntProperty>(Property))
 	{
-		int32 Value = FCString::Atoi(*Text.ToString());
-		ViewModel->SetBurstCount(Value);
+		int32 IntValue = FCString::Atoi(*TextStr);
+		void* PropValuePtr = IntProperty->ContainerPtrToValuePtr<void>(ViewModel.Get());
+		IntProperty->SetPropertyValue(PropValuePtr, IntValue);
 	}
-}
+	else if (FFloatProperty* FloatProperty = CastField<FFloatProperty>(Property))
+	{
+		float FloatValue = FCString::Atof(*TextStr);
+		void* PropValuePtr = FloatProperty->ContainerPtrToValuePtr<void>(ViewModel.Get());
+		FloatProperty->SetPropertyValue(PropValuePtr, FloatValue);
+	}
+	else
+	{
+		UE_DNK_LOG(LogTemp, Warning, "Property %s is not int or float", *PropertyName.ToString());
+		return;
+	}
 
-void UWeaponComponentBaseWidget::OnCooldownTimeCommitted(const FText& Text, ETextCommit::Type CommitMethod)
-{
-	if (ViewModel && Text.IsNumeric())
-	{
-		float Value = FCString::Atof(*Text.ToString());
-		ViewModel->SetCooldownTime(Value);
-	}
-}
-
-void UWeaponComponentBaseWidget::OnNeedsReloadChanged(bool bIsChecked)
-{
-	if (ViewModel)
-	{
-		ViewModel->SetIsNeedReload(bIsChecked);
-	}
-}
-
-void UWeaponComponentBaseWidget::OnReloadTimeCommitted(const FText& Text, ETextCommit::Type CommitMethod)
-{
-	if (ViewModel && Text.IsNumeric())
-	{
-		float Value = FCString::Atof(*Text.ToString());
-		ViewModel->SetReloadTime(Value);
-	}
-}
-
-void UWeaponComponentBaseWidget::OnBaseDamageCommitted(const FText& Text, ETextCommit::Type CommitMethod)
-{
-	if (ViewModel && Text.IsNumeric())
-	{
-		float Value = FCString::Atof(*Text.ToString());
-		ViewModel->SetBaseDamage(Value);
-	}
-}
-
-void UWeaponComponentBaseWidget::OnDamagePerTickCommitted(const FText& Text, ETextCommit::Type CommitMethod)
-{
-	if (ViewModel && Text.IsNumeric())
-	{
-		float Value = FCString::Atof(*Text.ToString());
-		ViewModel->SetDamagePerTick(Value);
-	}
-}
-
-void UWeaponComponentBaseWidget::OnHitscanRangeCommitted(const FText& Text, ETextCommit::Type CommitMethod)
-{
-	if (ViewModel && Text.IsNumeric())
-	{
-		float Value = FCString::Atof(*Text.ToString());
-		ViewModel->SetHitscanRange(Value);
-	}
-}
-
-void UWeaponComponentBaseWidget::OnHitscanSpreadCommitted(const FText& Text, ETextCommit::Type CommitMethod)
-{
-	if (ViewModel && Text.IsNumeric())
-	{
-		float Value = FCString::Atof(*Text.ToString());
-		ViewModel->SetHitscanSpread(Value);
-	}
-}
-
-void UWeaponComponentBaseWidget::OnProjectileSpeedCommitted(const FText& Text, ETextCommit::Type CommitMethod)
-{
-	if (ViewModel && Text.IsNumeric())
-	{
-		float Value = FCString::Atof(*Text.ToString());
-		ViewModel->SetProjectileSpeed(Value);
-	}
-}
-
-void UWeaponComponentBaseWidget::OnBeamDurationCommitted(const FText& Text, ETextCommit::Type CommitMethod)
-{
-	if (ViewModel && Text.IsNumeric())
-	{
-		float Value = FCString::Atof(*Text.ToString());
-		ViewModel->SetBeamDuration(Value);
-	}
+	UE::FieldNotification::FFieldId FieldId = ViewModel->GetFieldNotificationDescriptor().GetField(ViewModel->GetClass(), PropertyName);
+	ViewModel->BroadcastFieldValueChanged(FieldId);
 }
