@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "UIWidgetComponent.h"
+#include "UI/UserWidgetSpawnerComponent.h"
 #include "Data/WeaponDataAsset.h"
 #include "WeaponComponentBase.generated.h"
 
@@ -12,7 +12,7 @@ class UWeaponViewModel;
  * Base Weapon Component Class
  */
 UCLASS(Abstract, Blueprintable, ClassGroup = (Weapons), meta = (BlueprintSpawnableComponent))
-class MODULARWEAPONSYSTEM_API UWeaponComponentBase : public UUIWidgetComponent
+class MODULARWEAPONSYSTEM_API UWeaponComponentBase : public UUserWidgetSpawnerComponent
 {
     GENERATED_BODY()
 
