@@ -75,7 +75,9 @@ void UWeaponComponentBaseWidget::UpdateUIFromViewModel()
 
 		if (FBoolProperty* BoolProperty = CastField<FBoolProperty>(Property))
 		{
-			UBoundCheckBox* BoundCheckBox = WidgetTree->ConstructWidget<UBoundCheckBox >(UBoundCheckBox::StaticClass());
+			UBoundCheckBox* BoundCheckBox = WidgetTree->ConstructWidget<UBoundCheckBox>(UBoundCheckBox::StaticClass());
+			UCheckBox* CheckBox = WidgetTree->ConstructWidget<UCheckBox>(UCheckBox::StaticClass());
+			BoundCheckBox->CheckBox = CheckBox;
 			BoundCheckBox->BoundPropertyName = PropertyName;
 			BoundCheckBox->WidgetInputReceiver = TScriptInterface<IWidgetInputReceiver>(this);
 
@@ -88,6 +90,8 @@ void UWeaponComponentBaseWidget::UpdateUIFromViewModel()
 		else if (FEnumProperty* EnumProperty = CastField<FEnumProperty>(Property))
 		{
 			UBoundComboBox* BoundComboBoxWidget = WidgetTree->ConstructWidget<UBoundComboBox>(UBoundComboBox::StaticClass());
+			UComboBoxString* ComboBox = WidgetTree->ConstructWidget<UComboBoxString>(UComboBoxString::StaticClass());
+			BoundComboBoxWidget->ComboBox = ComboBox;
 			BoundComboBoxWidget->BoundPropertyName = PropertyName;
 			BoundComboBoxWidget->WidgetInputReceiver = TScriptInterface<IWidgetInputReceiver>(this);
 
@@ -116,6 +120,8 @@ void UWeaponComponentBaseWidget::UpdateUIFromViewModel()
 		else if (FIntProperty* IntProperty = CastField<FIntProperty>(Property))
 		{
 			UBoundEditableTextBox* BoundTextBox = WidgetTree->ConstructWidget<UBoundEditableTextBox>(UBoundEditableTextBox::StaticClass());
+			UEditableTextBox* TextBox = WidgetTree->ConstructWidget<UEditableTextBox>(UEditableTextBox::StaticClass());
+			BoundTextBox->TextBox = TextBox;
 			BoundTextBox->BoundPropertyName = PropertyName;
 			BoundTextBox->WidgetInputReceiver = TScriptInterface<IWidgetInputReceiver>(this);
 
@@ -128,11 +134,13 @@ void UWeaponComponentBaseWidget::UpdateUIFromViewModel()
 		else if (FFloatProperty* FloatProperty = CastField<FFloatProperty>(Property))
 		{
 			UBoundEditableTextBox* BoundTextBox = WidgetTree->ConstructWidget<UBoundEditableTextBox>(UBoundEditableTextBox::StaticClass());
+			UEditableTextBox* TextBox = WidgetTree->ConstructWidget<UEditableTextBox>(UEditableTextBox::StaticClass());
+			BoundTextBox->TextBox = TextBox;
 			BoundTextBox->BoundPropertyName = PropertyName;
 			BoundTextBox->WidgetInputReceiver = TScriptInterface<IWidgetInputReceiver>(this);
 
-			void* ValuePtr = IntProperty->ContainerPtrToValuePtr<void>(ViewModel.Get());
-			float Value = IntProperty->GetPropertyValue(ValuePtr);
+			void* ValuePtr = FloatProperty->ContainerPtrToValuePtr<void>(ViewModel.Get());
+			float Value = FloatProperty->GetPropertyValue(ValuePtr);
 
 			BoundTextBox->TextBox->SetText(FText::AsNumber(Value));
 			InputWidget = BoundTextBox;
