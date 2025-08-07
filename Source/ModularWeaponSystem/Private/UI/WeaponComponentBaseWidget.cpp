@@ -9,6 +9,7 @@
 #include "Components/SizeBox.h"
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
+#include "Projectiles/ProjectileBase.h"
 #include "UI/BoundCheckBox.h"
 #include "UI/BoundComboBox.h"
 #include "UI/BoundEditableTextBox.h"
@@ -94,6 +95,44 @@ void UWeaponComponentBaseWidget::UpdateUIFromViewModel()
 				UE_DNK_LOG(LogTemp, Error, "BoundCheckBoxClass is INVALID!");
 			}
 		}
+		else if (FIntProperty* IntProperty = CastField<FIntProperty>(Property))
+		{
+			if (BoundEditableTextBoxClass != nullptr)
+			{
+				if (UBoundEditableTextBox* BoundTextBox = WidgetTree->ConstructWidget<UBoundEditableTextBox>(BoundEditableTextBoxClass))
+				{
+					BoundTextBox->BoundPropertyName = PropertyName;
+					BoundTextBox->WidgetInputReceiver = TScriptInterface<IWidgetInputReceiver>(this);
+
+					void* ValuePtr = IntProperty->ContainerPtrToValuePtr<void>(ViewModel.Get());
+					int32 Value = IntProperty->GetPropertyValue(ValuePtr);
+
+					BoundTextBox->TextBox->SetText(FText::AsNumber(Value));
+					InputWidget = BoundTextBox;
+				}
+			}
+			else
+			{
+				UE_DNK_LOG(LogTemp, Error, "BoundEditableTextBoxClass is INVALID!");
+			}
+		}
+		else if (FFloatProperty* FloatProperty = CastField<FFloatProperty>(Property))
+		{
+			if (BoundEditableTextBoxClass != nullptr)
+			{
+				if (UBoundEditableTextBox* BoundTextBox = WidgetTree->ConstructWidget<UBoundEditableTextBox>(BoundEditableTextBoxClass))
+				{
+					BoundTextBox->BoundPropertyName = PropertyName;
+					BoundTextBox->WidgetInputReceiver = TScriptInterface<IWidgetInputReceiver>(this);
+
+					void* ValuePtr = FloatProperty->ContainerPtrToValuePtr<void>(ViewModel.Get());
+					float Value = FloatProperty->GetPropertyValue(ValuePtr);
+
+					BoundTextBox->TextBox->SetText(FText::AsNumber(Value));
+					InputWidget = BoundTextBox;
+				}
+			}
+		}
 		else if (FEnumProperty* EnumProperty = CastField<FEnumProperty>(Property))
 		{
 			if (BoundComboBoxClass != nullptr)
@@ -131,42 +170,48 @@ void UWeaponComponentBaseWidget::UpdateUIFromViewModel()
 				UE_DNK_LOG(LogTemp, Error, "BoundComboBoxClass is INVALID!");
 			}
 		}
-		else if (FIntProperty* IntProperty = CastField<FIntProperty>(Property))
+		else if (FClassProperty* ClassProperty = CastField<FClassProperty>(Property))
 		{
-			if (BoundEditableTextBoxClass != nullptr)
+			if (BoundComboBoxClass != nullptr)
 			{
-				if (UBoundEditableTextBox* BoundTextBox = WidgetTree->ConstructWidget<UBoundEditableTextBox>(BoundEditableTextBoxClass))
+				if (UBoundComboBox* BoundComboBoxWidget = WidgetTree->ConstructWidget<UBoundComboBox>(BoundComboBoxClass))
 				{
-					BoundTextBox->BoundPropertyName = PropertyName;
-					BoundTextBox->WidgetInputReceiver = TScriptInterface<IWidgetInputReceiver>(this);
+					BoundComboBoxWidget->BoundPropertyName = PropertyName;
+					BoundComboBoxWidget->WidgetInputReceiver = TScriptInterface<IWidgetInputReceiver>(this);
 
-					void* ValuePtr = IntProperty->ContainerPtrToValuePtr<void>(ViewModel.Get());
-					int32 Value = IntProperty->GetPropertyValue(ValuePtr);
+					void* PropValuePtr = ClassProperty->ContainerPtrToValuePtr<void>(ViewModel.Get());
+					UClass* SelectedClass = Cast<UClass>(ClassProperty->GetPropertyValue(PropValuePtr));
 
-					BoundTextBox->TextBox->SetText(FText::AsNumber(Value));
-					InputWidget = BoundTextBox;
+					if (SelectedClass != nullptr)
+					{
+						TArray<UClass*> Subclasses;
+						if (PropertyName.ToString().Contains("ProjectileClass"))
+						{
+							UUnrealExDNKUtils::GetAllSubclassesOf(AProjectileBase::StaticClass(), Subclasses);
+						}
+
+						for (UClass* Class : Subclasses)
+						{
+							FString ClassName = Class->GetName();
+							BoundComboBoxWidget->ComboBox->AddOption(ClassName);
+						}
+
+						if (BoundComboBoxWidget->ComboBox->GetOptionCount() > 0)
+						{
+							BoundComboBoxWidget->ComboBox->SetSelectedOption(SelectedClass->GetName());
+						}
+
+						InputWidget = BoundComboBoxWidget;
+					}
+					else
+					{
+						UE_DNK_LOG(LogTemp, Error, "Can't convert property [%s] value to UClass", *PropertyName.ToString());
+					}
 				}
 			}
 			else
 			{
-				UE_DNK_LOG(LogTemp, Error, "BoundEditableTextBoxClass is INVALID!");
-			}
-		}
-		else if (FFloatProperty* FloatProperty = CastField<FFloatProperty>(Property))
-		{
-			if (BoundEditableTextBoxClass != nullptr)
-			{
-				if (UBoundEditableTextBox* BoundTextBox = WidgetTree->ConstructWidget<UBoundEditableTextBox>(UBoundEditableTextBox::StaticClass()))
-				{
-					BoundTextBox->BoundPropertyName = PropertyName;
-					BoundTextBox->WidgetInputReceiver = TScriptInterface<IWidgetInputReceiver>(this);
-
-					void* ValuePtr = FloatProperty->ContainerPtrToValuePtr<void>(ViewModel.Get());
-					float Value = FloatProperty->GetPropertyValue(ValuePtr);
-
-					BoundTextBox->TextBox->SetText(FText::AsNumber(Value));
-					InputWidget = BoundTextBox;
-				}
+				UE_DNK_LOG(LogTemp, Error, "BoundComboBoxClass is INVALID!");
 			}
 		}
 
