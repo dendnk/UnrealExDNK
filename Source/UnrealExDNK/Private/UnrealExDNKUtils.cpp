@@ -145,11 +145,20 @@ void UUnrealExDNKUtils::GetAllSubclassesOf(UClass* BaseClass, TArray<UClass*>& O
     for (TObjectIterator<UClass> It; It; ++It)
     {
         UClass* Candidate = *It;
-        if (!Candidate->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_NewerVersionExists) &&
-            Candidate->IsChildOf(BaseClass) &&
-            Candidate != BaseClass)
+
+        if (Candidate->IsChildOf(BaseClass) == false ||
+            Candidate == BaseClass ||
+            Candidate->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_NewerVersionExists))
         {
-            OutClasses.Add(Candidate);
+            continue;
         }
+
+        if (Candidate->HasAnyClassFlags(CLASS_Native) == false &&
+            Candidate->IsInBlueprint() == false)
+        {
+            continue;
+        }
+
+        OutClasses.Add(Candidate);
     }
 }
