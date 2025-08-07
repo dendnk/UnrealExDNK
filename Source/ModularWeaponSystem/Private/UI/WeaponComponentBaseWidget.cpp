@@ -180,8 +180,7 @@ void UWeaponComponentBaseWidget::UpdateUIFromViewModel()
 					BoundComboBoxWidget->WidgetInputReceiver = TScriptInterface<IWidgetInputReceiver>(this);
 
 					void* PropValuePtr = ClassProperty->ContainerPtrToValuePtr<void>(ViewModel.Get());
-					UClass* SelectedClass = Cast<UClass>(ClassProperty->GetPropertyValue(PropValuePtr));
-
+					UClass* SelectedClass = Cast<UClass>(ClassProperty->GetObjectPropertyValue(PropValuePtr));
 					if (SelectedClass != nullptr)
 					{
 						TArray<UClass*> Subclasses;
