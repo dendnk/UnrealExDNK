@@ -161,6 +161,11 @@ void UWeaponViewModel::SetProjectileSpeed(float NewProjectileSpeed)
 	UE_MVVM_SET_PROPERTY_VALUE(ProjectileSpeed, NewProjectileSpeed);
 }
 
+void UWeaponViewModel::SetProjectileClass(TSubclassOf<AProjectileBase> NewProjectileClass)
+{
+	UE_MVVM_SET_PROPERTY_VALUE(ProjectileClass, NewProjectileClass);
+}
+
 void UWeaponViewModel::SetBeamDuration(float NewBeamDuration)
 {
 	UE_MVVM_SET_PROPERTY_VALUE(BeamDuration, NewBeamDuration);

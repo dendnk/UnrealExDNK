@@ -6,6 +6,7 @@
 #include "Types/WeaponTypes.h"
 #include "WeaponViewModel.generated.h"
 
+class AProjectileBase;;
 class UWeaponComponentBase;
 class UWeaponDataAsset;
 
@@ -63,6 +64,9 @@ class MODULARWEAPONSYSTEM_API UWeaponViewModel : public UMVVMViewModelBase
 
 	UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
 	float ProjectileSpeed;
+
+	UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
+	TSubclassOf<AProjectileBase> ProjectileClass;
 
 
 	UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
@@ -157,6 +161,9 @@ public:
 
 	void SetProjectileSpeed(float NewProjectileSpeed);
 	float GetProjectileSpeed() const { return ProjectileSpeed; };
+
+	void SetProjectileClass(TSubclassOf<AProjectileBase> NewProjectileClass);
+	TSubclassOf<AProjectileBase> GetProjectileClass() const { return ProjectileClass; };
 
 	void SetBeamDuration(float NewBeamDuration);
 	float GetBeamDuration() const { return BeamDuration; };
