@@ -58,6 +58,7 @@ void UWeaponViewModel::InitializeFromWeaponDataAsset(UWeaponDataAsset* DataAsset
 	SetHitscanRange(DataAsset->HitscanRange);
 	SetHitscanSpread(DataAsset->HitscanSpread);
 	SetProjectileSpeed(DataAsset->ProjectileSpeed);
+	SetProjectileClass(DataAsset->ProjectileClass);
 	SetBeamDuration(DataAsset->BeamDuration);
 }
 
@@ -83,6 +84,7 @@ void UWeaponViewModel::ApplyToWeaponDataAsset(UWeaponDataAsset* DataAsset)
 	DataAsset->HitscanRange = GetHitscanRange();
 	DataAsset->HitscanSpread = GetHitscanSpread();
 	DataAsset->ProjectileSpeed = GetProjectileSpeed();
+	DataAsset->ProjectileClass = GetProjectileClass();
 	DataAsset->BeamDuration = GetBeamDuration();
 }
 
