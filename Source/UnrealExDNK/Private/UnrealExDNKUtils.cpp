@@ -133,3 +133,23 @@ FVector UUnrealExDNKUtils::TryGetMeshScaleFromCDO(TSubclassOf<AActor> ActorClass
 
     return FVector::OneVector;
 }
+
+void UUnrealExDNKUtils::GetAllSubclassesOf(UClass* BaseClass, TArray<UClass*>& OutClasses)
+{
+    if (BaseClass == nullptr)
+    {
+        UE_LOG(LogTemp, Error, TEXT("BaseClass is nullptr!"));
+        return;
+    }
+
+    for (TObjectIterator<UClass> It; It; ++It)
+    {
+        UClass* Candidate = *It;
+        if (!Candidate->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_NewerVersionExists) &&
+            Candidate->IsChildOf(BaseClass) &&
+            Candidate != BaseClass)
+        {
+            OutClasses.Add(Candidate);
+        }
+    }
+}

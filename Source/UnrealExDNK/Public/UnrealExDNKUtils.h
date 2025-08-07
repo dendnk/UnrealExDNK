@@ -366,4 +366,7 @@ public:
 	 */
 	UFUNCTION(BlueprintPure, Category = "CDO")
 	static FVector TryGetMeshScaleFromCDO(TSubclassOf<AActor> ActorClass);
+
+	UFUNCTION(BlueprintCallable, Category = "Class Utils")
+	static void GetAllSubclassesOf(UClass* BaseClass, TArray<UClass*>& OutClasses);
 };
