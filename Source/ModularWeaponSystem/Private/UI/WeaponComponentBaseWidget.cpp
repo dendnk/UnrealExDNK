@@ -184,10 +184,7 @@ void UWeaponComponentBaseWidget::UpdateUIFromViewModel()
 					if (SelectedClass != nullptr)
 					{
 						TArray<UClass*> Subclasses;
-						if (PropertyName.ToString().Contains("ProjectileClass"))
-						{
-							UUnrealExDNKUtils::GetAllSubclassesOf(AProjectileBase::StaticClass(), Subclasses);
-						}
+						UUnrealExDNKUtils::GetAllSubclassesOf(AActor::StaticClass(), Subclasses);
 
 						for (UClass* Class : Subclasses)
 						{
