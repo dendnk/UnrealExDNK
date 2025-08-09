@@ -4,6 +4,7 @@
 
 #include "MVVMViewModelBase.h"
 #include "Types/WeaponTypes.h"
+#include "UnrealExDNKUtils.h"
 #include "WeaponViewModel.generated.h"
 
 class AProjectileBase;;
@@ -66,7 +67,7 @@ class MODULARWEAPONSYSTEM_API UWeaponViewModel : public UMVVMViewModelBase
 	float ProjectileSpeed;
 
 	UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
-	TSubclassOf<AProjectileBase> ProjectileClass;
+	EProjectileType ProjectileType;
 
 
 	UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
@@ -99,7 +100,7 @@ public:
 	UFUNCTION(BlueprintPure, FieldNotify)
 	FString GetFireTypeAsString() const
 	{
-		return StaticEnum<EFireType>()->GetNameStringByValue(static_cast<int64>(FireType));
+		return UUnrealExDNKUtils::GetEnumAsString(FireType);
 	}
 
 	UFUNCTION(BlueprintPure, FieldNotify)
@@ -114,7 +115,7 @@ public:
 	UFUNCTION(BlueprintPure, FieldNotify)
 	FString GetFiringModeAsString() const
 	{
-		return StaticEnum<EFiringMode>()->GetNameStringByValue(static_cast<int64>(FiringMode));
+		return UUnrealExDNKUtils::GetEnumAsString(FiringMode);
 	}
 
 	UFUNCTION(BlueprintPure, FieldNotify)
@@ -159,11 +160,23 @@ public:
 	void SetHitscanSpread(float NewHitscanSpread);
 	float GetHitscanSpread() const { return HitscanSpread; };
 
+	void SetProjectileType(EProjectileType NewProjectileType);
+	EProjectileType GetProjectileType() const { return ProjectileType; };
+
+	UFUNCTION(BlueprintPure, FieldNotify)
+	FString GetProjectileTypeAsString() const
+	{
+		return UUnrealExDNKUtils::GetEnumAsString(ProjectileType);
+	}
+
+	UFUNCTION(BlueprintPure, FieldNotify)
+	FText GetProjectileTypeAsText() const
+	{
+		return FText::FromString(GetProjectileTypeAsString());
+	}
+
 	void SetProjectileSpeed(float NewProjectileSpeed);
 	float GetProjectileSpeed() const { return ProjectileSpeed; };
-
-	void SetProjectileClass(TSubclassOf<AProjectileBase> NewProjectileClass);
-	TSubclassOf<AProjectileBase> GetProjectileClass() const { return ProjectileClass; };
 
 	void SetBeamDuration(float NewBeamDuration);
 	float GetBeamDuration() const { return BeamDuration; };

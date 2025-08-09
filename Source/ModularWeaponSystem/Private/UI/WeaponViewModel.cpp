@@ -28,7 +28,6 @@ void UWeaponViewModel::ApplyToCurrentWeapon()
 	}
 
 	ApplyToWeaponDataAsset(Weapon->GetWeaponDataRuntime());
-	Weapon->SetCurrentAmmo(GetCurrentAmmo());
 }
 
 void UWeaponViewModel::Deinit()
@@ -57,8 +56,8 @@ void UWeaponViewModel::InitializeFromWeaponDataAsset(UWeaponDataAsset* DataAsset
 	SetDamagePerTick(DataAsset->DamageData.DamagePerTick);
 	SetHitscanRange(DataAsset->HitscanRange);
 	SetHitscanSpread(DataAsset->HitscanSpread);
+	SetProjectileType(DataAsset->ProjectileType);
 	SetProjectileSpeed(DataAsset->ProjectileSpeed);
-	SetProjectileClass(DataAsset->ProjectileClass);
 	SetBeamDuration(DataAsset->BeamDuration);
 }
 
@@ -83,9 +82,11 @@ void UWeaponViewModel::ApplyToWeaponDataAsset(UWeaponDataAsset* DataAsset)
 	DataAsset->DamageData.DamagePerTick = GetDamagePerTick();
 	DataAsset->HitscanRange = GetHitscanRange();
 	DataAsset->HitscanSpread = GetHitscanSpread();
+	DataAsset->ProjectileType = GetProjectileType();
 	DataAsset->ProjectileSpeed = GetProjectileSpeed();
-	DataAsset->ProjectileClass = GetProjectileClass();
 	DataAsset->BeamDuration = GetBeamDuration();
+
+	DataAsset->OnWeaponDataPropertyChanged.Broadcast();
 }
 
 void UWeaponViewModel::SetFireType(EFireType NewFireType)
@@ -158,14 +159,14 @@ void UWeaponViewModel::SetHitscanSpread(float NewHitscanSpread)
 	UE_MVVM_SET_PROPERTY_VALUE(HitscanSpread, NewHitscanSpread);
 }
 
+void UWeaponViewModel::SetProjectileType(EProjectileType NewProjectileType)
+{
+	UE_MVVM_SET_PROPERTY_VALUE(ProjectileType, NewProjectileType);
+}
+
 void UWeaponViewModel::SetProjectileSpeed(float NewProjectileSpeed)
 {
 	UE_MVVM_SET_PROPERTY_VALUE(ProjectileSpeed, NewProjectileSpeed);
-}
-
-void UWeaponViewModel::SetProjectileClass(TSubclassOf<AProjectileBase> NewProjectileClass)
-{
-	UE_MVVM_SET_PROPERTY_VALUE(ProjectileClass, NewProjectileClass);
 }
 
 void UWeaponViewModel::SetBeamDuration(float NewBeamDuration)
