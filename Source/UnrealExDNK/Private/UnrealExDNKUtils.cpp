@@ -147,14 +147,7 @@ void UUnrealExDNKUtils::GetAllSubclassesOf(UClass* BaseClass, TArray<UClass*>& O
         UClass* Candidate = *It;
 
         if (Candidate->IsChildOf(BaseClass) == false ||
-            Candidate == BaseClass ||
-            Candidate->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_NewerVersionExists))
-        {
-            continue;
-        }
-
-        if (Candidate->HasAnyClassFlags(CLASS_Native) == false &&
-            Candidate->IsInBlueprint() == false)
+            Candidate->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_HideDropDown))
         {
             continue;
         }
