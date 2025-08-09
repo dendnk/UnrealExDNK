@@ -6,7 +6,11 @@
 #include "Data/WeaponDataAsset.h"
 #include "WeaponComponentBase.generated.h"
 
+class AProjectileBase;
 class UWeaponViewModel;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnProjectileClassChangedDelegate, TSubclassOf<AProjectileBase>, NewProjectileClass);
+
 
 /**
  * Base Weapon Component Class
@@ -34,6 +38,9 @@ private:
     virtual void FireHitscan();
     virtual void FireBeam();
 
+    UFUNCTION()
+    void HandleOnWeaponDataPropertyChanged();
+
 public:
     UFUNCTION(BlueprintNativeEvent, DisplayName = "GetMuzzleTransform", Category = "Weapon|Muzzle")
     FTransform BP_GetMuzzleTransform();
@@ -56,19 +63,31 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Weapon|Data")
     void SetCurrentAmmo(int32 NewCurrentAmmo);
 
+    UFUNCTION(BlueprintCallable, Category = "Weapon|Projectile")
+    TSubclassOf<AProjectileBase> GetProjectileClassByType(const EProjectileType& ProjectileType) const;
+
+    UFUNCTION(BlueprintCallable, Category = "Weapon|Projectile")
+    void SetProjectileClass(TSubclassOf<AProjectileBase> NewProjectileClass);
+
+    UFUNCTION(BlueprintCallable, Category = "Weapon|Projectile")
+    TSubclassOf<AProjectileBase> GetProjectileClass() const { return ProjectileClass; };
+
     UFUNCTION(BlueprintPure, Category = "Weapon|UI")
     UWeaponViewModel* GetViewModel() const { return WeaponViewModel; }
+
+    UPROPERTY(BlueprintAssignable, Category = "Weapon|Projectile")
+    FOnProjectileClassChangedDelegate OnProjectileClassChanged;
 
 
 protected:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon|Data", meta = (AllowPrivateAccess))
     TObjectPtr<UWeaponDataAsset> WeaponDataAsset;
 
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon|Projectile", meta = (AllowPrivateAccess))
+    TMap<EProjectileType, TSubclassOf<AProjectileBase>> ProjectileClasses;
+
     UPROPERTY(Transient, BlueprintReadWrite, Category = "Weapon|Data", meta = (AllowPrivateAccess))
     TObjectPtr<UWeaponDataAsset> WeaponDataRuntime;
-
-    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Weapon|Data", meta = (AllowPrivateAccess))
-    int32 CurrentAmmo;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Fire")
     bool bCanFire = true;
@@ -81,4 +100,10 @@ private:
     FTimerHandle FireLoopHandle;
     FTimerHandle BurstHandle;
     int32 CurrentBurstCount = 0;
+
+    UPROPERTY()
+    int32 CurrentAmmo;
+
+    UPROPERTY()
+    TSubclassOf<AProjectileBase> ProjectileClass;
 };

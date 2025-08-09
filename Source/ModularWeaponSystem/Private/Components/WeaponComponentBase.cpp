@@ -65,7 +65,8 @@ void UWeaponComponentBase::InitWeaponData()
 	}
 
 	WeaponDataRuntime = DuplicateObject<UWeaponDataAsset>(GetWeaponDataAsset(), this);
-	CurrentAmmo = WeaponDataRuntime->MaxAmmo;
+	HandleOnWeaponDataPropertyChanged();
+	WeaponDataRuntime->OnWeaponDataPropertyChanged.AddDynamic(this, &ThisClass::HandleOnWeaponDataPropertyChanged);
 }
 
 void UWeaponComponentBase::StartFire()
@@ -169,7 +170,7 @@ void UWeaponComponentBase::FireProjectile()
 		return;
 	}
 
-	if (WeaponDataRuntime->ProjectileClass == nullptr)
+	if (ProjectileClass == nullptr)
 	{
 		UE_DNK_LOG(LogTemp, Error, "Invalid ProjectileClass!");
 		return;
@@ -191,7 +192,7 @@ void UWeaponComponentBase::FireProjectile()
 	for (int32 i = 0; i < WeaponDataRuntime->AmmoPerShot; ++i)
 	{
 		AProjectileBase* Projectile = World->SpawnActor<AProjectileBase>(
-			WeaponDataRuntime->ProjectileClass,
+			ProjectileClass,
 			MuzzleTransform.GetLocation(),
 			MuzzleTransform.GetRotation().Rotator()
 		);
@@ -256,6 +257,12 @@ void UWeaponComponentBase::FireBeam()
 	}
 }
 
+void UWeaponComponentBase::HandleOnWeaponDataPropertyChanged()
+{
+	CurrentAmmo = WeaponDataRuntime->MaxAmmo;
+	SetProjectileClass(GetProjectileClassByType(WeaponDataRuntime->ProjectileType));
+}
+
 void UWeaponComponentBase::BP_StartFire()
 {
 	if (bCanFire)
@@ -275,6 +282,28 @@ void UWeaponComponentBase::SetCurrentAmmo(int32 NewCurrentAmmo)
 	{
 		CurrentAmmo = NewCurrentAmmo;
 	}
+}
+
+TSubclassOf<AProjectileBase> UWeaponComponentBase::GetProjectileClassByType(const EProjectileType& ProjectileType) const
+{
+	if (ProjectileClasses.Contains(ProjectileType))
+	{
+		return *ProjectileClasses.Find(ProjectileType);
+	}
+
+	return AProjectileBase::StaticClass();
+}
+
+void UWeaponComponentBase::SetProjectileClass(TSubclassOf<AProjectileBase> NewProjectileClass)
+{
+	if (ProjectileClass == NewProjectileClass)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ProjectileClass is the same!"));
+		return;
+	}
+
+	ProjectileClass = NewProjectileClass;
+	OnProjectileClassChanged.Broadcast(NewProjectileClass);
 }
 
 void UWeaponComponentBase::SetupSpawnedProjectile(AProjectileBase* SpawnedProjectile)
