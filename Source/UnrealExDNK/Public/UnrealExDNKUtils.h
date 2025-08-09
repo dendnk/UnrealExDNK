@@ -369,4 +369,17 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Class Utils")
 	static void GetAllSubclassesOf(UClass* BaseClass, TArray<UClass*>& OutClasses);
+
+	template<typename TEnum>
+	static FString GetEnumAsString(TEnum InEnum)
+	{
+		static_assert(TIsEnum<TEnum>::Value, "TEnum must be an enum type.");
+
+		if (const UEnum* EnumPtr = StaticEnum<TEnum>())
+		{
+			return EnumPtr->GetNameStringByValue(static_cast<int64>(InEnum));
+		}
+
+		return TEXT("Invalid");
+	}
 };
