@@ -42,6 +42,18 @@ enum class EFiringMode : uint8
 	Burst,
 };
 
+UENUM(BlueprintType)
+enum class EProjectileType : uint8
+{
+	// Normal rocket, explodes on impact
+	StandardRocket	UMETA(DisplayName = "Standard Rocket"),
+	// Cassette-style rocket, splits into smaller ones
+	ClusterRocket	UMETA(DisplayName = "Cluster Rocket"),
+	// Trajectory deviation (sinusoidal)
+	WobbleRocket	UMETA(DisplayName = "Wobble Rocket"),
+	// Guided rocket that follows the target
+	HomingRocket	UMETA(DisplayName = "Homing Rocket"),
+};
 
 USTRUCT(BlueprintType)
 struct FDamageData
