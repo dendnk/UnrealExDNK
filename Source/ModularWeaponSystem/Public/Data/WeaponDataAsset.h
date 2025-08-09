@@ -10,6 +10,8 @@
 class AProjectileBase;
 class UWeaponComponentBase;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnWeaponDataPropertyChangedEvent);
+
 /**
  * Base data asset for defining weapon parameters.
  */
@@ -62,7 +64,7 @@ public:
 
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Projectile")
-	TSubclassOf<AProjectileBase> ProjectileClass;
+	EProjectileType ProjectileType;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Projectile")
 	float ProjectileSpeed;
@@ -70,6 +72,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Beam")
 	float BeamDuration;
+
+	UPROPERTY(BlueprintAssignable, BlueprintCallable)
+	FOnWeaponDataPropertyChangedEvent OnWeaponDataPropertyChanged;
 
 
 	virtual FPrimaryAssetId GetPrimaryAssetId() const override
