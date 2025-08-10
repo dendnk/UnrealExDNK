@@ -148,8 +148,12 @@ void UWeaponComponentBaseWidget::UpdateUIFromViewModel()
 						int32 NumEnums = Enum->NumEnums();
 						for (int32 i = 0; i < NumEnums; ++i)
 						{
+							bool bShouldSkip = false;
+#if WITH_METADATA
 							// Skip _MAX or hidden entries if needed
-							if (!Enum->HasMetaData(TEXT("Hidden"), i))
+							bShouldSkip = Enum->HasMetaData(TEXT("Hidden"), i);
+#endif // WITH_METADATA
+							if (bShouldSkip == false)
 							{
 								FString EnumName = Enum->GetNameStringByIndex(i);
 								BoundComboBoxWidget->ComboBox->AddOption(EnumName);
