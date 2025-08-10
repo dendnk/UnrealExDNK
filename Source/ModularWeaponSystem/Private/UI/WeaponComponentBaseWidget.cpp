@@ -247,6 +247,9 @@ void UWeaponComponentBaseWidget::UpdateViewModelFromUI()
 				if (UBoundCheckBox* CheckBox = Cast<UBoundCheckBox>(WidgetPtr))
 				{
 					bool bIsChecked = CheckBox->CheckBox->IsChecked();
+
+					UE_DNK_LOG(LogTemp, Log, "Set [%s] value to [%d]", *PropertyName, bIsChecked ? TEXT("True") : TEXT("False"));
+
 					BoolProperty->SetPropertyValue(ValuePtr, bIsChecked);
 				}
 			}
@@ -257,6 +260,9 @@ void UWeaponComponentBaseWidget::UpdateViewModelFromUI()
 					FString SelectedItem = ComboBox->ComboBox->GetSelectedOption();
 					UEnum* Enum = EnumProperty->GetEnum();
 					int64 EnumValue = Enum->GetValueByNameString(SelectedItem);
+
+					UE_DNK_LOG(LogTemp, Log, "Set [%s] value to [%d]", *PropertyName, *SelectedItem);
+
 					if (Enum->IsValidEnumValue(EnumValue))
 					{
 						EnumProperty->GetUnderlyingProperty()->SetIntPropertyValue(ValuePtr, EnumValue);
@@ -269,6 +275,9 @@ void UWeaponComponentBaseWidget::UpdateViewModelFromUI()
 				{
 					const FString TextStr = TextBox->TextBox->GetText().ToString();
 					int32 Value = FCString::Atoi(*TextStr);
+
+					UE_DNK_LOG(LogTemp, Log, "Set [%s] value to [%d]", *PropertyName, Value);
+
 					IntProperty->SetPropertyValue(ValuePtr, Value);
 				}
 			}
@@ -278,6 +287,9 @@ void UWeaponComponentBaseWidget::UpdateViewModelFromUI()
 				{
 					const FString TextStr = TextBox->TextBox->GetText().ToString();
 					float Value = FCString::Atof(*TextStr);
+
+					UE_DNK_LOG(LogTemp, Log, "Set [%s] value to [%f]", *PropertyName, Value);
+
 					FloatProperty->SetPropertyValue(ValuePtr, Value);
 				}
 			}
