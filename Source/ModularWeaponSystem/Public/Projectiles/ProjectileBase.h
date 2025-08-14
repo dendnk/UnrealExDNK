@@ -13,6 +13,8 @@ class UProjectileMovementComponent;
 class USoundBase;
 class UStaticMeshComponent;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnProjectileSetupFinishedDelegate);
+
 /**
  * Base Projectile Class
  */
@@ -56,6 +58,9 @@ public:
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = BaseRocket)
     FProjectileConfig Config;
+
+    UPROPERTY(BlueprintAssignable)
+    FOnProjectileSetupFinishedDelegate OnProjectileSetupFinished;
 
 private:
     UPROPERTY()

@@ -26,6 +26,8 @@ void URocketLauncherComponent::SetupSpawnedProjectile(AProjectileBase* SpawnedPr
             Movement->Velocity = BP_GetMuzzleTransform().GetRotation().Vector() * WeaponDataRuntime->ProjectileSpeed;
         }
     }
+
+    Super::SetupSpawnedProjectile(SpawnedProjectile);
 }
 
 void URocketLauncherComponent::ResetCachedRocketBounds()

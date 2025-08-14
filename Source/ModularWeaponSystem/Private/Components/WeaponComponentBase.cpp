@@ -319,6 +319,7 @@ void UWeaponComponentBase::SetupSpawnedProjectile(AProjectileBase* SpawnedProjec
 	{
 		SpawnedProjectile->SetInstigator(Owner->GetInstigator());
 		SpawnedProjectile->MeshComponent->IgnoreActorWhenMoving(GetOwner(), true);
+		SpawnedProjectile->OnProjectileSetupFinished.Broadcast();
 	}
 }
 
