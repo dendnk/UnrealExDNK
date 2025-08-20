@@ -6,24 +6,23 @@
 #include "ISourceControlProvider.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
+#include "Kismet/GameplayStatics.h"
 #include "Misc/Paths.h"
 
 
-APlayerController* UUnrealExDNKUtils::GetPlayerController(UObject* WorldContextObject)
+APlayerController* UUnrealExDNKUtils::GetPlayerController(const UObject* Object, int32 PlayerIndex)
 {
-    if (WorldContextObject == nullptr)
+    if (const APlayerController* PlayerController = Cast<APlayerController>(Object))
     {
-        return nullptr;
+        return const_cast<APlayerController*>(PlayerController);
     }
-
-    if (APlayerController* PlayerController = Cast<APlayerController>(WorldContextObject))
-    {
-        return PlayerController;
-    }
-
-    if (APawn* Pawn = Cast<APawn>(WorldContextObject))
+    else if (const APawn* Pawn = Cast<APawn>(Object))
     {
         return GetPlayerController(Pawn->GetController());
+    }
+    else if (UWorld* World = Object->GetWorld())
+    {
+        return UGameplayStatics::GetPlayerController(World, PlayerIndex);
     }
 
 	return nullptr;

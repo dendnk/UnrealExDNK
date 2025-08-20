@@ -254,11 +254,11 @@ public:
 	/**
 	 * Returns the owning Player Controller.
 	 *
-	 * @param WorldContextObject Object context from which to derive the player controller.
+	 * @param Object Object context from which to derive the player controller.
 	 * @return The owning Player Controller or nullptr if not found.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Player Controller", meta = (WorldContext = "WorldContextObject"))
-	static APlayerController* GetPlayerController(UObject* WorldContextObject);
+	UFUNCTION(BlueprintCallable, Category = "Player Controller")
+	static APlayerController* GetPlayerController(const UObject* Object, int32 PlayerIndex = 0);
 
 	/**
 	 * Returns current git commit hash
@@ -381,5 +381,40 @@ public:
 		}
 
 		return TEXT("Invalid");
+	}
+
+	template <typename BaseType, typename DerivedType>
+	static TArray<BaseType*> ConvertArrayToBase(const TArray<DerivedType*>& InArray)
+	{
+		static_assert(TIsDerivedFrom<DerivedType, BaseType>::IsDerived,
+			"ConvertArray: DerivedType must inherit from BaseType");
+
+		TArray<BaseType*> OutArray;
+		OutArray.Reserve(InArray.Num());
+
+		for (DerivedType* Item : InArray)
+		{
+			OutArray.Add(Item); // implicit upcast
+		}
+		return OutArray;
+	}
+
+	template <typename ToType, typename FromType>
+	static TArray<ToType*> ConvertArray(const TArray<FromType*>& InArray)
+	{
+		static_assert(TIsDerivedFrom<ToType, FromType>::IsDerived,
+			"ConvertArray: ToType must inherit from FromType");
+
+		TArray<ToType*> OutArray;
+		OutArray.Reserve(InArray.Num());
+
+		for (FromType* Item : InArray)
+		{
+			if (ToType* CastedItem = Cast<ToType>(Item))
+			{
+				OutArray.Add(CastedItem);
+			}
+		}
+		return OutArray;
 	}
 };
