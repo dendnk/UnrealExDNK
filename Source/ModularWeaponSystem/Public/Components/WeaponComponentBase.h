@@ -90,7 +90,7 @@ public:
     void SpawnFXAtLocation(UNiagaraSystem* SystemTemplate, FVector Location, FRotator Rotation = FRotator::ZeroRotator, FVector Scale = FVector(1.f), bool bAutoDestroy = true, bool bShouldAutoActivate = true);
 
     UFUNCTION(BlueprintNativeEvent, Category = "Weapon|FX")
-    void SpawnSoundAtLocation(USoundBase* Sound, FVector Location, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, float StartTime = 0.f);
+    void PlaySoundAtLocation(USoundBase* Sound, FVector Location, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, float StartTime = 0.f);
 
 
 protected:

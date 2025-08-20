@@ -201,7 +201,7 @@ void UWeaponComponentBase::FireProjectile()
 	}
 
 	SpawnFXAtLocation(WeaponDataRuntime->FXData.MuzzleFlashFX, MuzzleTransform.GetLocation());
-	SpawnSoundAtLocation(WeaponDataRuntime->FXData.FireSound, MuzzleTransform.GetLocation());
+	PlaySoundAtLocation(WeaponDataRuntime->FXData.FireSound, MuzzleTransform.GetLocation());
 }
 
 void UWeaponComponentBase::FireHitscan()
@@ -315,7 +315,7 @@ void UWeaponComponentBase::SpawnFXAtLocation_Implementation(UNiagaraSystem* Syst
 	UNiagaraFunctionLibrary::SpawnSystemAtLocation(OwnerActor, SystemTemplate, Location, Rotation, Scale, bAutoDestroy, bShouldAutoActivate);
 }
 
-void UWeaponComponentBase::SpawnSoundAtLocation_Implementation(USoundBase* Sound, FVector Location, float VolumeMultiplier, float PitchMultiplier, float StartTime)
+void UWeaponComponentBase::PlaySoundAtLocation_Implementation(USoundBase* Sound, FVector Location, float VolumeMultiplier, float PitchMultiplier, float StartTime)
 {
 	AActor* OwnerActor = GetOwner();
 	UGameplayStatics::PlaySoundAtLocation(OwnerActor, Sound, Location, VolumeMultiplier, PitchMultiplier, StartTime);
