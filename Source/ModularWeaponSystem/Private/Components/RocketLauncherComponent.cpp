@@ -7,7 +7,8 @@
 
 URocketLauncherComponent::URocketLauncherComponent()
 {
-	PrimaryComponentTick.bCanEverTick = false;
+	PrimaryComponentTick.bCanEverTick = true;
+    PrimaryComponentTick.TickInterval = TickInterval;
 
     ResetCachedRocketBounds();
 }
@@ -22,6 +23,13 @@ void URocketLauncherComponent::BeginPlay()
 	Super::BeginPlay();
 }
 
+void URocketLauncherComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+    Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+    UpdateHomingRocketData();
+}
+
 void URocketLauncherComponent::SetupSpawnedProjectile(AProjectileBase* SpawnedProjectile)
 {
     if (SpawnedProjectile)
@@ -34,6 +42,8 @@ void URocketLauncherComponent::SetupSpawnedProjectile(AProjectileBase* SpawnedPr
                 if (AActor* Actor = GetNearestTarget())
                 {
                     Movement->HomingTargetComponent = Actor->GetRootComponent();
+
+                    HomingTargets.Add({ SpawnedProjectile, Actor });
                 }
             }
         }
@@ -47,4 +57,23 @@ void URocketLauncherComponent::ResetCachedRocketBounds()
     CachedRocketBounds.Origin = FVector::ZeroVector;
     CachedRocketBounds.BoxExtent = FVector::ZeroVector;
     CachedRocketBounds.SphereRadius = 0.f;
+}
+
+void URocketLauncherComponent::UpdateHomingRocketData()
+{
+    HomingTargetsLocation.Empty();
+    for (auto It = HomingTargets.CreateIterator(); It; ++It)
+    {
+        if (It.Key().IsValid() == false)
+        {
+            It.RemoveCurrent();
+            continue;
+        }
+
+        if (AProjectileBase* Projectile = It.Key().Get())
+        {
+            AActor* Target = It.Value();
+            HomingTargetsLocation.Add(Target->GetActorLocation());
+        }
+    }
 }
