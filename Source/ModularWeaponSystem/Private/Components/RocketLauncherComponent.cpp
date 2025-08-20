@@ -23,6 +23,13 @@ void URocketLauncherComponent::BeginPlay()
 	Super::BeginPlay();
 }
 
+void URocketLauncherComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+    ClearHomingRocketData();
+
+    Super::EndPlay(EndPlayReason);
+}
+
 void URocketLauncherComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
     Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
@@ -73,7 +80,13 @@ void URocketLauncherComponent::UpdateHomingRocketData()
         if (AProjectileBase* Projectile = It.Key().Get())
         {
             AActor* Target = It.Value();
-            HomingTargetsLocation.Add(Target->GetActorLocation());
+            HomingTargetsLocation.AddUnique(Target->GetActorLocation());
         }
     }
+}
+
+void URocketLauncherComponent::ClearHomingRocketData()
+{
+    HomingTargets.Empty();
+    HomingTargetsLocation.Empty();
 }
