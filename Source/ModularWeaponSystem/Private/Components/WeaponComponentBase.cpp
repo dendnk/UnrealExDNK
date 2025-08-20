@@ -3,7 +3,8 @@
 #include "Components/WeaponComponentBase.h"
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetTree.h"
-#include <Kismet/GameplayStatics.h>
+#include "Kismet/GameplayStatics.h"
+#include "NiagaraFunctionLibrary.h"
 #include "Projectiles/ProjectileBase.h"
 #include "UI/WeaponComponentBaseWidget.h"
 #include "UI/WeaponViewModel.h"
@@ -182,7 +183,7 @@ void UWeaponComponentBase::FireProjectile()
 		return;
 	}
 
-	FTransform MuzzleTransform = BP_GetMuzzleTransform();
+	FTransform MuzzleTransform = GetMuzzleTransform();
 
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = Owner;
@@ -198,6 +199,9 @@ void UWeaponComponentBase::FireProjectile()
 
 		SetupSpawnedProjectile(Projectile);
 	}
+
+	SpawnFXAtLocation(WeaponDataRuntime->FXData.MuzzleFlashFX, MuzzleTransform.GetLocation());
+	SpawnSoundAtLocation(WeaponDataRuntime->FXData.FireSound, MuzzleTransform.GetLocation());
 }
 
 void UWeaponComponentBase::FireHitscan()
@@ -205,7 +209,7 @@ void UWeaponComponentBase::FireHitscan()
 	UWorld* World = GetWorld();
 	if (!World) return;
 
-	FTransform MuzzleTransform = BP_GetMuzzleTransform();
+	FTransform MuzzleTransform = GetMuzzleTransform();
 	FVector Start = MuzzleTransform.GetLocation();
 	FVector ShotDirection = MuzzleTransform.GetRotation().Vector();
 	FVector End = Start + (ShotDirection * WeaponDataRuntime->HitscanRange);
@@ -305,6 +309,18 @@ void UWeaponComponentBase::SetProjectileClass(TSubclassOf<AProjectileBase> NewPr
 	OnProjectileClassChanged.Broadcast(NewProjectileClass);
 }
 
+void UWeaponComponentBase::SpawnFXAtLocation_Implementation(UNiagaraSystem* SystemTemplate, FVector Location, FRotator Rotation, FVector Scale, bool bAutoDestroy, bool bShouldAutoActivate)
+{
+	AActor* OwnerActor = GetOwner();
+	UNiagaraFunctionLibrary::SpawnSystemAtLocation(OwnerActor, SystemTemplate, Location, Rotation, Scale, bAutoDestroy, bShouldAutoActivate);
+}
+
+void UWeaponComponentBase::SpawnSoundAtLocation_Implementation(USoundBase* Sound, FVector Location, float VolumeMultiplier, float PitchMultiplier, float StartTime)
+{
+	AActor* OwnerActor = GetOwner();
+	UGameplayStatics::PlaySoundAtLocation(OwnerActor, Sound, Location, VolumeMultiplier, PitchMultiplier, StartTime);
+}
+
 AActor* UWeaponComponentBase::GetNearestTarget_Implementation()
 {
 	return nullptr;
@@ -327,7 +343,7 @@ void UWeaponComponentBase::SetupSpawnedProjectile(AProjectileBase* SpawnedProjec
 	}
 }
 
-FTransform UWeaponComponentBase::BP_GetMuzzleTransform_Implementation()
+FTransform UWeaponComponentBase::GetMuzzleTransform_Implementation() const
 {
 	if (IsValid(WeaponDataRuntime) == false)
 	{

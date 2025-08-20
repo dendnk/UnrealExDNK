@@ -7,6 +7,8 @@
 #include "WeaponComponentBase.generated.h"
 
 class AProjectileBase;
+class UNiagaraSystem;
+class USoundBase;
 class UWeaponViewModel;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnProjectileClassChangedDelegate, TSubclassOf<AProjectileBase>, NewProjectileClass);
@@ -42,14 +44,12 @@ private:
     void HandleOnWeaponDataPropertyChanged();
 
 public:
-    UFUNCTION(BlueprintNativeEvent, DisplayName = "GetMuzzleTransform", Category = "Weapon|Muzzle")
-    FTransform BP_GetMuzzleTransform();
-
     UFUNCTION(BlueprintCallable, DisplayName = "StartFire", Category = "Weapon|Fire")
     void BP_StartFire();
 
     UFUNCTION(BlueprintCallable, DisplayName = "StopFire", Category = "Weapon|Fire")
     void BP_StopFire();
+
 
     UFUNCTION(BlueprintPure, Category = "Weapon|Data")
     UWeaponDataAsset* GetWeaponDataAsset() const { return WeaponDataAsset; };
@@ -63,6 +63,10 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Weapon|Data")
     void SetCurrentAmmo(int32 NewCurrentAmmo);
 
+    UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Weapon|Data")
+    FTransform GetMuzzleTransform() const;
+
+
     UFUNCTION(BlueprintCallable, Category = "Weapon|Projectile")
     TSubclassOf<AProjectileBase> GetProjectileClassByType(const EProjectileType& ProjectileType) const;
 
@@ -72,25 +76,32 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Weapon|Projectile")
     TSubclassOf<AProjectileBase> GetProjectileClass() const { return ProjectileClass; };
 
+    UPROPERTY(BlueprintAssignable, Category = "Weapon|Projectile")
+    FOnProjectileClassChangedDelegate OnProjectileClassChanged;
+
+
     UFUNCTION(BlueprintPure, Category = "Weapon|UI")
     UWeaponViewModel* GetViewModel() const { return WeaponViewModel; }
 
-    UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+    UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Weapon|Targets")
     AActor* GetNearestTarget();
 
-    UPROPERTY(BlueprintAssignable, Category = "Weapon|Projectile")
-    FOnProjectileClassChangedDelegate OnProjectileClassChanged;
+    UFUNCTION(BlueprintNativeEvent, Category = "Weapon|FX")
+    void SpawnFXAtLocation(UNiagaraSystem* SystemTemplate, FVector Location, FRotator Rotation = FRotator::ZeroRotator, FVector Scale = FVector(1.f), bool bAutoDestroy = true, bool bShouldAutoActivate = true);
+
+    UFUNCTION(BlueprintNativeEvent, Category = "Weapon|FX")
+    void SpawnSoundAtLocation(USoundBase* Sound, FVector Location, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, float StartTime = 0.f);
 
 
 protected:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon|Data", meta = (AllowPrivateAccess))
     TObjectPtr<UWeaponDataAsset> WeaponDataAsset;
 
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon|Projectile", meta = (AllowPrivateAccess))
-    TMap<EProjectileType, TSubclassOf<AProjectileBase>> ProjectileClasses;
-
     UPROPERTY(Transient, BlueprintReadWrite, Category = "Weapon|Data", meta = (AllowPrivateAccess))
     TObjectPtr<UWeaponDataAsset> WeaponDataRuntime;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon|Projectile", meta = (AllowPrivateAccess))
+    TMap<EProjectileType, TSubclassOf<AProjectileBase>> ProjectileClasses;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Fire")
     bool bCanFire = true;

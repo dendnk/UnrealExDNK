@@ -43,7 +43,7 @@ void URocketLauncherComponent::SetupSpawnedProjectile(AProjectileBase* SpawnedPr
     {
         if (UProjectileMovementComponent* Movement = SpawnedProjectile->FindComponentByClass<UProjectileMovementComponent>())
         {
-            Movement->Velocity = BP_GetMuzzleTransform().GetRotation().Vector() * WeaponDataRuntime->ProjectileSpeed;
+            Movement->Velocity = GetMuzzleTransform().GetRotation().Vector() * WeaponDataRuntime->ProjectileSpeed;
             if (GetWeaponDataRuntime()->ProjectileType == EProjectileType::HomingRocket)
             {
                 if (AActor* Actor = GetNearestTarget())
