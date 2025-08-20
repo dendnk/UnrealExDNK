@@ -12,6 +12,11 @@ URocketLauncherComponent::URocketLauncherComponent()
     ResetCachedRocketBounds();
 }
 
+AActor* URocketLauncherComponent::GetNearestTarget_Implementation()
+{
+    return Super::GetNearestTarget();
+}
+
 void URocketLauncherComponent::BeginPlay()
 {
 	Super::BeginPlay();
@@ -24,6 +29,13 @@ void URocketLauncherComponent::SetupSpawnedProjectile(AProjectileBase* SpawnedPr
         if (UProjectileMovementComponent* Movement = SpawnedProjectile->FindComponentByClass<UProjectileMovementComponent>())
         {
             Movement->Velocity = BP_GetMuzzleTransform().GetRotation().Vector() * WeaponDataRuntime->ProjectileSpeed;
+            if (GetWeaponDataRuntime()->ProjectileType == EProjectileType::HomingRocket)
+            {
+                if (AActor* Actor = GetNearestTarget())
+                {
+                    Movement->HomingTargetComponent = Actor->GetRootComponent();
+                }
+            }
         }
     }
 

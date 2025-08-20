@@ -75,6 +75,9 @@ public:
     UFUNCTION(BlueprintPure, Category = "Weapon|UI")
     UWeaponViewModel* GetViewModel() const { return WeaponViewModel; }
 
+    UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+    AActor* GetNearestTarget();
+
     UPROPERTY(BlueprintAssignable, Category = "Weapon|Projectile")
     FOnProjectileClassChangedDelegate OnProjectileClassChanged;
 

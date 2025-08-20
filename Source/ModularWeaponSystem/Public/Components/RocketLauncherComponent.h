@@ -19,6 +19,8 @@ class MODULARWEAPONSYSTEM_API URocketLauncherComponent : public UWeaponComponent
 public:
     URocketLauncherComponent();
 
+    virtual AActor* GetNearestTarget_Implementation() override;
+
 protected:
     virtual void BeginPlay() override;
     virtual void SetupSpawnedProjectile(AProjectileBase* SpawnedProjectile) override;

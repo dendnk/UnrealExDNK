@@ -8,7 +8,6 @@
 #include "UI/WeaponComponentBaseWidget.h"
 #include "UI/WeaponViewModel.h"
 #include "UnrealExDNKUtils.h"
-#include "View/MVVMView.h"
 
 
 
@@ -304,6 +303,11 @@ void UWeaponComponentBase::SetProjectileClass(TSubclassOf<AProjectileBase> NewPr
 
 	ProjectileClass = NewProjectileClass;
 	OnProjectileClassChanged.Broadcast(NewProjectileClass);
+}
+
+AActor* UWeaponComponentBase::GetNearestTarget_Implementation()
+{
+	return nullptr;
 }
 
 void UWeaponComponentBase::SetupSpawnedProjectile(AProjectileBase* SpawnedProjectile)
