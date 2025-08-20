@@ -69,7 +69,7 @@ void UWeaponComponentBase::InitWeaponData()
 	WeaponDataRuntime->OnWeaponDataPropertyChanged.AddDynamic(this, &ThisClass::HandleOnWeaponDataPropertyChanged);
 }
 
-void UWeaponComponentBase::StartFire()
+void UWeaponComponentBase::StartFire_Implementation()
 {
 	if (bCanFire == false)
 	{
@@ -83,7 +83,7 @@ void UWeaponComponentBase::StartFire()
 		return;
 	}
 
-	if (CurrentAmmo == 0)
+	if (GetCurrentAmmo() <= 0)
 	{
 		UE_DNK_LOG(LogTemp, Warning, "CurrentAmmo == 0!");
 		return;
@@ -108,7 +108,7 @@ void UWeaponComponentBase::StartFire()
 	}
 }
 
-void UWeaponComponentBase::StopFire()
+void UWeaponComponentBase::StopFire_Implementation()
 {
 	GetWorld()->GetTimerManager().ClearTimer(FireLoopHandle);
 	GetWorld()->GetTimerManager().ClearTimer(BurstHandle);
@@ -200,6 +200,8 @@ void UWeaponComponentBase::FireProjectile()
 		SetupSpawnedProjectile(Projectile);
 	}
 
+	SetCurrentAmmo(GetCurrentAmmo() - WeaponDataRuntime->AmmoPerShot);
+
 	SpawnFXAtLocation(WeaponDataRuntime->FXData.MuzzleFlashFX, MuzzleTransform.GetLocation());
 	PlaySoundAtLocation(WeaponDataRuntime->FXData.FireSound, MuzzleTransform.GetLocation());
 }
@@ -223,6 +225,9 @@ void UWeaponComponentBase::FireHitscan()
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(GetOwner());
 
+	SpawnFXAtLocation(WeaponDataRuntime->FXData.MuzzleFlashFX, MuzzleTransform.GetLocation());
+	PlaySoundAtLocation(WeaponDataRuntime->FXData.FireSound, MuzzleTransform.GetLocation());
+
 	if (World->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params))
 	{
 		// Deal damage
@@ -237,10 +242,10 @@ void UWeaponComponentBase::FireHitscan()
 				GetOwner(),
 				nullptr
 			);
+
+			SpawnFXAtLocation(WeaponDataRuntime->FXData.ImpactFX, Hit.Location, Hit.ImpactNormal.Rotation().GetInverse());
 		}
 	}
-
-	// Optional: FX
 }
 
 void UWeaponComponentBase::FireBeam()
@@ -262,21 +267,8 @@ void UWeaponComponentBase::FireBeam()
 
 void UWeaponComponentBase::HandleOnWeaponDataPropertyChanged()
 {
-	CurrentAmmo = WeaponDataRuntime->MaxAmmo;
+	SetCurrentAmmo(WeaponDataRuntime->MaxAmmo);
 	SetProjectileClass(GetProjectileClassByType(WeaponDataRuntime->ProjectileType));
-}
-
-void UWeaponComponentBase::BP_StartFire()
-{
-	if (bCanFire)
-	{
-		StartFire();
-	}
-}
-
-void UWeaponComponentBase::BP_StopFire()
-{
-	StopFire();
 }
 
 void UWeaponComponentBase::SetCurrentAmmo(int32 NewCurrentAmmo)

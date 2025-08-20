@@ -29,8 +29,6 @@ protected:
     virtual void InitWeaponData();
 
 public:
-    virtual void StartFire();
-    virtual void StopFire();
     virtual void HandleBurstFire();
     virtual void SetupSpawnedProjectile(AProjectileBase* SpawnedProjectile);
 
@@ -44,11 +42,11 @@ private:
     void HandleOnWeaponDataPropertyChanged();
 
 public:
-    UFUNCTION(BlueprintCallable, DisplayName = "StartFire", Category = "Weapon|Fire")
-    void BP_StartFire();
+    UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Weapon|Fire")
+    void StartFire();
 
-    UFUNCTION(BlueprintCallable, DisplayName = "StopFire", Category = "Weapon|Fire")
-    void BP_StopFire();
+    UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Weapon|Fire")
+    void StopFire();
 
 
     UFUNCTION(BlueprintPure, Category = "Weapon|Data")
