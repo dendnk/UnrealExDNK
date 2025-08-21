@@ -83,7 +83,8 @@ void UWeaponComponentBase::StartFire_Implementation()
 		return;
 	}
 
-	if (GetCurrentAmmo() <= 0)
+	if (GetCurrentAmmo() <= 0 &&
+		WeaponDataRuntime->bInfiniteAmmo == false)
 	{
 		UE_DNK_LOG(LogTemp, Warning, "CurrentAmmo == 0!");
 		return;
@@ -200,7 +201,10 @@ void UWeaponComponentBase::FireProjectile()
 		SetupSpawnedProjectile(Projectile);
 	}
 
-	SetCurrentAmmo(GetCurrentAmmo() - WeaponDataRuntime->AmmoPerShot);
+	if (WeaponDataRuntime->bInfiniteAmmo == false)
+	{
+		SetCurrentAmmo(GetCurrentAmmo() - WeaponDataRuntime->AmmoPerShot);
+	}
 
 	SpawnFXAtLocation(WeaponDataRuntime->FXData.MuzzleFlashFX, MuzzleTransform.GetLocation());
 	PlaySoundAtLocation(WeaponDataRuntime->FXData.FireSound, MuzzleTransform.GetLocation());
@@ -227,6 +231,11 @@ void UWeaponComponentBase::FireHitscan()
 
 	SpawnFXAtLocation(WeaponDataRuntime->FXData.MuzzleFlashFX, MuzzleTransform.GetLocation());
 	PlaySoundAtLocation(WeaponDataRuntime->FXData.FireSound, MuzzleTransform.GetLocation());
+
+	if (WeaponDataRuntime->bInfiniteAmmo == false)
+	{
+		SetCurrentAmmo(GetCurrentAmmo() - WeaponDataRuntime->AmmoPerShot);
+	}
 
 	if (World->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params))
 	{
@@ -255,6 +264,11 @@ void UWeaponComponentBase::FireBeam()
 		UE_DNK_LOG(LogTemp, Error, "Wrong FireType [%s]!",
 			*StaticEnum<EFireType>()->GetDisplayNameTextByValue(static_cast<int64>(WeaponDataRuntime->FireType)).ToString());
 		return;
+	}
+
+	if (WeaponDataRuntime->bInfiniteAmmo == false)
+	{
+		SetCurrentAmmo(GetCurrentAmmo() - WeaponDataRuntime->AmmoPerShot);
 	}
 
 	// Spawn a beam FX from muzzle
