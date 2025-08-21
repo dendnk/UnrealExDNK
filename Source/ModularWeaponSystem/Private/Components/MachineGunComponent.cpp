@@ -5,19 +5,15 @@
 
 UMachineGunComponent::UMachineGunComponent()
 {
-    PrimaryComponentTick.bCanEverTick = true;
+    PrimaryComponentTick.bCanEverTick = false;
 }
 
-void UMachineGunComponent::Fire()
+void UMachineGunComponent::BeginPlay()
 {
-    UE_LOG(LogTemp, Log, TEXT("Machine gun fired!"));
-    // Add bullet spawning and spread logic here
-}
+    Super::BeginPlay();
 
-void UMachineGunComponent::StartFiring()
-{
-}
-
-void UMachineGunComponent::StopFiring()
-{
+    if (bIsAutoFire)
+    {
+        StartFire();
+    }
 }

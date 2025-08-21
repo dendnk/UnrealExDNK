@@ -48,6 +48,9 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Weapon|Fire")
     void StopFire();
 
+    UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Weapon|Fire")
+    void ApplyDamage(AActor* DamagedActor, FVector const& HitFromDirection, FHitResult const& HitInfo, AController* EventInstigator, AActor* DamageCauser, TSubclassOf<UDamageType> DamageTypeClass);
+
 
     UFUNCTION(BlueprintPure, Category = "Weapon|Data")
     UWeaponDataAsset* GetWeaponDataAsset() const { return WeaponDataAsset; };

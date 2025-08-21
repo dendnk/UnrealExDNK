@@ -14,14 +14,9 @@ class MODULARWEAPONSYSTEM_API UMachineGunComponent : public UWeaponComponentBase
 public:
     UMachineGunComponent();
 
-    virtual void Fire() override;
-
 protected:
+    virtual void BeginPlay() override;
+
     UPROPERTY(EditDefaultsOnly, Category = "Machine Gun")
-    float FireRate;
-
-    FTimerHandle FireTimerHandle;
-
-    void StartFiring();
-    void StopFiring();
+    bool bIsAutoFire = true;
 };

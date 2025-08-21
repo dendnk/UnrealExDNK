@@ -242,15 +242,14 @@ void UWeaponComponentBase::FireHitscan()
 		// Deal damage
 		if (AActor* HitActor = Hit.GetActor())
 		{
-			UGameplayStatics::ApplyPointDamage(
+			ApplyDamage(
 				HitActor,
-				WeaponDataRuntime->DamageData.BaseDamage,
 				ShotDirection,
 				Hit,
 				GetOwner()->GetInstigatorController(),
 				GetOwner(),
 				nullptr
-			);
+				);
 
 			SpawnFXAtLocation(WeaponDataRuntime->FXData.ImpactFX, Hit.Location, Hit.ImpactNormal.Rotation().GetInverse());
 		}
@@ -283,6 +282,22 @@ void UWeaponComponentBase::HandleOnWeaponDataPropertyChanged()
 {
 	SetCurrentAmmo(WeaponDataRuntime->MaxAmmo);
 	SetProjectileClass(GetProjectileClassByType(WeaponDataRuntime->ProjectileType));
+}
+
+void UWeaponComponentBase::ApplyDamage_Implementation(AActor* DamagedActor, FVector const& HitFromDirection, FHitResult const& HitInfo, AController* EventInstigator, AActor* DamageCauser, TSubclassOf<UDamageType> DamageTypeClass)
+{
+	if (WeaponDataRuntime->FireType == EFireType::Hitscan)
+	{
+		UGameplayStatics::ApplyPointDamage(
+			DamagedActor,
+			WeaponDataRuntime->DamageData.BaseDamage,
+			HitFromDirection,
+			HitInfo,
+			EventInstigator,
+			DamageCauser,
+			DamageTypeClass
+		);
+	}
 }
 
 void UWeaponComponentBase::SetCurrentAmmo(int32 NewCurrentAmmo)
