@@ -16,7 +16,7 @@ class UNREALEXDNK_API UUserWidgetSpawnerComponent : public UActorComponent
 public:
     UUserWidgetSpawnerComponent();
 
-    UPROPERTY(EditDefaultsOnly, Category = UserWidgetSpawnerComponent)
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = UserWidgetSpawnerComponent)
     bool bShouldHaveUIWidget = true;
 
 protected:
