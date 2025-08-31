@@ -43,6 +43,7 @@ void UWeaponViewModel::InitializeFromWeaponDataAsset(UWeaponDataAsset* DataAsset
 		return;
 	}
 
+	SetWeaponName(DataAsset->WeaponName);
 	SetFireType(DataAsset->FireType);
 	SetFiringMode(DataAsset->FiringMode);
 	SetMaxAmmo(DataAsset->MaxAmmo);
@@ -69,6 +70,7 @@ void UWeaponViewModel::ApplyToWeaponDataAsset(UWeaponDataAsset* DataAsset)
 		return;
 	}
 
+	DataAsset->WeaponName = GetWeaponName();
 	DataAsset->FireType = GetFireType();
 	DataAsset->FiringMode = GetFiringMode();
 	DataAsset->MaxAmmo = GetMaxAmmo();
@@ -87,6 +89,11 @@ void UWeaponViewModel::ApplyToWeaponDataAsset(UWeaponDataAsset* DataAsset)
 	DataAsset->BeamDuration = GetBeamDuration();
 
 	DataAsset->OnWeaponDataPropertyChanged.Broadcast();
+}
+
+void UWeaponViewModel::SetWeaponName(FName NewWeaponName)
+{
+	UE_MVVM_SET_PROPERTY_VALUE(WeaponName, NewWeaponName);
 }
 
 void UWeaponViewModel::SetFireType(EFireType NewFireType)

@@ -20,6 +20,9 @@ class MODULARWEAPONSYSTEM_API UWeaponViewModel : public UMVVMViewModelBase
 	GENERATED_BODY()
 
 	UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
+	FName WeaponName;
+
+	UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
 	EFireType FireType;
 
 	UPROPERTY(BlueprintReadWrite, FieldNotify, Setter, Getter, meta = (AllowPrivateAccess))
@@ -94,6 +97,9 @@ private:
 
 
 public:
+	void SetWeaponName(FName NewWeaponName);
+	FName GetWeaponName() const { return WeaponName; };
+
 	void SetFireType(EFireType NewFireType);
 	EFireType GetFireType() const { return FireType; };
 

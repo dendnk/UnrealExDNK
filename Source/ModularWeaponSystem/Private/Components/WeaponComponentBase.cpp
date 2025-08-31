@@ -65,6 +65,7 @@ void UWeaponComponentBase::InitWeaponData()
 	}
 
 	WeaponDataRuntime = DuplicateObject<UWeaponDataAsset>(GetWeaponDataAsset(), this);
+	SetCurrentAmmo(WeaponDataRuntime->MaxAmmo);
 	HandleOnWeaponDataPropertyChanged();
 	WeaponDataRuntime->OnWeaponDataPropertyChanged.AddDynamic(this, &ThisClass::HandleOnWeaponDataPropertyChanged);
 }
@@ -117,6 +118,14 @@ void UWeaponComponentBase::StopFire_Implementation()
 
 void UWeaponComponentBase::Fire()
 {
+	if (GetCurrentAmmo() <= 0 &&
+		WeaponDataRuntime->bInfiniteAmmo == false)
+	{
+		UE_DNK_LOG(LogTemp, Warning, "CurrentAmmo == 0!");
+		StopFire();
+		return;
+	}
+
 	switch (WeaponDataRuntime->FireType)
 	{
 	case EFireType::Projectile:
@@ -280,7 +289,6 @@ void UWeaponComponentBase::FireBeam()
 
 void UWeaponComponentBase::HandleOnWeaponDataPropertyChanged()
 {
-	SetCurrentAmmo(WeaponDataRuntime->MaxAmmo);
 	SetProjectileClass(GetProjectileClassByType(WeaponDataRuntime->ProjectileType));
 }
 
@@ -305,6 +313,10 @@ void UWeaponComponentBase::SetCurrentAmmo(int32 NewCurrentAmmo)
 	if (CurrentAmmo != NewCurrentAmmo)
 	{
 		CurrentAmmo = NewCurrentAmmo;
+		if (WeaponViewModel)
+		{
+			WeaponViewModel->SetCurrentAmmo(CurrentAmmo);
+		}
 	}
 }
 

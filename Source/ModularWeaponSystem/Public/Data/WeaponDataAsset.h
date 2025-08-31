@@ -22,6 +22,9 @@ class MODULARWEAPONSYSTEM_API UWeaponDataAsset : public UPrimaryDataAsset
 
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
+	FName WeaponName = FName(TEXT("WeaponName"));
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
 	EFireType FireType = EFireType::Projectile;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
