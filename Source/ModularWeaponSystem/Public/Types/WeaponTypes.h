@@ -2,7 +2,6 @@
 
 #pragma once
 
-#include "GameFramework/DamageType.h"
 #include "NiagaraSystem.h"
 #include "Sound/SoundBase.h"
 #include "WeaponTypes.generated.h"

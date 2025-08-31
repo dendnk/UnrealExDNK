@@ -9,7 +9,6 @@
 #include "Components/SizeBox.h"
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
-#include "Projectiles/ProjectileBase.h"
 #include "UI/BoundCheckBox.h"
 #include "UI/BoundComboBox.h"
 #include "UI/BoundEditableTextBox.h"
