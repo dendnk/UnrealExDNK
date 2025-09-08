@@ -118,6 +118,12 @@ void UWeaponComponentBase::StopFire_Implementation()
 
 void UWeaponComponentBase::Fire()
 {
+	if (bCanFire == false)
+	{
+		UE_DNK_LOG(LogTemp, Warning, "bCanFire is false");
+		return;
+	}
+
 	if (GetCurrentAmmo() <= 0 &&
 		WeaponDataRuntime->bInfiniteAmmo == false)
 	{
@@ -342,10 +348,10 @@ void UWeaponComponentBase::SetProjectileClass(TSubclassOf<AProjectileBase> NewPr
 	OnProjectileClassChanged.Broadcast(NewProjectileClass);
 }
 
-void UWeaponComponentBase::SpawnFXAtLocation_Implementation(UNiagaraSystem* SystemTemplate, FVector Location, FRotator Rotation, FVector Scale, bool bAutoDestroy, bool bShouldAutoActivate)
+UNiagaraComponent* UWeaponComponentBase::SpawnFXAtLocation_Implementation(UNiagaraSystem* SystemTemplate, FVector Location, FRotator Rotation, FVector Scale, bool bAutoDestroy, bool bShouldAutoActivate)
 {
 	AActor* OwnerActor = GetOwner();
-	UNiagaraFunctionLibrary::SpawnSystemAtLocation(OwnerActor, SystemTemplate, Location, Rotation, Scale, bAutoDestroy, bShouldAutoActivate);
+	return UNiagaraFunctionLibrary::SpawnSystemAtLocation(OwnerActor, SystemTemplate, Location, Rotation, Scale, bAutoDestroy, bShouldAutoActivate);
 }
 
 void UWeaponComponentBase::PlaySoundAtLocation_Implementation(USoundBase* Sound, FVector Location, float VolumeMultiplier, float PitchMultiplier, float StartTime)

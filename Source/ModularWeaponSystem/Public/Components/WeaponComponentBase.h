@@ -27,16 +27,14 @@ protected:
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason);
 
     virtual void InitWeaponData();
-
-public:
-    virtual void HandleBurstFire();
-    virtual void SetupSpawnedProjectile(AProjectileBase* SpawnedProjectile);
-
-private:
     virtual void Fire();
     virtual void FireProjectile();
     virtual void FireHitscan();
     virtual void FireBeam();
+
+public:
+    virtual void HandleBurstFire();
+    virtual void SetupSpawnedProjectile(AProjectileBase* SpawnedProjectile);
 
     UFUNCTION()
     void HandleOnWeaponDataPropertyChanged();
@@ -88,7 +86,7 @@ public:
     AActor* GetNearestTarget();
 
     UFUNCTION(BlueprintNativeEvent, Category = "Weapon|FX")
-    void SpawnFXAtLocation(UNiagaraSystem* SystemTemplate, FVector Location, FRotator Rotation = FRotator::ZeroRotator, FVector Scale = FVector(1.f), bool bAutoDestroy = true, bool bShouldAutoActivate = true);
+    UNiagaraComponent* SpawnFXAtLocation(UNiagaraSystem* SystemTemplate, FVector Location, FRotator Rotation = FRotator::ZeroRotator, FVector Scale = FVector(1.f), bool bAutoDestroy = true, bool bShouldAutoActivate = true);
 
     UFUNCTION(BlueprintNativeEvent, Category = "Weapon|FX")
     void PlaySoundAtLocation(USoundBase* Sound, FVector Location, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, float StartTime = 0.f);
