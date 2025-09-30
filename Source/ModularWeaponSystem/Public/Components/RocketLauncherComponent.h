@@ -20,7 +20,10 @@ public:
     URocketLauncherComponent();
     virtual AActor* GetNearestTarget_Implementation() override;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Homing Projectiles")
+    int32 MaxActiveHomingProjectiles = 1;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Homing Projectiles")
     TArray<FVector> HomingTargetsLocation;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -30,6 +33,7 @@ protected:
     virtual void BeginPlay() override;
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
     virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+    virtual void FireProjectile() override;
     virtual void SetupSpawnedProjectile(AProjectileBase* SpawnedProjectile) override;
 
 private:

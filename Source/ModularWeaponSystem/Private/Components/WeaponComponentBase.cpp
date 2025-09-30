@@ -199,6 +199,8 @@ void UWeaponComponentBase::FireProjectile()
 		return;
 	}
 
+	ArrayUtils::CleanArray(Projectiles);
+
 	FTransform MuzzleTransform = GetMuzzleTransform();
 
 	FActorSpawnParameters SpawnParams;
@@ -214,6 +216,8 @@ void UWeaponComponentBase::FireProjectile()
 		);
 
 		SetupSpawnedProjectile(Projectile);
+
+		Projectiles.Add(Projectile);
 	}
 
 	if (WeaponDataRuntime->bInfiniteAmmo == false)

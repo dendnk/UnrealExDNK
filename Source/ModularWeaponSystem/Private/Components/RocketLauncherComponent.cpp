@@ -37,6 +37,86 @@ void URocketLauncherComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
     UpdateHomingRocketData();
 }
 
+void URocketLauncherComponent::FireProjectile()
+{
+	UWorld* World = GetWorld();
+	if (IsValid(World) == false)
+	{
+		UE_DNK_LOG(LogTemp, Error, "Invalid World!");
+		return;
+	}
+
+	if (IsValid(WeaponDataRuntime) == false)
+	{
+		UE_DNK_LOG(LogTemp, Error, "Invalid WeaponData!");
+		return;
+	}
+
+	if (WeaponDataRuntime->FireType != EFireType::Projectile)
+	{
+		UE_DNK_LOG(LogTemp, Error, "Wrong FireType [%s]!",
+			*StaticEnum<EFireType>()->GetDisplayNameTextByValue(static_cast<int64>(WeaponDataRuntime->FireType)).ToString());
+		return;
+	}
+
+	if (ProjectileClass == nullptr)
+	{
+		UE_DNK_LOG(LogTemp, Error, "Invalid ProjectileClass!");
+		return;
+	}
+
+	AActor* Owner = GetOwner();
+	if (IsValid(Owner) == false)
+	{
+		UE_DNK_LOG(LogTemp, Error, "Invalid Owner!");
+		return;
+	}
+
+	ArrayUtils::CleanArray(Projectiles);
+
+	bool bAllowToSpawnProjectile = true;
+	if (GetWeaponDataRuntime()->ProjectileType == EProjectileType::HomingRocket)
+	{
+		if (Projectiles.Num() >= MaxActiveHomingProjectiles)
+		{
+			bAllowToSpawnProjectile = false;
+		}
+	}
+
+	if (bAllowToSpawnProjectile == false)
+	{
+		UE_DNK_LOG(LogTemp, Warning, "Reach the max active homing projectiles. Failed to spawn!");
+		return;
+	}
+
+	FTransform MuzzleTransform = GetMuzzleTransform();
+
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = Owner;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+	for (int32 i = 0; i < WeaponDataRuntime->AmmoPerShot; ++i)
+	{
+		AProjectileBase* Projectile = World->SpawnActor<AProjectileBase>(
+			ProjectileClass,
+			MuzzleTransform.GetLocation(),
+			MuzzleTransform.GetRotation().Rotator()
+		);
+
+		SetupSpawnedProjectile(Projectile);
+
+		Projectiles.Add(Projectile);
+	}
+
+	if (WeaponDataRuntime->bInfiniteAmmo == false)
+	{
+		SetCurrentAmmo(GetCurrentAmmo() - WeaponDataRuntime->AmmoPerShot);
+	}
+
+	SpawnFXAtLocation(WeaponDataRuntime->FXData.MuzzleFlashFX, MuzzleTransform.GetLocation());
+	PlaySoundAtLocation(WeaponDataRuntime->FXData.FireSound, MuzzleTransform.GetLocation());
+}
+
 void URocketLauncherComponent::SetupSpawnedProjectile(AProjectileBase* SpawnedProjectile)
 {
     if (SpawnedProjectile)

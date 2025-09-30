@@ -108,8 +108,6 @@ protected:
     UPROPERTY(Transient)
     TObjectPtr<UWeaponViewModel> WeaponViewModel;
 
-
-private:
     FTimerHandle FireLoopHandle;
     FTimerHandle BurstHandle;
     int32 CurrentBurstCount = 0;
@@ -119,4 +117,7 @@ private:
 
     UPROPERTY()
     TSubclassOf<AProjectileBase> ProjectileClass;
+
+    UPROPERTY()
+    TArray<TWeakObjectPtr<AProjectileBase>> Projectiles;
 };
