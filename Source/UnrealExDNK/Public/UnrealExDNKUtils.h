@@ -242,6 +242,48 @@ T SumArray_Internal(const TArray<T>& Array)
 	return Sum;
 }
 
+namespace ArrayUtils
+{
+	/**
+	 * Removes all invalid (expired) weak pointers from the given array.
+	 *
+	 * Example:
+	 *     WeakArrayUtils::CleanArray(MyWeakActors);
+	 */
+	template<typename TObject>
+	void CleanArray(TArray<TWeakObjectPtr<TObject>>& Array)
+	{
+		Array.RemoveAll([](const TWeakObjectPtr<TObject>& Ptr)
+			{
+				return !Ptr.IsValid();
+			});
+	}
+
+	/**
+	 * Iterates over the array, calling the given function only on valid objects.
+	 *
+	 * Example:
+	 *     WeakArrayUtils::ForEachValid(MyWeakActors, [](AActor* Actor)
+	 *     {
+	 *         UE_LOG(LogTemp, Log, TEXT("Actor: %s"), *Actor->GetName());
+	 *     });
+	 *
+	 * @param Array The array of weak object pointers to process.
+	 * @param Function A callable that takes a TObject* as argument.
+	 */
+	template<typename TObject, typename Func>
+	void ForEachValid(const TArray<TWeakObjectPtr<TObject>>& Array, Func&& Function)
+	{
+		for (const TWeakObjectPtr<TObject>& Ptr : Array)
+		{
+			if (Ptr.IsValid())
+			{
+				Function(Ptr.Get());
+			}
+		}
+	}
+}
+
 /**
  * 
  */
