@@ -44,14 +44,16 @@ enum class EFiringMode : uint8
 UENUM(BlueprintType)
 enum class EProjectileType : uint8
 {
-	// Normal rocket, explodes on impact
-	StandardRocket	UMETA(DisplayName = "Standard Rocket"),
+	// Normal rocket, explodes on impact with gravity
+	StandardRocket			UMETA(DisplayName = "Standard Rocket"),
+	// Normal rocket, explodes on impact no gravity
+	StandardRocketNoGravity	UMETA(DisplayName = "Standard Rocket No Gravity"),
 	// Cassette-style rocket, splits into smaller ones
-	ClusterRocket	UMETA(DisplayName = "Cluster Rocket"),
+	ClusterRocket			UMETA(DisplayName = "Cluster Rocket"),
 	// Trajectory deviation (sinusoidal)
-	WobbleRocket	UMETA(DisplayName = "Wobble Rocket"),
+	WobbleRocket			UMETA(DisplayName = "Wobble Rocket"),
 	// Guided rocket that follows the target
-	HomingRocket	UMETA(DisplayName = "Homing Rocket"),
+	HomingRocket			UMETA(DisplayName = "Homing Rocket"),
 };
 
 USTRUCT(BlueprintType)
