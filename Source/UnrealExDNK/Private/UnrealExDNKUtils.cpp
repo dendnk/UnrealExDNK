@@ -12,6 +12,11 @@
 
 APlayerController* UUnrealExDNKUtils::GetPlayerController(const UObject* Object, int32 PlayerIndex)
 {
+    if (IsValid(Object) == false)
+    {
+        return nullptr;
+    }
+
     if (const APlayerController* PlayerController = Cast<APlayerController>(Object))
     {
         return const_cast<APlayerController*>(PlayerController);
