@@ -25,7 +25,7 @@ APlayerController* UUnrealExDNKUtils::GetPlayerController(const UObject* Object,
     {
         return GetPlayerController(Pawn->GetController());
     }
-    else if (UWorld* World = Object->GetWorld())
+    else if (const UWorld* World = Cast<UWorld>(Object))
     {
         return UGameplayStatics::GetPlayerController(World, PlayerIndex);
     }
