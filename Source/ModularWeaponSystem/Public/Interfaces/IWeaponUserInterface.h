@@ -19,23 +19,15 @@ class MODULARWEAPONSYSTEM_API IWeaponUserInterface
     GENERATED_BODY()
 
 public:
-    /** Returns the world location of the firing point */
+    /** Returns the world transform */
     UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Weapon")
-    FVector GetMuzzleLocation() const;
+    FTransform GetMuzzleTransform() const;
 
-    /** Returns the aim direction */
+    /** Returns the parent component this is attached to, or nullptr if none. */
     UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Weapon")
-    FVector GetAimDirection() const;
+    USceneComponent* GetParentAttachment() const;
 
-    /** Optionally return the socket name or bone where the weapon attaches */
-    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Weapon")
-    FName GetWeaponSocketName() const;
-
-    /** Called when the weapon starts firing */
-    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Weapon")
-    void OnWeaponFired();
-
-    /** Optional: Provide access to owner actor */
+    /** Provide access to owner actor */
     UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Weapon")
     AActor* GetWeaponOwner() const;
 };
