@@ -28,11 +28,11 @@ void UTrajectoryPredictionComponent::BeginPlay()
 
     TArray<UWeaponComponentBase*> WeaponWithProjectiles =
         ActorComponents::GetComponentsByCondition<UWeaponComponentBase>(Owner,
-            [](const UWeaponComponentBase* Weapon)
+            [](const UWeaponComponentBase* WeaponComponent)
             {
-                if (IsValid(Weapon))
+                if (IsValid(WeaponComponent))
                 {
-                    return Weapon->GetWeaponDataRuntime()->FireType == EFireType::Projectile;
+                    return WeaponComponent->GetWeaponDataRuntime()->FireType == EFireType::Projectile;
                 }
 
                 return false;
