@@ -284,6 +284,26 @@ namespace ArrayUtils
 	}
 }
 
+namespace ActorComponents
+{
+	template <typename T>
+	TArray<T*> GetComponentsByCondition(const AActor* Owner, TFunctionRef<bool(const T*)> Predicate)
+	{
+		TArray<T*> Result;
+		if (!Owner) return Result;
+
+		TInlineComponentArray<T*> Components(Owner);
+		for (T* Comp : Components)
+		{
+			if (Comp && Predicate(Comp))
+			{
+				Result.Add(Comp);
+			}
+		}
+		return Result;
+	}
+}
+
 /**
  * 
  */
