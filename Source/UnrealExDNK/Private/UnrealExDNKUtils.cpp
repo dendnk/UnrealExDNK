@@ -2,8 +2,11 @@
 
 #include "UnrealExDNKUtils.h"
 
+#if WITH_EDITOR
 #include "ISourceControlModule.h"
 #include "ISourceControlProvider.h"
+#endif // WITH_EDITOR
+
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
@@ -33,10 +36,9 @@ APlayerController* UUnrealExDNKUtils::GetPlayerController(const UObject* Object,
 	return nullptr;
 }
 
+#if WITH_EDITOR
 FString UUnrealExDNKUtils::GetGitCommitHash()
 {
-#if WITH_EDITOR
-
     ISourceControlModule& SourceControlModule = FModuleManager::LoadModuleChecked<ISourceControlModule>("SourceControl");
     if (SourceControlModule.IsEnabled() && SourceControlModule.GetProvider().IsAvailable())
     {
@@ -76,10 +78,10 @@ FString UUnrealExDNKUtils::GetGitCommitHash()
         UE_LOG(LogTemp, Log, TEXT("The project is not connected to any source control."));
     }
 
-#endif // WITH_EDITOR
-
     return TEXT("Unknown");
 }
+
+#endif // WITH_EDITOR
 
 FVector UUnrealExDNKUtils::GenerateRandomDirectionXZ(const FVector2D& RangeRadians)
 {

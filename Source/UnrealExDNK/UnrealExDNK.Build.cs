@@ -39,13 +39,17 @@ public class UnrealExDNK : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
-				"SourceControl"
 				// ... add private dependencies that you statically link with here ...
 			}
 			);
 
 
-		DynamicallyLoadedModuleNames.AddRange(
+        if (Target.bBuildEditor)
+        {
+            PrivateDependencyModuleNames.Add("SourceControl");
+        }
+
+        DynamicallyLoadedModuleNames.AddRange(
 			new string[]
 			{
 				// ... add any modules that your module loads dynamically here ...

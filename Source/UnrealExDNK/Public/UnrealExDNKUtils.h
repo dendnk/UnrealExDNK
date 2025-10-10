@@ -322,6 +322,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Player Controller")
 	static APlayerController* GetPlayerController(const UObject* Object, int32 PlayerIndex = 0);
 
+#if WITH_EDITOR
 	/**
 	 * Returns current git commit hash
 	 *
@@ -329,6 +330,7 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Version Control Systems")
 	static FString GetGitCommitHash();
+#endif // WITH_EDITOR
 
 	/**
 	 * Generate random Vector Direction in the XZ plane in the specified range in radians
