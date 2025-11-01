@@ -305,14 +305,17 @@ namespace ActorComponents
 }
 
 /**
- * 
+ *
  */
 UCLASS()
 class UNREALEXDNK_API UUnrealExDNKUtils : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
-	
+
 public:
+	// Helper function for safe world access
+	static UWorld* GetWorldSafe(const UObject* WorldContextObject);
+
 	/**
 	 * Returns the owning Player Controller.
 	 *

@@ -13,6 +13,37 @@
 #include "Misc/Paths.h"
 
 
+UWorld* UUnrealExDNKUtils::GetWorldSafe(const UObject* WorldContextObject)
+{
+    if (!WorldContextObject)
+    {
+        UE_LOG(LogTemp, Error, TEXT("GetWorldSafe: WorldContextObject is null!"));
+        return nullptr;
+    }
+
+    if (UWorld* World = WorldContextObject->GetWorld())
+    {
+        return World;
+    }
+    else if (WorldContextObject->GetOuter())
+    {
+        if (UWorld* OuterWorld = WorldContextObject->GetOuter()->GetWorld())
+        {
+            return OuterWorld;
+		}
+    }
+    else if (GEngine)
+    {
+        if (UWorld* EngineWorld = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull))
+        {
+            return EngineWorld;
+        }
+    }
+
+    UE_LOG(LogTemp, Error, TEXT("GetWorldSafe: Cannot get World from WorldContextObject!"));
+    return nullptr;
+}
+
 APlayerController* UUnrealExDNKUtils::GetPlayerController(const UObject* Object, int32 PlayerIndex)
 {
     if (IsValid(Object) == false)
