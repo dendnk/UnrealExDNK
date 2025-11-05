@@ -484,4 +484,24 @@ public:
 		}
 		return OutArray;
 	}
+
+	template<typename Type>
+	static bool IsSame(const TArray<Type>& InArrayA, const TArray<Type>& InArrayB)
+	{
+		bool bIsSameNum = InArrayA.Num() == InArrayB.Num();
+		if (bIsSameNum == false)
+		{
+			return false;
+		}
+
+		for (int32 i = 0; i < InArrayA.Num(); ++i)
+		{
+			if (InArrayA[i] != InArrayB[i])
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
 };
