@@ -127,8 +127,8 @@ struct FProjectileConfig
 	uint8 bRotationFollowsVelocity : 1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile, meta = (EditCondition = "bRotationFollowsVelocity"))
-	uint8 bRotationRemainsVertical : 1;
+	uint8 bRotationRemainsVertical : 1 = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
-	uint8 bShouldBounce : 1;
+	uint8 bShouldBounce : 1 = false;
 };

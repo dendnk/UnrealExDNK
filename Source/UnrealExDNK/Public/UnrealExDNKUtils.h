@@ -74,13 +74,13 @@ struct FStructElement
 	{}
 
 	UPROPERTY(BlueprintReadWrite)
-	FString ParameterName;
+	FString ParameterName = TEXT("");
 
 	UPROPERTY(BlueprintReadWrite)
-	EParameterType ParameterType;
+	EParameterType ParameterType = EParameterType::Boolean;
 
 	UPROPERTY(BlueprintReadWrite)
-	FString ParameterValue;
+	FString ParameterValue = TEXT("");
 };
 
 template<typename T>
