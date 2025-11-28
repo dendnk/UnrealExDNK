@@ -360,6 +360,16 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Math")
 	static float GetMaxFloat() { return FLT_MAX; }
 
+
+	/**
+	 * This is equivalent to INT32_MAX and can be used when initializing variables
+	 * for comparison in min/max calculations or when representing a very large number.
+	 *
+	 * @return The largest possible int value (INT32_MAX).
+	 */
+	UFUNCTION(BlueprintPure, Category = "Math")
+	static int32 GetMaxInt() { return INT32_MAX; }
+
 	/**
 	 * Calculates the sum of all elements in an integer array.
 	 *
