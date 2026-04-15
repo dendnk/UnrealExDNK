@@ -9,9 +9,27 @@
 
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
+#include "HttpModule.h"
+#include "Interfaces/IHttpRequest.h"
+#include "Interfaces/IHttpResponse.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/Paths.h"
 
+
+void UUnrealExDNKUtils::CheckInternetConnection(FOnInternetCheckComplete OnComplete)
+{
+    TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = FHttpModule::Get().CreateRequest();
+    Request->OnProcessRequestComplete().BindLambda([OnComplete](FHttpRequestPtr Req, FHttpResponsePtr Resp, bool bSuccess)
+    {
+        bool bConnected = bSuccess && Resp.IsValid() && Resp->GetResponseCode() == 200;
+        UE_LOG(LogTemp, Warning, TEXT("CheckInternetConnection result : [%s]"), bConnected ? TEXT("True") : TEXT("False"));
+        OnComplete.ExecuteIfBound(bConnected);
+    });
+
+    Request->SetURL("https://www.google.com");
+    Request->SetVerb("GET");
+    Request->ProcessRequest();
+}
 
 UWorld* UUnrealExDNKUtils::GetWorldSafe(const UObject* WorldContextObject)
 {

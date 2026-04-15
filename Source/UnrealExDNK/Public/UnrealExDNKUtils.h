@@ -304,6 +304,8 @@ namespace ActorComponents
 	}
 }
 
+DECLARE_DYNAMIC_DELEGATE_OneParam(FOnInternetCheckComplete, bool, bConnected);
+
 /**
  *
  */
@@ -313,6 +315,10 @@ class UNREALEXDNK_API UUnrealExDNKUtils : public UBlueprintFunctionLibrary
 	GENERATED_BODY()
 
 public:
+	// Helper function to check for an internet connection. After completion will call
+	UFUNCTION(BlueprintCallable, Category = "Internet")
+	static void CheckInternetConnection(FOnInternetCheckComplete OnComplete);
+
 	// Helper function for safe world access
 	static UWorld* GetWorldSafe(const UObject* WorldContextObject);
 
