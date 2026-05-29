@@ -122,6 +122,10 @@ void URocketLauncherComponent::SetupSpawnedProjectile(AProjectileBase* SpawnedPr
 {
     if (SpawnedProjectile)
     {
+		SpawnedProjectile->MeshComponent->SetCollisionResponseToChannel(
+			ECC_GameTraceChannel3,
+			ECR_Ignore
+		);
         if (UProjectileMovementComponent* Movement = SpawnedProjectile->FindComponentByClass<UProjectileMovementComponent>())
         {
             Movement->Velocity = GetMuzzleTransform().GetRotation().Vector() * WeaponDataRuntime->ProjectileSpeed;

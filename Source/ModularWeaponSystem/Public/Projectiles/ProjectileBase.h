@@ -31,8 +31,6 @@ public:
     UFUNCTION(BlueprintCallable, Category = Projectiles)
     virtual void OnProjectileHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 
-    UFUNCTION(BlueprintCallable, Category = Projectiles)
-    void EnableCollision();
 
 protected:
     virtual void BeginPlay() override;
@@ -69,5 +67,4 @@ private:
     UPROPERTY()
     TObjectPtr<UAudioComponent> IdleAudioComponent;
 
-    FTimerHandle EnableCollisionTimerHandle;
 };
