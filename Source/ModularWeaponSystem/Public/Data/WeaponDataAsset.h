@@ -48,6 +48,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
 	FName MuzzleSocketName = "Muzzle";
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
+	FName LeftMuzzleSocketName = "LeftMuzzle";
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
+	FName RightMuzzleSocketName = "RightMuzzle";
+
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Common")
 	FDamageData DamageData;
