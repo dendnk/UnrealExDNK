@@ -100,7 +100,8 @@ void URocketLauncherComponent::FireProjectile()
 		AProjectileBase* Projectile = World->SpawnActor<AProjectileBase>(
 			ProjectileClass,
 			MuzzleTransform.GetLocation(),
-			MuzzleTransform.GetRotation().Rotator()
+			MuzzleTransform.GetRotation().Rotator(), 
+			SpawnParams
 		);
 
 		SetupSpawnedProjectile(Projectile);

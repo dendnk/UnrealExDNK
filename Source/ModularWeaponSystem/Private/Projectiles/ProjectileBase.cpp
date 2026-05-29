@@ -40,6 +40,16 @@ void AProjectileBase::BeginPlay()
     Super::BeginPlay();
 
     IdleAudioComponent = CustomSpawnSoundAttached(IdleSound, MeshComponent, NAME_None, FVector(ForceInit), FRotator::ZeroRotator, EAttachLocation::KeepRelativeOffset, true, 1.f, 1.f, 0.f, nullptr, nullptr, false);
+
+	MeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	GetWorldTimerManager().SetTimer(
+		EnableCollisionTimerHandle,
+		this,
+		&AProjectileBase::EnableCollision,
+		0.2f,
+		false
+	);
 }
 
 UAudioComponent* AProjectileBase::CustomSpawnSoundAttached(USoundBase* Sound, USceneComponent* AttachToComponent, FName AttachPointName, FVector Location, FRotator Rotation, EAttachLocation::Type LocationType, bool bStopWhenAttachedToDestroyed, float VolumeMultiplier, float PitchMultiplier, float StartTime, USoundAttenuation* AttenuationSettings, USoundConcurrency* ConcurrencySettings, bool bAutoDestroy)
@@ -106,4 +116,9 @@ void AProjectileBase::OnProjectileHit(UPrimitiveComponent* HitComponent, AActor*
     }
 
     Destroy();
+}
+
+void AProjectileBase::EnableCollision()
+{
+	MeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 }
