@@ -120,7 +120,7 @@ void URocketLauncherComponent::FireProjectile()
 
 void URocketLauncherComponent::SetupSpawnedProjectile(AProjectileBase* SpawnedProjectile)
 {
-    if (SpawnedProjectile)
+    if (IsValid(SpawnedProjectile) && IsValid(SpawnedProjectile->MeshComponent))
     {
 		SpawnedProjectile->MeshComponent->SetCollisionResponseToChannel(
 			ECC_GameTraceChannel3,
