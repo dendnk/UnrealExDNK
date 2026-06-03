@@ -100,7 +100,8 @@ void URocketLauncherComponent::FireProjectile()
 		AProjectileBase* Projectile = World->SpawnActor<AProjectileBase>(
 			ProjectileClass,
 			MuzzleTransform.GetLocation(),
-			MuzzleTransform.GetRotation().Rotator()
+			MuzzleTransform.GetRotation().Rotator(), 
+			SpawnParams
 		);
 
 		SetupSpawnedProjectile(Projectile);
@@ -119,8 +120,12 @@ void URocketLauncherComponent::FireProjectile()
 
 void URocketLauncherComponent::SetupSpawnedProjectile(AProjectileBase* SpawnedProjectile)
 {
-    if (SpawnedProjectile)
+    if (IsValid(SpawnedProjectile) && IsValid(SpawnedProjectile->MeshComponent))
     {
+		SpawnedProjectile->MeshComponent->SetCollisionResponseToChannel(
+			ECC_GameTraceChannel3,
+			ECR_Ignore
+		);
         if (UProjectileMovementComponent* Movement = SpawnedProjectile->FindComponentByClass<UProjectileMovementComponent>())
         {
             Movement->Velocity = GetMuzzleTransform().GetRotation().Vector() * WeaponDataRuntime->ProjectileSpeed;
