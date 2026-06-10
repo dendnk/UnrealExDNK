@@ -39,6 +39,10 @@ public:
     UFUNCTION()
     void HandleOnWeaponDataPropertyChanged();
 
+    void Reload();
+
+    void OnReloadFinished();
+
 public:
     UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Weapon|Fire")
     void StartFire();
@@ -61,6 +65,12 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "Weapon|Data")
     void SetCurrentAmmo(int32 NewCurrentAmmo);
+
+    UFUNCTION(BlueprintPure, Category = "Weapon|Data")
+    int32 GetCurrentMagazineAmmo() const { return CurrentMagazineAmmo; };
+
+    UFUNCTION(BlueprintCallable, Category = "Weapon|Data")
+    void SetCurrentMagazineAmmo(int32 NewCurrentMagazineAmmo);
 
     UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Weapon|Data")
     FTransform GetMuzzleTransform() const;
@@ -105,6 +115,9 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Fire")
     bool bCanFire = true;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Fire")
+    bool bIsReloading = false;
+
     UPROPERTY(Transient)
     TObjectPtr<UWeaponViewModel> WeaponViewModel;
 
@@ -114,6 +127,9 @@ protected:
 
     UPROPERTY()
     int32 CurrentAmmo;
+
+    UPROPERTY()
+    int32 CurrentMagazineAmmo;
 
     UPROPERTY()
     TSubclassOf<AProjectileBase> ProjectileClass;

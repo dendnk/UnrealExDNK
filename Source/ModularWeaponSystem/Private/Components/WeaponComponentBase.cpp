@@ -66,6 +66,7 @@ void UWeaponComponentBase::InitWeaponData()
 
 	WeaponDataRuntime = DuplicateObject<UWeaponDataAsset>(GetWeaponDataAsset(), this);
 	SetCurrentAmmo(WeaponDataRuntime->MaxAmmo);
+    SetCurrentMagazineAmmo(WeaponDataRuntime->MaxMagazineAmmo);
 	HandleOnWeaponDataPropertyChanged();
 	WeaponDataRuntime->OnWeaponDataPropertyChanged.AddDynamic(this, &ThisClass::HandleOnWeaponDataPropertyChanged);
 }
@@ -222,7 +223,7 @@ void UWeaponComponentBase::FireProjectile()
 
 	if (WeaponDataRuntime->bInfiniteAmmo == false)
 	{
-		SetCurrentAmmo(GetCurrentAmmo() - WeaponDataRuntime->AmmoPerShot);
+        SetCurrentMagazineAmmo(GetCurrentMagazineAmmo() - WeaponDataRuntime->AmmoPerShot);
 	}
 
 	SpawnFXAtLocation(WeaponDataRuntime->FXData.MuzzleFlashFX, MuzzleTransform.GetLocation());
@@ -302,6 +303,53 @@ void UWeaponComponentBase::HandleOnWeaponDataPropertyChanged()
 	SetProjectileClass(GetProjectileClassByType(WeaponDataRuntime->ProjectileType));
 }
 
+void UWeaponComponentBase::Reload()
+{
+    UWorld* const World = GetWorld();
+    if (!IsValid(World))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("World is not valid!"));
+        return;
+    }
+
+    bCanFire = false;
+    bIsReloading = true;
+
+    FTimerHandle TimerHandle;
+    float InRate = WeaponDataRuntime->ReloadData.ReloadTime;
+    const bool bIsLoop = false;
+
+    if (InRate > 0)
+    {
+        World->GetTimerManager().SetTimer(TimerHandle, this, &UWeaponComponentBase::OnReloadFinished, InRate, bIsLoop);
+    }
+    else
+    {
+        OnReloadFinished();
+    }
+}
+
+void UWeaponComponentBase::OnReloadFinished()
+{
+    int32 AmmoToSet = 0;
+    int32 ExcessAmmo = GetCurrentAmmo() - WeaponDataRuntime->MaxMagazineAmmo;
+    if (ExcessAmmo >= 0)
+    {
+        AmmoToSet = WeaponDataRuntime->MaxMagazineAmmo;
+    }
+    else
+    {
+        AmmoToSet = WeaponDataRuntime->MaxMagazineAmmo + ExcessAmmo;
+        ExcessAmmo = 0;
+    }
+
+    SetCurrentAmmo(ExcessAmmo);
+    SetCurrentMagazineAmmo(AmmoToSet);
+
+    bCanFire = true;
+    bIsReloading = false;
+}
+
 void UWeaponComponentBase::ApplyDamage_Implementation(AActor* DamagedActor, FVector const& HitFromDirection, FHitResult const& HitInfo, AController* EventInstigator, AActor* DamageCauser, TSubclassOf<UDamageType> DamageTypeClass)
 {
 	if (WeaponDataRuntime->FireType == EFireType::Hitscan)
@@ -328,6 +376,21 @@ void UWeaponComponentBase::SetCurrentAmmo(int32 NewCurrentAmmo)
 			WeaponViewModel->SetCurrentAmmo(CurrentAmmo);
 		}
 	}
+}
+
+void UWeaponComponentBase::SetCurrentMagazineAmmo(int32 NewCurrentMagazineAmmo)
+{
+    if (NewCurrentMagazineAmmo <= 0)
+    {
+        CurrentMagazineAmmo = 0;
+        Reload();
+        return;
+    }
+
+    if (CurrentMagazineAmmo != NewCurrentMagazineAmmo)
+    {
+        CurrentMagazineAmmo = NewCurrentMagazineAmmo;
+    }
 }
 
 TSubclassOf<AProjectileBase> UWeaponComponentBase::GetProjectileClassByType(const EProjectileType& ProjectileType) const
