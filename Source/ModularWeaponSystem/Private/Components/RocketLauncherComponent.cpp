@@ -111,7 +111,7 @@ void URocketLauncherComponent::FireProjectile()
 
 	if (WeaponDataRuntime->bInfiniteAmmo == false)
 	{
-		SetCurrentAmmo(GetCurrentAmmo() - WeaponDataRuntime->AmmoPerShot);
+        SetCurrentMagazineAmmo(GetCurrentMagazineAmmo() - WeaponDataRuntime->AmmoPerShot);
 	}
 
 	SpawnFXAtLocation(WeaponDataRuntime->FXData.MuzzleFlashFX, MuzzleTransform.GetLocation());
