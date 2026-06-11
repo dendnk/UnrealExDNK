@@ -64,13 +64,13 @@ public:
     int32 GetCurrentAmmo() const { return CurrentAmmo; };
 
     UFUNCTION(BlueprintCallable, Category = "Weapon|Data")
-    void SetCurrentAmmo(int32 NewCurrentAmmo);
+    void SetCurrentAmmo(const int32 NewCurrentAmmo);
 
     UFUNCTION(BlueprintPure, Category = "Weapon|Data")
     int32 GetCurrentMagazineAmmo() const { return CurrentMagazineAmmo; };
 
     UFUNCTION(BlueprintCallable, Category = "Weapon|Data")
-    void SetCurrentMagazineAmmo(int32 NewCurrentMagazineAmmo);
+    void SetCurrentMagazineAmmo(const int32 NewCurrentMagazineAmmo);
 
     UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Weapon|Data")
     FTransform GetMuzzleTransform() const;

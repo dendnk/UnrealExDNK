@@ -366,7 +366,7 @@ void UWeaponComponentBase::ApplyDamage_Implementation(AActor* DamagedActor, FVec
 	}
 }
 
-void UWeaponComponentBase::SetCurrentAmmo(int32 NewCurrentAmmo)
+void UWeaponComponentBase::SetCurrentAmmo(const int32 NewCurrentAmmo)
 {
 	if (CurrentAmmo != NewCurrentAmmo)
 	{
@@ -378,7 +378,7 @@ void UWeaponComponentBase::SetCurrentAmmo(int32 NewCurrentAmmo)
 	}
 }
 
-void UWeaponComponentBase::SetCurrentMagazineAmmo(int32 NewCurrentMagazineAmmo)
+void UWeaponComponentBase::SetCurrentMagazineAmmo(const int32 NewCurrentMagazineAmmo)
 {
     if (NewCurrentMagazineAmmo <= 0)
     {
