@@ -121,6 +121,11 @@ void URocketLauncherComponent::SetupSpawnedProjectile(AProjectileBase* SpawnedPr
 {
     if (SpawnedProjectile)
     {
+        if (IsValid(WeaponDataRuntime))
+        {
+            SpawnedProjectile->Config.Damage = WeaponDataRuntime->DamageData.BaseDamage;
+        }
+
         if (UProjectileMovementComponent* Movement = SpawnedProjectile->FindComponentByClass<UProjectileMovementComponent>())
         {
             Movement->Velocity = GetMuzzleTransform().GetRotation().Vector() * WeaponDataRuntime->ProjectileSpeed;

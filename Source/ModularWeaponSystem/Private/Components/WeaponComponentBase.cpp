@@ -330,6 +330,14 @@ void UWeaponComponentBase::SetCurrentAmmo(int32 NewCurrentAmmo)
 	}
 }
 
+void UWeaponComponentBase::SetBaseDamage(float NewBaseDamage)
+{
+	if (IsValid(WeaponDataRuntime))
+	{
+		WeaponDataRuntime->DamageData.BaseDamage = NewBaseDamage;
+	}
+}
+
 TSubclassOf<AProjectileBase> UWeaponComponentBase::GetProjectileClassByType(const EProjectileType& ProjectileType) const
 {
 	if (ProjectileClasses.Contains(ProjectileType))
