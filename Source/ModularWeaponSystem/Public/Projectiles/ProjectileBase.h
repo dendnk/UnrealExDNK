@@ -31,6 +31,7 @@ public:
     UFUNCTION(BlueprintCallable, Category = Projectiles)
     virtual void OnProjectileHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 
+
 protected:
     virtual void BeginPlay() override;
     virtual UAudioComponent* CustomSpawnSoundAttached(USoundBase* Sound, USceneComponent* AttachToComponent, FName AttachPointName = NAME_None, FVector Location = FVector(ForceInit), FRotator Rotation = FRotator::ZeroRotator, EAttachLocation::Type LocationType = EAttachLocation::KeepRelativeOffset, bool bStopWhenAttachedToDestroyed = false, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, float StartTime = 0.f, USoundAttenuation* AttenuationSettings = nullptr, USoundConcurrency* ConcurrencySettings = nullptr, bool bAutoDestroy = true);
@@ -65,4 +66,5 @@ public:
 private:
     UPROPERTY()
     TObjectPtr<UAudioComponent> IdleAudioComponent;
+
 };

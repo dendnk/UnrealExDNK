@@ -33,6 +33,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
 	int32 MaxAmmo = 100;
 
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
+    int32 MaxMagazineAmmo = 10;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
 	int32 AmmoPerShot = 1;
 
@@ -47,6 +50,12 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
 	FName MuzzleSocketName = "Muzzle";
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
+	FName LeftMuzzleSocketName = "LeftMuzzle";
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
+	FName RightMuzzleSocketName = "RightMuzzle";
 
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Common")
