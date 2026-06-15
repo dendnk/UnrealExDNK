@@ -71,7 +71,7 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "Weapon|Data")
     void SetCurrentMagazineAmmo(const int32 NewCurrentMagazineAmmo);
-    
+
     UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Weapon|Data")
     FTransform GetMuzzleTransform() const;
 
