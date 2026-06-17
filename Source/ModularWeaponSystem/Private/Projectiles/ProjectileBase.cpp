@@ -68,6 +68,11 @@ void AProjectileBase::Tick(float DeltaTime)
 
 void AProjectileBase::OnProjectileHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
+    if (bIsAlreadyExploded)
+    {
+        return;
+    }
+
     if (IsValid(OtherActor) == false ||
         OtherActor == this ||
         OtherActor == GetOwner())
@@ -89,11 +94,29 @@ void AProjectileBase::OnProjectileHit(UPrimitiveComponent* HitComponent, AActor*
     //    *GetNameSafe(OtherComp)
     //    );
 
+    if (TryHandleProjectileCollision(OtherActor, Hit))
+    {
+        return;
+    }
+
     CustomApplyDamage(Config.Damage, this, OtherActor);
+
+    ExplodeProjectile(Hit);
+}
+
+void AProjectileBase::ExplodeProjectile(const FHitResult& Hit)
+{
+    if (bIsAlreadyExploded)
+    {
+        return;
+    }
+
+    bIsAlreadyExploded = true;
+    SetActorEnableCollision(false);
 
     if (ExplosionEffect != nullptr)
     {
-        UNiagaraFunctionLibrary::SpawnSystemAtLocation(OtherActor, ExplosionEffect, Hit.Location);
+        UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, ExplosionEffect, Hit.Location);
     }
 
     if (IdleAudioComponent != nullptr)
@@ -107,4 +130,61 @@ void AProjectileBase::OnProjectileHit(UPrimitiveComponent* HitComponent, AActor*
     }
 
     Destroy();
+}
+
+bool AProjectileBase::TryHandleProjectileCollision(AActor* HitActor, const FHitResult& Hit)
+{
+    if (!IsValid(HitActor))
+    {
+        return false;
+    }
+
+    AProjectileBase* HitProjectile = Cast<AProjectileBase>(HitActor);
+    if (!IsValid(HitProjectile))
+    {
+        return false;
+    }
+
+    if (ProjectileCollisionRuleConfig.bEnableProjectileCollisionRules == false)
+    {
+        return false;
+    }
+
+    const FProjectileCollisionRuleConfig& HitProjectileConfig = HitProjectile->ProjectileCollisionRuleConfig;
+    if (ProjectileCollisionRuleConfig.ValidTargetProjectileTags.IsEmpty() == false &&
+        ProjectileCollisionRuleConfig.ValidTargetProjectileTags.HasTag(HitProjectileConfig.ProjectileTypeTag) == false)
+    {
+        return true;
+    }
+
+    if (ProjectileCollisionRuleConfig.bCanAffectFriendlyProjectiles == false &&
+        ProjectileCollisionRuleConfig.ProjectileFactionTag.IsValid() &&
+        HitProjectileConfig.ProjectileFactionTag.IsValid() &&
+        ProjectileCollisionRuleConfig.ProjectileFactionTag.MatchesTagExact(HitProjectileConfig.ProjectileFactionTag))
+    {
+        return true;
+    }
+
+    switch (ProjectileCollisionRuleConfig.DestructionMode)
+    {
+    case EProjectileCollisionDestroyMode::DestroyImmediately:
+        HitProjectile->ExplodeProjectile(Hit);
+        break;
+
+    case EProjectileCollisionDestroyMode::DamageHealth:
+        CustomApplyDamage(ProjectileCollisionRuleConfig.ProjectileCollisionDamage, this, HitProjectile);
+        break;
+
+    default:
+        break;
+    }
+
+    if (ProjectileCollisionRuleConfig.bConsumeSelfOnProjectileCollision)
+    {
+        bIsAlreadyExploded = true;
+        SetActorEnableCollision(false);
+        Destroy();
+    }
+
+    return true;
 }

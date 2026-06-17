@@ -31,6 +31,10 @@ public:
     UFUNCTION(BlueprintCallable, Category = Projectiles)
     virtual void OnProjectileHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 
+    UFUNCTION(BlueprintCallable, Category="Projectile")
+    virtual void ExplodeProjectile(const FHitResult& Hit);
+
+    bool TryHandleProjectileCollision(AActor* HitActor, const FHitResult& Hit);
 
 protected:
     virtual void BeginPlay() override;
@@ -40,7 +44,6 @@ protected:
 
 public:
     virtual void Tick(float DeltaTime) override;
-
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = BaseRocket)
     TObjectPtr<UProjectileMovementComponent> MovementComponent;
@@ -60,6 +63,9 @@ public:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = BaseRocket)
     FProjectileConfig Config;
 
+    UPROPERTY(BlueprintReadOnly, Category = ProjectileCollisionRuleConfig)
+    FProjectileCollisionRuleConfig ProjectileCollisionRuleConfig;
+
     UPROPERTY(BlueprintAssignable)
     FOnProjectileSetupFinishedDelegate OnProjectileSetupFinished;
 
@@ -67,4 +73,5 @@ private:
     UPROPERTY()
     TObjectPtr<UAudioComponent> IdleAudioComponent;
 
+    bool bIsAlreadyExploded = false;
 };

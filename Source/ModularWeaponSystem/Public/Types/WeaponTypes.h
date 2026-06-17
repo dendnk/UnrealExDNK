@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "GameplayTagContainer.h"
 #include "NiagaraSystem.h"
 #include "Sound/SoundBase.h"
 #include "WeaponTypes.generated.h"
@@ -54,6 +55,13 @@ enum class EProjectileType : uint8
 	WobbleRocket			UMETA(DisplayName = "Wobble Rocket"),
 	// Guided rocket that follows the target
 	HomingRocket			UMETA(DisplayName = "Homing Rocket"),
+};
+
+UENUM(BlueprintType)
+enum class EProjectileCollisionDestroyMode : uint8
+{
+	DestroyImmediately		UMETA(DisplayName = "DestroyProjectile immediately"),
+	DamageHealth			UMETA(DisplayName = "DestroyProjectile by damage"),
 };
 
 USTRUCT(BlueprintType)
@@ -131,4 +139,42 @@ struct FProjectileConfig
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
 	uint8 bShouldBounce : 1 = false;
+};
+
+USTRUCT(BlueprintType)
+struct FProjectileCollisionRuleConfig
+{
+	GENERATED_BODY()
+
+	/** Enables custom projectile-vs-projectile collision handling for this projectile or weapon. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Projectile|Collision")
+	bool bEnableProjectileCollisionRules = false;
+
+	/** Gameplay tag that identifies this projectile type for collision filtering. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Projectile|Collision")
+	FGameplayTag ProjectileTypeTag;
+
+	/** Gameplay tag that identifies this projectile faction/team for friendly-fire filtering. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Projectile|Collision")
+	FGameplayTag ProjectileFactionTag;
+
+	/** Allows this projectile or weapon to affect projectiles with the same faction tag. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Projectile|Collision")
+	bool bCanAffectFriendlyProjectiles = false;
+
+	/** If not empty, only projectiles with one of these type tags can be affected. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Projectile|Collision")
+	FGameplayTagContainer ValidTargetProjectileTags;
+
+	/** Defines how a valid target projectile should be removed or damaged. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Projectile|Collision")
+	EProjectileCollisionDestroyMode DestructionMode = EProjectileCollisionDestroyMode::DestroyImmediately;
+
+	/** Damage applied to a valid target projectile when DestructionMode is DamageHealth. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Projectile|Collision", meta=(ClampMin="0"))
+	float ProjectileCollisionDamage = 100.f;
+
+	/** Destroys this projectile after it successfully affects another projectile. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Projectile|Collision")
+	bool bConsumeSelfOnProjectileCollision = true;
 };

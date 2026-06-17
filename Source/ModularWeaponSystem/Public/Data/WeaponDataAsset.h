@@ -85,9 +85,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Beam")
 	float BeamDuration;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|ProjectileCollisionConfig")
+	FProjectileCollisionRuleConfig ProjectileCollisionRuleConfig;
+
 	UPROPERTY(BlueprintAssignable, BlueprintCallable)
 	FOnWeaponDataPropertyChangedEvent OnWeaponDataPropertyChanged;
-
 
 	virtual FPrimaryAssetId GetPrimaryAssetId() const override
 	{
