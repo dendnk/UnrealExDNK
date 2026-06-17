@@ -481,3 +481,11 @@ FTransform UWeaponComponentBase::GetMuzzleTransform_Implementation() const
 
 	return FTransform::Identity;
 }
+
+void UWeaponComponentBase::SetBaseDamage(float NewBaseDamage)
+{
+	if (IsValid(WeaponDataRuntime))
+	{
+		WeaponDataRuntime->DamageData.BaseDamage = NewBaseDamage;
+	}
+}

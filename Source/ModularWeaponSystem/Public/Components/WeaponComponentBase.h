@@ -75,6 +75,9 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Weapon|Data")
     FTransform GetMuzzleTransform() const;
 
+    UFUNCTION(BlueprintCallable, Category = "Weapon|Data")
+    void SetBaseDamage(float NewBaseDamage);
+
 
     UFUNCTION(BlueprintCallable, Category = "Weapon|Projectile")
     TSubclassOf<AProjectileBase> GetProjectileClassByType(const EProjectileType& ProjectileType) const;
