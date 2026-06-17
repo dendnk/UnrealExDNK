@@ -34,7 +34,6 @@ namespace MWSGameplayTags
         }
         
         UE_DECLARE_GAMEPLAY_TAG_EXTERN(Laser)
-        UE_DECLARE_GAMEPLAY_TAG_EXTERN(Grenade)
     }
 
 }

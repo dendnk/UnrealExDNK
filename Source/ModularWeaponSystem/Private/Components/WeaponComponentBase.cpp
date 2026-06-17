@@ -40,12 +40,13 @@ void UWeaponComponentBase::BeginPlay()
 			if (UWeaponComponentBaseWidget* WeaponChildWidget = Cast<UWeaponComponentBaseWidget>(Widget))
 			{
 				WeaponChildWidget->SetViewModel(WeaponViewModel);
-				return;	//	assuming we have only one UWeaponComponentBaseWidget as a child
+				return; //	assuming we have only one UWeaponComponentBaseWidget as a child
 			}
 		}
 	}
 
-	UE_DNK_LOG(LogTemp, Error, "The UI widget is not a UWeaponComponentBaseWidget or does not contain a UWeaponComponentBaseWidget!");
+	UE_DNK_LOG(LogTemp, Error,
+	           "The UI widget is not a UWeaponComponentBaseWidget or does not contain a UWeaponComponentBaseWidget!");
 }
 
 void UWeaponComponentBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -66,7 +67,7 @@ void UWeaponComponentBase::InitWeaponData()
 
 	WeaponDataRuntime = DuplicateObject<UWeaponDataAsset>(GetWeaponDataAsset(), this);
 	SetCurrentAmmo(WeaponDataRuntime->MaxAmmo);
-    SetCurrentMagazineAmmo(WeaponDataRuntime->MaxMagazineAmmo);
+	SetCurrentMagazineAmmo(WeaponDataRuntime->MaxMagazineAmmo);
 	HandleOnWeaponDataPropertyChanged();
 	WeaponDataRuntime->OnWeaponDataPropertyChanged.AddDynamic(this, &ThisClass::HandleOnWeaponDataPropertyChanged);
 }
@@ -100,13 +101,15 @@ void UWeaponComponentBase::StartFire_Implementation()
 
 	case EFiringMode::FullAuto:
 		Fire();
-		GetWorld()->GetTimerManager().SetTimer(FireLoopHandle, this, &ThisClass::Fire, WeaponDataRuntime->CooldownTime, true);
+		GetWorld()->GetTimerManager().SetTimer(FireLoopHandle, this, &ThisClass::Fire, WeaponDataRuntime->CooldownTime,
+		                                       true);
 		break;
 
 	case EFiringMode::Burst:
 		Fire();
 		CurrentBurstCount = 1;
-		GetWorld()->GetTimerManager().SetTimer(BurstHandle, this, &ThisClass::HandleBurstFire, WeaponDataRuntime->CooldownTime, true);
+		GetWorld()->GetTimerManager().SetTimer(BurstHandle, this, &ThisClass::HandleBurstFire,
+		                                       WeaponDataRuntime->CooldownTime, true);
 		break;
 	}
 }
@@ -183,7 +186,8 @@ void UWeaponComponentBase::FireProjectile()
 	if (WeaponDataRuntime->FireType != EFireType::Projectile)
 	{
 		UE_DNK_LOG(LogTemp, Error, "Wrong FireType [%s]!",
-			*StaticEnum<EFireType>()->GetDisplayNameTextByValue(static_cast<int64>(WeaponDataRuntime->FireType)).ToString());
+		           *StaticEnum<EFireType>()->GetDisplayNameTextByValue(static_cast<int64>(WeaponDataRuntime->FireType)).
+		           ToString());
 		return;
 	}
 
@@ -223,7 +227,7 @@ void UWeaponComponentBase::FireProjectile()
 
 	if (WeaponDataRuntime->bInfiniteAmmo == false)
 	{
-        SetCurrentMagazineAmmo(GetCurrentMagazineAmmo() - WeaponDataRuntime->AmmoPerShot);
+		SetCurrentMagazineAmmo(GetCurrentMagazineAmmo() - WeaponDataRuntime->AmmoPerShot);
 	}
 
 	SpawnFXAtLocation(WeaponDataRuntime->FXData.MuzzleFlashFX, MuzzleTransform.GetLocation());
@@ -261,7 +265,8 @@ void UWeaponComponentBase::FireHitscan()
 	{
 		if (HandleProjectileCollisionHit(Hit))
 		{
-			SpawnFXAtLocation(WeaponDataRuntime->FXData.ImpactFX, Hit.Location, Hit.ImpactNormal.Rotation().GetInverse());
+			SpawnFXAtLocation(WeaponDataRuntime->FXData.ImpactFX, Hit.Location,
+			                  Hit.ImpactNormal.Rotation().GetInverse());
 			return;
 		}
 
@@ -275,9 +280,10 @@ void UWeaponComponentBase::FireHitscan()
 				GetOwner()->GetInstigatorController(),
 				GetOwner(),
 				nullptr
-				);
+			);
 
-			SpawnFXAtLocation(WeaponDataRuntime->FXData.ImpactFX, Hit.Location, Hit.ImpactNormal.Rotation().GetInverse());
+			SpawnFXAtLocation(WeaponDataRuntime->FXData.ImpactFX, Hit.Location,
+			                  Hit.ImpactNormal.Rotation().GetInverse());
 		}
 	}
 }
@@ -344,7 +350,8 @@ void UWeaponComponentBase::FireBeam()
 	if (WeaponDataRuntime->FireType != EFireType::Beam)
 	{
 		UE_DNK_LOG(LogTemp, Error, "Wrong FireType [%s]!",
-			*StaticEnum<EFireType>()->GetDisplayNameTextByValue(static_cast<int64>(WeaponDataRuntime->FireType)).ToString());
+		           *StaticEnum<EFireType>()->GetDisplayNameTextByValue(static_cast<int64>(WeaponDataRuntime->FireType)).
+		           ToString());
 		return;
 	}
 
@@ -368,52 +375,54 @@ void UWeaponComponentBase::HandleOnWeaponDataPropertyChanged()
 
 void UWeaponComponentBase::Reload()
 {
-    UWorld* const World = GetWorld();
-    if (!IsValid(World))
-    {
-        UE_LOG(LogTemp, Warning, TEXT("World is not valid!"));
-        return;
-    }
+	UWorld* const World = GetWorld();
+	if (!IsValid(World))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("World is not valid!"));
+		return;
+	}
 
-    bCanFire = false;
-    bIsReloading = true;
+	bCanFire = false;
+	bIsReloading = true;
 
-    FTimerHandle TimerHandle;
-    float InRate = WeaponDataRuntime->ReloadData.ReloadTime;
-    const bool bIsLoop = false;
+	FTimerHandle TimerHandle;
+	float InRate = WeaponDataRuntime->ReloadData.ReloadTime;
+	const bool bIsLoop = false;
 
-    if (InRate > 0)
-    {
-        World->GetTimerManager().SetTimer(TimerHandle, this, &UWeaponComponentBase::OnReloadFinished, InRate, bIsLoop);
-    }
-    else
-    {
-        OnReloadFinished();
-    }
+	if (InRate > 0)
+	{
+		World->GetTimerManager().SetTimer(TimerHandle, this, &UWeaponComponentBase::OnReloadFinished, InRate, bIsLoop);
+	}
+	else
+	{
+		OnReloadFinished();
+	}
 }
 
 void UWeaponComponentBase::OnReloadFinished()
 {
-    int32 AmmoToSet = 0;
-    int32 ExcessAmmo = GetCurrentAmmo() - WeaponDataRuntime->MaxMagazineAmmo;
-    if (ExcessAmmo >= 0)
-    {
-        AmmoToSet = WeaponDataRuntime->MaxMagazineAmmo;
-    }
-    else
-    {
-        AmmoToSet = WeaponDataRuntime->MaxMagazineAmmo + ExcessAmmo;
-        ExcessAmmo = 0;
-    }
+	int32 AmmoToSet = 0;
+	int32 ExcessAmmo = GetCurrentAmmo() - WeaponDataRuntime->MaxMagazineAmmo;
+	if (ExcessAmmo >= 0)
+	{
+		AmmoToSet = WeaponDataRuntime->MaxMagazineAmmo;
+	}
+	else
+	{
+		AmmoToSet = WeaponDataRuntime->MaxMagazineAmmo + ExcessAmmo;
+		ExcessAmmo = 0;
+	}
 
-    SetCurrentAmmo(ExcessAmmo);
-    SetCurrentMagazineAmmo(AmmoToSet);
+	SetCurrentAmmo(ExcessAmmo);
+	SetCurrentMagazineAmmo(AmmoToSet);
 
-    bCanFire = true;
-    bIsReloading = false;
+	bCanFire = true;
+	bIsReloading = false;
 }
 
-void UWeaponComponentBase::ApplyDamage_Implementation(AActor* DamagedActor, FVector const& HitFromDirection, FHitResult const& HitInfo, AController* EventInstigator, AActor* DamageCauser, TSubclassOf<UDamageType> DamageTypeClass)
+void UWeaponComponentBase::ApplyDamage_Implementation(AActor* DamagedActor, FVector const& HitFromDirection,
+                                                      FHitResult const& HitInfo, AController* EventInstigator,
+                                                      AActor* DamageCauser, TSubclassOf<UDamageType> DamageTypeClass)
 {
 	if (WeaponDataRuntime->FireType == EFireType::Hitscan)
 	{
@@ -443,17 +452,17 @@ void UWeaponComponentBase::SetCurrentAmmo(const int32 NewCurrentAmmo)
 
 void UWeaponComponentBase::SetCurrentMagazineAmmo(const int32 NewCurrentMagazineAmmo)
 {
-    if (NewCurrentMagazineAmmo <= 0)
-    {
-        CurrentMagazineAmmo = 0;
-        Reload();
-        return;
-    }
+	if (NewCurrentMagazineAmmo <= 0)
+	{
+		CurrentMagazineAmmo = 0;
+		Reload();
+		return;
+	}
 
-    if (CurrentMagazineAmmo != NewCurrentMagazineAmmo)
-    {
-        CurrentMagazineAmmo = NewCurrentMagazineAmmo;
-    }
+	if (CurrentMagazineAmmo != NewCurrentMagazineAmmo)
+	{
+		CurrentMagazineAmmo = NewCurrentMagazineAmmo;
+	}
 }
 
 TSubclassOf<AProjectileBase> UWeaponComponentBase::GetProjectileClassByType(const EProjectileType& ProjectileType) const
@@ -478,13 +487,18 @@ void UWeaponComponentBase::SetProjectileClass(TSubclassOf<AProjectileBase> NewPr
 	OnProjectileClassChanged.Broadcast(NewProjectileClass);
 }
 
-UNiagaraComponent* UWeaponComponentBase::SpawnFXAtLocation_Implementation(UNiagaraSystem* SystemTemplate, FVector Location, FRotator Rotation, FVector Scale, bool bAutoDestroy, bool bShouldAutoActivate)
+UNiagaraComponent* UWeaponComponentBase::SpawnFXAtLocation_Implementation(
+	UNiagaraSystem* SystemTemplate, FVector Location, FRotator Rotation, FVector Scale, bool bAutoDestroy,
+	bool bShouldAutoActivate)
 {
 	AActor* OwnerActor = GetOwner();
-	return UNiagaraFunctionLibrary::SpawnSystemAtLocation(OwnerActor, SystemTemplate, Location, Rotation, Scale, bAutoDestroy, bShouldAutoActivate);
+	return UNiagaraFunctionLibrary::SpawnSystemAtLocation(OwnerActor, SystemTemplate, Location, Rotation, Scale,
+	                                                      bAutoDestroy, bShouldAutoActivate);
 }
 
-void UWeaponComponentBase::PlaySoundAtLocation_Implementation(USoundBase* Sound, FVector Location, float VolumeMultiplier, float PitchMultiplier, float StartTime)
+void UWeaponComponentBase::PlaySoundAtLocation_Implementation(USoundBase* Sound, FVector Location,
+                                                              float VolumeMultiplier, float PitchMultiplier,
+                                                              float StartTime)
 {
 	AActor* OwnerActor = GetOwner();
 	UGameplayStatics::PlaySoundAtLocation(OwnerActor, Sound, Location, VolumeMultiplier, PitchMultiplier, StartTime);
@@ -511,6 +525,10 @@ void UWeaponComponentBase::SetupSpawnedProjectile(AProjectileBase* SpawnedProjec
 		SpawnedProjectile->OnProjectileSetupFinished.Broadcast();
 
 		SpawnedProjectile->ProjectileCollisionRuleConfig = WeaponDataAsset->ProjectileCollisionRuleConfig;
+		if (WeaponDataAsset->ProjectileLifeSpan > 0.0f)
+		{
+			SpawnedProjectile->SetLifeSpan(WeaponDataAsset->ProjectileLifeSpan);
+		}
 
 		// TODO: Make Interface call to owner of the component to get it`s tag and set ProjectileFaction
 		// SpawnedProjectile->ProjectileCollisionRuleConfig.ProjectileFactionTag = MWSGameplayTags::None;

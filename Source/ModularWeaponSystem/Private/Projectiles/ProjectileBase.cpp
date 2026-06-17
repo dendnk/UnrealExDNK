@@ -61,6 +61,11 @@ void AProjectileBase::CustomPlaySoundAtLocation(const UObject* WorldContextObjec
     return UGameplayStatics::PlaySoundAtLocation(WorldContextObject, Sound, Location, VolumeMultiplier, PitchMultiplier, StartTime, AttenuationSettings, ConcurrencySettings, InitialParams);
 }
 
+void AProjectileBase::LifeSpanExpired()
+{
+    ExplodeProjectile(FHitResult());   
+}
+
 void AProjectileBase::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);

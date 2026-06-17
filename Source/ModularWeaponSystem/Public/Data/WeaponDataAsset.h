@@ -81,12 +81,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Projectile")
 	float ProjectileSpeed;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Projectile")
+	FProjectileCollisionRuleConfig ProjectileCollisionRuleConfig;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Projectile", meta = (ClampMin = "0.0", ClampMax = "1000.0"))
+	float ProjectileLifeSpan = 10.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Beam")
 	float BeamDuration;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|ProjectileCollisionConfig")
-	FProjectileCollisionRuleConfig ProjectileCollisionRuleConfig;
 
 	UPROPERTY(BlueprintAssignable, BlueprintCallable)
 	FOnWeaponDataPropertyChangedEvent OnWeaponDataPropertyChanged;

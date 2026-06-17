@@ -1,4 +1,4 @@
-#include "MWSGameplayTags.h"
+#include "GameplayTags/MWSGameplayTags.h"
 
 
 namespace MWSGameplayTags
@@ -31,6 +31,5 @@ namespace MWSGameplayTags
 		}
 
 		UE_DEFINE_GAMEPLAY_TAG(Laser, "MWSGameplayTags.Laser")
-		UE_DEFINE_GAMEPLAY_TAG(Grenade, "MWSGameplayTags.Grenade")
 	}
 }

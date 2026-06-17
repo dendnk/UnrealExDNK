@@ -42,6 +42,7 @@ protected:
     virtual float CustomApplyDamage(float Damage, AActor* DamageCauser, AActor* OtherActor);
     virtual void CustomPlaySoundAtLocation(const UObject* WorldContextObject, USoundBase* Sound, FVector Location, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, float StartTime = 0.f, class USoundAttenuation* AttenuationSettings = nullptr, USoundConcurrency* ConcurrencySettings = nullptr, const UInitialActiveSoundParams* InitialParams = nullptr);
 
+    virtual void LifeSpanExpired() override;;
 public:
     virtual void Tick(float DeltaTime) override;
 
