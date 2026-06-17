@@ -5,6 +5,8 @@
 #include "WeaponComponentBase.h"
 #include "RocketLauncherComponent.generated.h"
 
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnRocketSetupStartedDelegate, AProjectileBase* const);
+
 class AProjectileBase;
 
 /**
@@ -28,6 +30,8 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     float TickInterval = 0.2f;
+
+    FOnRocketSetupStartedDelegate OnRocketSetupStarted;
 
 protected:
     virtual void BeginPlay() override;

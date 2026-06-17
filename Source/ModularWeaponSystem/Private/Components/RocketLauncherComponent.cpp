@@ -120,6 +120,8 @@ void URocketLauncherComponent::FireProjectile()
 
 void URocketLauncherComponent::SetupSpawnedProjectile(AProjectileBase* SpawnedProjectile)
 {
+    OnRocketSetupStarted.Broadcast(SpawnedProjectile);
+
     if (IsValid(SpawnedProjectile) && IsValid(SpawnedProjectile->MeshComponent))
     {
 		SpawnedProjectile->MeshComponent->SetCollisionResponseToChannel(
