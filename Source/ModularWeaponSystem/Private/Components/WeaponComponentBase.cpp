@@ -443,8 +443,11 @@ void UWeaponComponentBase::SetupSpawnedProjectile(AProjectileBase* SpawnedProjec
 
 	if (IsValid(SpawnedProjectile))
 	{
+		const float ProjectileLifeSpan = WeaponDataRuntime ? WeaponDataRuntime->ProjectileLifeSpan : FallbackProjectileLifeSpan;
 		SpawnedProjectile->SetInstigator(Owner->GetInstigator());
 		SpawnedProjectile->MeshComponent->IgnoreActorWhenMoving(GetOwner(), true);
+		SpawnedProjectile->SetLifeSpan(ProjectileLifeSpan);
+
 		SpawnedProjectile->OnProjectileSetupFinished.Broadcast();
 	}
 }

@@ -81,6 +81,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Projectile")
 	float ProjectileSpeed;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Projectile")
+	float ProjectileLifeSpan = 15.0f;
+
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Beam")
 	float BeamDuration;

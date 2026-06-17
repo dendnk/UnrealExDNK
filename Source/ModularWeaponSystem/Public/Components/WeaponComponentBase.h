@@ -139,4 +139,6 @@ protected:
 
     UPROPERTY()
     TArray<TWeakObjectPtr<AProjectileBase>> Projectiles;
+
+    static constexpr float FallbackProjectileLifeSpan = 15.f;
 };
