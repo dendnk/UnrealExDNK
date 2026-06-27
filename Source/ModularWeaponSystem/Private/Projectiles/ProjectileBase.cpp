@@ -2,10 +2,12 @@
 
 
 #include "Projectiles/ProjectileBase.h"
+
 #include "Components/AudioComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
-#include <Kismet/GameplayStatics.h>
+#include "Kismet/GameplayStatics.h"
 #include "NiagaraFunctionLibrary.h"
+#include "Projectiles/ProjectileCollisionRuleUtils.h"
 #include "Types/WeaponTypes.h"
 
 
@@ -63,7 +65,7 @@ void AProjectileBase::CustomPlaySoundAtLocation(const UObject* WorldContextObjec
 
 void AProjectileBase::LifeSpanExpired()
 {
-    ExplodeProjectile(FHitResult());   
+    ExplodeProjectile(FHitResult());
 }
 
 void AProjectileBase::Tick(float DeltaTime)
@@ -85,28 +87,7 @@ void AProjectileBase::OnProjectileHit(UPrimitiveComponent* HitComponent, AActor*
         return;
     }
 
-    //UE_LOG(LogTemp, Warning, TEXT(
-    //    "=== AProjectileBase::OnRocketHit\n"
-    //    "=== this : [%s]\n"
-    //    "=== GetOwner() : [%s]\n"
-    //    "=== HitComponent: [%s]\n"
-    //    "=== OtherActor: [%s]\n"
-    //    "=== OtherComp: [%s]\n"),
-    //    *GetNameSafe(this),
-    //    *GetNameSafe(GetOwner()),
-    //    *GetNameSafe(HitComponent),
-    //    *GetNameSafe(OtherActor),
-    //    *GetNameSafe(OtherComp)
-    //    );
-
-    if (TryHandleProjectileCollision(OtherActor, Hit))
-    {
-        return;
-    }
-
-    CustomApplyDamage(Config.Damage, this, OtherActor);
-
-    ExplodeProjectile(Hit);
+    HandleProjectileCollisionHit(OtherActor, Hit);
 }
 
 void AProjectileBase::ExplodeProjectile(const FHitResult& Hit)
@@ -137,59 +118,40 @@ void AProjectileBase::ExplodeProjectile(const FHitResult& Hit)
     Destroy();
 }
 
-bool AProjectileBase::TryHandleProjectileCollision(AActor* HitActor, const FHitResult& Hit)
+void AProjectileBase::HandleProjectileCollisionHit(AActor* HitActor, const FHitResult& Hit)
 {
     if (!IsValid(HitActor))
     {
-        return false;
+        return;
     }
 
-    AProjectileBase* HitProjectile = Cast<AProjectileBase>(HitActor);
-    if (!IsValid(HitProjectile))
-    {
-        return false;
-    }
+    const FProjectileCollisionRuleEvaluation Evaluation =
+        UProjectileCollisionRuleUtils::EvaluateProjectileCollisionRules(Config.CollisionRuleConfig, HitActor);
 
-    if (ProjectileCollisionRuleConfig.bEnableProjectileCollisionRules == false)
+    switch (Evaluation.Result)
     {
-        return false;
-    }
+    case EProjectileCollisionRuleResult::NotProjectile:
+    case EProjectileCollisionRuleResult::RulesDisabled:
+        CustomApplyDamage(Config.Damage, this, HitActor);
+        ExplodeProjectile(Hit);
+        return;
 
-    const FProjectileCollisionRuleConfig& HitProjectileConfig = HitProjectile->ProjectileCollisionRuleConfig;
-    if (ProjectileCollisionRuleConfig.ValidTargetProjectileTags.IsEmpty() == false &&
-        ProjectileCollisionRuleConfig.ValidTargetProjectileTags.HasTag(HitProjectileConfig.ProjectileTypeTag) == false)
-    {
-        return true;
-    }
+    case EProjectileCollisionRuleResult::IgnoredByRules:
+        return;
 
-    if (ProjectileCollisionRuleConfig.bCanAffectFriendlyProjectiles == false &&
-        ProjectileCollisionRuleConfig.ProjectileFactionTag.IsValid() &&
-        HitProjectileConfig.ProjectileFactionTag.IsValid() &&
-        ProjectileCollisionRuleConfig.ProjectileFactionTag.MatchesTagExact(HitProjectileConfig.ProjectileFactionTag))
-    {
-        return true;
-    }
-
-    switch (ProjectileCollisionRuleConfig.DestructionMode)
-    {
-    case EProjectileCollisionDestroyMode::DestroyImmediately:
-        HitProjectile->ExplodeProjectile(Hit);
+    case EProjectileCollisionRuleResult::DestroyImmediately:
+        Evaluation.HitProjectile->ExplodeProjectile(Hit);
         break;
 
-    case EProjectileCollisionDestroyMode::DamageHealth:
-        CustomApplyDamage(ProjectileCollisionRuleConfig.ProjectileCollisionDamage, this, HitProjectile);
-        break;
-
-    default:
+    case EProjectileCollisionRuleResult::DamageHealth:
+        CustomApplyDamage(Config.Damage, this, Evaluation.HitProjectile);
         break;
     }
 
-    if (ProjectileCollisionRuleConfig.bConsumeSelfOnProjectileCollision)
+    if (Config.CollisionRuleConfig.bConsumeSelfOnProjectileCollision)
     {
         bIsAlreadyExploded = true;
         SetActorEnableCollision(false);
         Destroy();
     }
-
-    return true;
 }

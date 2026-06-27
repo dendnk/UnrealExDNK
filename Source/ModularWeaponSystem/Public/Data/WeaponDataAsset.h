@@ -7,9 +7,6 @@
 
 #include "WeaponDataAsset.generated.h"
 
-class AProjectileBase;
-class UWeaponComponentBase;
-
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnWeaponDataPropertyChangedEvent);
 
 /**

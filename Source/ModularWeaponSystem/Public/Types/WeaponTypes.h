@@ -7,7 +7,6 @@
 #include "Sound/SoundBase.h"
 #include "WeaponTypes.generated.h"
 
-class AActor;
 class UDamageType;
 
 namespace WeaponSystemNames
@@ -118,30 +117,6 @@ struct FReloadData
 };
 
 USTRUCT(BlueprintType)
-struct FProjectileConfig
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
-	float Damage = -1.f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
-	float InitialSpeed = -1.f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
-	float MaxSpeed = -1.f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
-	uint8 bRotationFollowsVelocity : 1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile, meta = (EditCondition = "bRotationFollowsVelocity"))
-	uint8 bRotationRemainsVertical : 1 = false;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
-	uint8 bShouldBounce : 1 = false;
-};
-
-USTRUCT(BlueprintType)
 struct FProjectileCollisionRuleConfig
 {
 	GENERATED_BODY()
@@ -170,11 +145,34 @@ struct FProjectileCollisionRuleConfig
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Projectile|Collision")
 	EProjectileCollisionDestroyMode DestructionMode = EProjectileCollisionDestroyMode::DestroyImmediately;
 
-	/** Damage applied to a valid target projectile when DestructionMode is DamageHealth. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Projectile|Collision", meta=(ClampMin="0"))
-	float ProjectileCollisionDamage = 100.f;
-
 	/** Destroys this projectile after it successfully affects another projectile. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Projectile|Collision")
 	bool bConsumeSelfOnProjectileCollision = true;
+};
+
+USTRUCT(BlueprintType)
+struct FProjectileConfig
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
+	float Damage = -1.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
+	float InitialSpeed = -1.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
+	float MaxSpeed = -1.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
+	uint8 bRotationFollowsVelocity : 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile, meta = (EditCondition = "bRotationFollowsVelocity"))
+	uint8 bRotationRemainsVertical : 1 = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
+	uint8 bShouldBounce : 1 = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|Collision")
+	FProjectileCollisionRuleConfig CollisionRuleConfig;
 };

@@ -6,10 +6,10 @@
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraFunctionLibrary.h"
 #include "Projectiles/ProjectileBase.h"
+#include "Projectiles/ProjectileCollisionRuleUtils.h"
 #include "UI/WeaponComponentBaseWidget.h"
 #include "UI/WeaponViewModel.h"
 #include "UnrealExDNKUtils.h"
-#include "GameplayTags/MWSGameplayTags.h"
 
 
 void UWeaponComponentBase::BeginPlay()
@@ -263,81 +263,82 @@ void UWeaponComponentBase::FireHitscan()
 
 	if (World->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params))
 	{
-		if (HandleProjectileCollisionHit(Hit))
-		{
-			SpawnFXAtLocation(WeaponDataRuntime->FXData.ImpactFX, Hit.Location,
-			                  Hit.ImpactNormal.Rotation().GetInverse());
-			return;
-		}
-
-		// Deal damage
-		if (AActor* HitActor = Hit.GetActor())
-		{
-			ApplyDamage(
-				HitActor,
-				ShotDirection,
-				Hit,
-				GetOwner()->GetInstigatorController(),
-				GetOwner(),
-				nullptr
-			);
-
-			SpawnFXAtLocation(WeaponDataRuntime->FXData.ImpactFX, Hit.Location,
-			                  Hit.ImpactNormal.Rotation().GetInverse());
-		}
+		HandleProjectileCollisionHit(Hit);
 	}
 }
 
 bool UWeaponComponentBase::HandleProjectileCollisionHit(const FHitResult& Hit)
 {
-	AProjectileBase* HitProjectile = Cast<AProjectileBase>(Hit.GetActor());
-	if (IsValid(HitProjectile) == false)
+	AActor* HitActor = Hit.GetActor();
+	if (IsValid(HitActor) == false)
 	{
 		return false;
 	}
 
 	if (!IsValid(WeaponDataRuntime))
 	{
-		return true;
+		return false;
 	}
 
-	const FProjectileCollisionRuleConfig& CollisionConfig = WeaponDataRuntime->ProjectileCollisionRuleConfig;
-	if (CollisionConfig.bEnableProjectileCollisionRules == false)
-	{
-		return true;
-	}
+	const FProjectileCollisionRuleEvaluation Evaluation =
+		UProjectileCollisionRuleUtils::EvaluateProjectileCollisionRules(
+			WeaponDataRuntime->ProjectileCollisionRuleConfig,
+			HitActor);
 
-	const FProjectileCollisionRuleConfig& HitProjectileConfig = HitProjectile->ProjectileCollisionRuleConfig;
-	if (CollisionConfig.ValidTargetProjectileTags.IsEmpty() == false &&
-		CollisionConfig.ValidTargetProjectileTags.HasTag(HitProjectileConfig.ProjectileTypeTag) == false)
+	if (Evaluation.Result == EProjectileCollisionRuleResult::NotProjectile)
 	{
-		return true;
-	}
+		FVector ShotDirection = (Hit.TraceEnd - Hit.TraceStart).GetSafeNormal();
+		if (ShotDirection.IsNearlyZero())
+		{
+			ShotDirection = GetMuzzleTransform().GetRotation().Vector();
+		}
 
-	if (CollisionConfig.bCanAffectFriendlyProjectiles == false &&
-		CollisionConfig.ProjectileFactionTag.IsValid() &&
-		HitProjectileConfig.ProjectileFactionTag.IsValid() &&
-		CollisionConfig.ProjectileFactionTag.MatchesTagExact(HitProjectileConfig.ProjectileFactionTag))
-	{
-		return true;
-	}
-
-	switch (CollisionConfig.DestructionMode)
-	{
-	case EProjectileCollisionDestroyMode::DestroyImmediately:
-		HitProjectile->ExplodeProjectile(Hit);
-		break;
-
-	case EProjectileCollisionDestroyMode::DamageHealth:
-		UGameplayStatics::ApplyDamage(
-			HitProjectile,
-			CollisionConfig.ProjectileCollisionDamage,
+		ApplyDamage(
+			HitActor,
+			ShotDirection,
+			Hit,
 			GetOwner() != nullptr ? GetOwner()->GetInstigatorController() : nullptr,
 			GetOwner(),
-			WeaponDataRuntime->DamageData.DamageType
+			nullptr
 		);
+
+		SpawnFXAtLocation(WeaponDataRuntime->FXData.ImpactFX, Hit.Location,
+		                  Hit.ImpactNormal.Rotation().GetInverse());
+
+		return true;
+	}
+
+	switch (Evaluation.Result)
+	{
+	case EProjectileCollisionRuleResult::RulesDisabled:
+	case EProjectileCollisionRuleResult::IgnoredByRules:
+		return true;
+
+	case EProjectileCollisionRuleResult::DestroyImmediately:
+		Evaluation.HitProjectile->ExplodeProjectile(Hit);
 		break;
 
+	case EProjectileCollisionRuleResult::DamageHealth:
+		{
+			FVector ShotDirection = (Hit.TraceEnd - Hit.TraceStart).GetSafeNormal();
+			if (ShotDirection.IsNearlyZero())
+			{
+				ShotDirection = GetMuzzleTransform().GetRotation().Vector();
+			}
+
+			ApplyDamage(
+				HitActor,
+				ShotDirection,
+				Hit,
+				GetOwner() != nullptr ? GetOwner()->GetInstigatorController() : nullptr,
+				GetOwner(),
+				nullptr
+			);
+
+			SpawnFXAtLocation(WeaponDataRuntime->FXData.ImpactFX, Hit.Location,
+			                  Hit.ImpactNormal.Rotation().GetInverse());
+			break;
+		}
 	default:
 		break;
 	}
@@ -391,7 +392,7 @@ void UWeaponComponentBase::Reload()
 
 	if (InRate > 0)
 	{
-		World->GetTimerManager().SetTimer(TimerHandle, this, &UWeaponComponentBase::OnReloadFinished, InRate, bIsLoop);
+		World->GetTimerManager().SetTimer(TimerHandle, this, &ThisClass::OnReloadFinished, InRate, bIsLoop);
 	}
 	else
 	{
@@ -527,14 +528,10 @@ void UWeaponComponentBase::SetupSpawnedProjectile(AProjectileBase* SpawnedProjec
 
 		SpawnedProjectile->OnProjectileSetupFinished.Broadcast();
 
-		SpawnedProjectile->ProjectileCollisionRuleConfig = WeaponDataAsset->ProjectileCollisionRuleConfig;
-		if (WeaponDataAsset->ProjectileLifeSpan > 0.0f)
-		{
-			SpawnedProjectile->SetLifeSpan(WeaponDataAsset->ProjectileLifeSpan);
-		}
+		SpawnedProjectile->Config.CollisionRuleConfig = WeaponDataAsset->ProjectileCollisionRuleConfig;
 
 		// TODO: Make Interface call to owner of the component to get it`s tag and set ProjectileFaction
-		// SpawnedProjectile->ProjectileCollisionRuleConfig.ProjectileFactionTag = MWSGameplayTags::None;
+		// SpawnedProjectile->Config.CollisionRuleConfig.ProjectileFactionTag = ModularWeaponSystem::None;
 	}
 }
 
