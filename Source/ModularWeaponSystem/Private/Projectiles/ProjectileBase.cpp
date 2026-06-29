@@ -139,12 +139,11 @@ void AProjectileBase::HandleProjectileCollisionHit(AActor* HitActor, const FHitR
     case EProjectileCollisionRuleResult::IgnoredByRules:
         return;
 
-    case EProjectileCollisionRuleResult::DestroyImmediately:
-        Evaluation.HitProjectile->ExplodeProjectile(Hit);
-        break;
-
-    case EProjectileCollisionRuleResult::DamageHealth:
-        CustomApplyDamage(Config.Damage, this, Evaluation.HitProjectile);
+    case EProjectileCollisionRuleResult::DestroyProjectile:
+        if (AProjectileBase* HitProjectile = Evaluation.HitProjectile.Get())
+        {
+            HitProjectile->ExplodeProjectile(Hit);
+        }
         break;
     }
 

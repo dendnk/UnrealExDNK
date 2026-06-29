@@ -13,11 +13,7 @@ namespace ModularWeaponSystem
         UE_DECLARE_GAMEPLAY_TAG_EXTERN(Enemy)
     }
 
-    namespace Projectile
-    {
-        UE_DECLARE_GAMEPLAY_TAG_EXTERN(Bullet)
-        UE_DECLARE_GAMEPLAY_TAG_EXTERN(Rocket)
-        UE_DECLARE_GAMEPLAY_TAG_EXTERN(Laser)
-    }
-
+    UE_DECLARE_GAMEPLAY_TAG_EXTERN(Projectile)
+    UE_DECLARE_GAMEPLAY_TAG_EXTERN(HitScan)
+    UE_DECLARE_GAMEPLAY_TAG_EXTERN(Beam)
 }

@@ -56,13 +56,6 @@ enum class EProjectileType : uint8
 	HomingRocket			UMETA(DisplayName = "Homing Rocket"),
 };
 
-UENUM(BlueprintType)
-enum class EProjectileCollisionDestroyMode : uint8
-{
-	DestroyImmediately		UMETA(DisplayName = "DestroyProjectile immediately"),
-	DamageHealth			UMETA(DisplayName = "DestroyProjectile by damage"),
-};
-
 USTRUCT(BlueprintType)
 struct FDamageData
 {
@@ -140,10 +133,6 @@ struct FProjectileCollisionRuleConfig
 	/** If not empty, only projectiles with one of these type tags can be affected. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Projectile|Collision")
 	FGameplayTagContainer ValidTargetProjectileTags;
-
-	/** Defines how a valid target projectile should be removed or damaged. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Projectile|Collision")
-	EProjectileCollisionDestroyMode DestructionMode = EProjectileCollisionDestroyMode::DestroyImmediately;
 
 	/** Destroys this projectile after it successfully affects another projectile. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Projectile|Collision")

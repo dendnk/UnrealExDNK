@@ -314,31 +314,12 @@ bool UWeaponComponentBase::HandleProjectileCollisionHit(const FHitResult& Hit)
 	case EProjectileCollisionRuleResult::IgnoredByRules:
 		return true;
 
-	case EProjectileCollisionRuleResult::DestroyImmediately:
-		Evaluation.HitProjectile->ExplodeProjectile(Hit);
-		break;
-
-	case EProjectileCollisionRuleResult::DamageHealth:
+	case EProjectileCollisionRuleResult::DestroyProjectile:
+		if (AProjectileBase* HitProjectile = Evaluation.HitProjectile.Get())
 		{
-			FVector ShotDirection = (Hit.TraceEnd - Hit.TraceStart).GetSafeNormal();
-			if (ShotDirection.IsNearlyZero())
-			{
-				ShotDirection = GetMuzzleTransform().GetRotation().Vector();
-			}
-
-			ApplyDamage(
-				HitActor,
-				ShotDirection,
-				Hit,
-				GetOwner() != nullptr ? GetOwner()->GetInstigatorController() : nullptr,
-				GetOwner(),
-				nullptr
-			);
-
-			SpawnFXAtLocation(WeaponDataRuntime->FXData.ImpactFX, Hit.Location,
-			                  Hit.ImpactNormal.Rotation().GetInverse());
-			break;
+			HitProjectile->ExplodeProjectile(Hit);
 		}
+		break;
 	default:
 		break;
 	}

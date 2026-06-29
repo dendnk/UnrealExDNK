@@ -15,8 +15,7 @@ enum class EProjectileCollisionRuleResult : uint8
 	NotProjectile,
 	RulesDisabled,
 	IgnoredByRules,
-	DestroyImmediately,
-	DamageHealth,
+	DestroyProjectile,
 };
 
 USTRUCT(BlueprintType)
@@ -28,7 +27,7 @@ struct MODULARWEAPONSYSTEM_API FProjectileCollisionRuleEvaluation
 	EProjectileCollisionRuleResult Result = EProjectileCollisionRuleResult::NotProjectile;
 
 	UPROPERTY(BlueprintReadOnly)
-	TObjectPtr<AProjectileBase> HitProjectile = nullptr;
+	TWeakObjectPtr<AProjectileBase> HitProjectile = nullptr;
 };
 
 UCLASS()
@@ -37,6 +36,7 @@ class MODULARWEAPONSYSTEM_API UProjectileCollisionRuleUtils : public UBlueprintF
 	GENERATED_BODY()
 
 public:
+	// Returns NotProjectile when HitActor is not an AProjectileBase; callers keep their own non-projectile hit flow.
 	UFUNCTION(BlueprintPure, Category = "Projectile|Collision")
 	static FProjectileCollisionRuleEvaluation EvaluateProjectileCollisionRules(
 		const FProjectileCollisionRuleConfig& SourceConfig,

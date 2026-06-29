@@ -40,20 +40,7 @@ FProjectileCollisionRuleEvaluation UProjectileCollisionRuleUtils::EvaluateProjec
 		return Evaluation;
 	}
 
-	switch (SourceConfig.DestructionMode)
-	{
-	case EProjectileCollisionDestroyMode::DestroyImmediately:
-		Evaluation.Result = EProjectileCollisionRuleResult::DestroyImmediately;
-		break;
-
-	case EProjectileCollisionDestroyMode::DamageHealth:
-		Evaluation.Result = EProjectileCollisionRuleResult::DamageHealth;
-		break;
-
-	default:
-		Evaluation.Result = EProjectileCollisionRuleResult::IgnoredByRules;
-		break;
-	}
+	Evaluation.Result = EProjectileCollisionRuleResult::DestroyProjectile;
 
 	return Evaluation;
 }
