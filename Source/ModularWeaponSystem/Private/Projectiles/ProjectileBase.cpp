@@ -2,10 +2,12 @@
 
 
 #include "Projectiles/ProjectileBase.h"
+
 #include "Components/AudioComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
-#include <Kismet/GameplayStatics.h>
+#include "Kismet/GameplayStatics.h"
 #include "NiagaraFunctionLibrary.h"
+#include "Projectiles/ProjectileCollisionRuleUtils.h"
 #include "Types/WeaponTypes.h"
 
 
@@ -61,6 +63,11 @@ void AProjectileBase::CustomPlaySoundAtLocation(const UObject* WorldContextObjec
     return UGameplayStatics::PlaySoundAtLocation(WorldContextObject, Sound, Location, VolumeMultiplier, PitchMultiplier, StartTime, AttenuationSettings, ConcurrencySettings, InitialParams);
 }
 
+void AProjectileBase::LifeSpanExpired()
+{
+    ExplodeProjectile(FHitResult());
+}
+
 void AProjectileBase::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
@@ -68,6 +75,11 @@ void AProjectileBase::Tick(float DeltaTime)
 
 void AProjectileBase::OnProjectileHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
+    if (bIsAlreadyExploded)
+    {
+        return;
+    }
+
     if (IsValid(OtherActor) == false ||
         OtherActor == this ||
         OtherActor == GetOwner())
@@ -75,25 +87,22 @@ void AProjectileBase::OnProjectileHit(UPrimitiveComponent* HitComponent, AActor*
         return;
     }
 
-    //UE_LOG(LogTemp, Warning, TEXT(
-    //    "=== AProjectileBase::OnRocketHit\n"
-    //    "=== this : [%s]\n"
-    //    "=== GetOwner() : [%s]\n"
-    //    "=== HitComponent: [%s]\n"
-    //    "=== OtherActor: [%s]\n"
-    //    "=== OtherComp: [%s]\n"),
-    //    *GetNameSafe(this),
-    //    *GetNameSafe(GetOwner()),
-    //    *GetNameSafe(HitComponent),
-    //    *GetNameSafe(OtherActor),
-    //    *GetNameSafe(OtherComp)
-    //    );
+    HandleProjectileCollisionHit(OtherActor, Hit);
+}
 
-    CustomApplyDamage(Config.Damage, this, OtherActor);
+void AProjectileBase::ExplodeProjectile(const FHitResult& Hit)
+{
+    if (bIsAlreadyExploded)
+    {
+        return;
+    }
+
+    bIsAlreadyExploded = true;
+    SetActorEnableCollision(false);
 
     if (ExplosionEffect != nullptr)
     {
-        UNiagaraFunctionLibrary::SpawnSystemAtLocation(OtherActor, ExplosionEffect, Hit.Location);
+        UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, ExplosionEffect, Hit.Location);
     }
 
     if (IdleAudioComponent != nullptr)
@@ -107,4 +116,41 @@ void AProjectileBase::OnProjectileHit(UPrimitiveComponent* HitComponent, AActor*
     }
 
     Destroy();
+}
+
+void AProjectileBase::HandleProjectileCollisionHit(AActor* HitActor, const FHitResult& Hit)
+{
+    if (!IsValid(HitActor))
+    {
+        return;
+    }
+
+    const FProjectileCollisionRuleEvaluation Evaluation =
+        UProjectileCollisionRuleUtils::EvaluateProjectileCollisionRules(Config.CollisionRuleConfig, HitActor);
+
+    switch (Evaluation.Result)
+    {
+    case EProjectileCollisionRuleResult::NotProjectile:
+    case EProjectileCollisionRuleResult::RulesDisabled:
+        CustomApplyDamage(Config.Damage, this, HitActor);
+        ExplodeProjectile(Hit);
+        return;
+
+    case EProjectileCollisionRuleResult::IgnoredByRules:
+        return;
+
+    case EProjectileCollisionRuleResult::DestroyProjectile:
+        if (AProjectileBase* HitProjectile = Evaluation.HitProjectile.Get())
+        {
+            HitProjectile->ExplodeProjectile(Hit);
+        }
+        break;
+    }
+
+    if (Config.CollisionRuleConfig.bConsumeSelfOnProjectileCollision)
+    {
+        bIsAlreadyExploded = true;
+        SetActorEnableCollision(false);
+        Destroy();
+    }
 }
