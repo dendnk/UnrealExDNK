@@ -146,7 +146,6 @@ protected:
     static constexpr float FallbackProjectileLifeSpan = 15.f;
 
 private:
-    //UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Fire")
     bool bCanFire = true;
 
 };
