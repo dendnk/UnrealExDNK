@@ -31,6 +31,7 @@ protected:
     virtual void FireProjectile();
     virtual void FireHitscan();
     virtual void FireBeam();
+    virtual bool HandleProjectileCollisionHit(const FHitResult& Hit);
 
 public:
     virtual void HandleBurstFire();
@@ -91,7 +92,6 @@ public:
     UPROPERTY(BlueprintAssignable, Category = "Weapon|Projectile")
     FOnProjectileClassChangedDelegate OnProjectileClassChanged;
 
-
     UFUNCTION(BlueprintPure, Category = "Weapon|UI")
     UWeaponViewModel* GetViewModel() const { return WeaponViewModel; }
 
@@ -103,7 +103,6 @@ public:
 
     UFUNCTION(BlueprintNativeEvent, Category = "Weapon|FX")
     void PlaySoundAtLocation(USoundBase* Sound, FVector Location, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, float StartTime = 0.f);
-
 
 protected:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon|Data", meta = (AllowPrivateAccess))
