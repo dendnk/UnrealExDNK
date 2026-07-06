@@ -19,16 +19,24 @@ public:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = UserWidgetSpawnerComponent)
     bool bShouldHaveUIWidget = true;
 
+    UFUNCTION(BlueprintCallable)
+    TSubclassOf<UUserWidget> GetUIClass() const { return UIClass; };
+
+    UFUNCTION(BlueprintCallable)
+    void SetUIClass(TSubclassOf<UUserWidget> NewUIClass) { UIClass = NewUIClass; };
+
 protected:
 	virtual void BeginPlay() override;
     virtual void CreateAndAttachWidget();
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = UserWidgetSpawnerComponent)
-    TSubclassOf<UUserWidget> UIClass;
 
     UPROPERTY(BlueprintReadOnly, Category = UserWidgetSpawnerComponent)
     TObjectPtr<UUserWidget> WidgetInstance;
 
     UPROPERTY(BlueprintReadOnly, Category = UserWidgetSpawnerComponent)
     TWeakObjectPtr<APlayerController> OwningPlayerController;
+
+private:
+    UPROPERTY(EditAnywhere, Category = UserWidgetSpawnerComponent)
+    TSubclassOf<UUserWidget> UIClass;
 };
