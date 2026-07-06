@@ -2,11 +2,11 @@
 
 #pragma once
 
+#include "GameplayTagContainer.h"
 #include "NiagaraSystem.h"
 #include "Sound/SoundBase.h"
 #include "WeaponTypes.generated.h"
 
-class AActor;
 class UDamageType;
 
 namespace WeaponSystemNames
@@ -110,6 +110,36 @@ struct FReloadData
 };
 
 USTRUCT(BlueprintType)
+struct FProjectileCollisionRuleConfig
+{
+	GENERATED_BODY()
+
+	/** Enables custom projectile-vs-projectile collision handling for this projectile or weapon. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Projectile|Collision")
+	bool bEnableProjectileCollisionRules = false;
+
+	/** Gameplay tag that identifies this projectile type for collision filtering. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Projectile|Collision")
+	FGameplayTag ProjectileTypeTag;
+
+	/** Gameplay tag that identifies this projectile faction/team for friendly-fire filtering. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Projectile|Collision")
+	FGameplayTag ProjectileFactionTag;
+
+	/** Allows this projectile or weapon to affect projectiles with the same faction tag. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Projectile|Collision")
+	bool bCanAffectFriendlyProjectiles = false;
+
+	/** If not empty, only projectiles with one of these type tags can be affected. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Projectile|Collision")
+	FGameplayTagContainer ValidTargetProjectileTags;
+
+	/** Destroys this projectile after it successfully affects another projectile. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Projectile|Collision")
+	bool bConsumeSelfOnProjectileCollision = true;
+};
+
+USTRUCT(BlueprintType)
 struct FProjectileConfig
 {
 	GENERATED_BODY()
@@ -131,4 +161,7 @@ struct FProjectileConfig
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
 	uint8 bShouldBounce : 1 = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|Collision")
+	FProjectileCollisionRuleConfig CollisionRuleConfig;
 };
