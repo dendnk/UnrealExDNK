@@ -7,9 +7,6 @@
 
 #include "WeaponDataAsset.generated.h"
 
-class AProjectileBase;
-class UWeaponComponentBase;
-
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnWeaponDataPropertyChangedEvent);
 
 /**
@@ -82,15 +79,16 @@ public:
 	float ProjectileSpeed;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Projectile")
-	float ProjectileLifeSpan = 15.0f;
-
+	FProjectileCollisionRuleConfig ProjectileCollisionRuleConfig;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Projectile", meta = (ClampMin = "0.0", ClampMax = "1000.0"))
+	float ProjectileLifeSpan = 10.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Beam")
 	float BeamDuration;
 
 	UPROPERTY(BlueprintAssignable, BlueprintCallable)
 	FOnWeaponDataPropertyChangedEvent OnWeaponDataPropertyChanged;
-
 
 	virtual FPrimaryAssetId GetPrimaryAssetId() const override
 	{
