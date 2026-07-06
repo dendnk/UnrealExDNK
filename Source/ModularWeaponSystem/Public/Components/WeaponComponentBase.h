@@ -57,7 +57,7 @@ public:
     void SetCanFire(bool bNewCanFire) { bCanFire = bNewCanFire; }
 
     UFUNCTION(BlueprintCallable, Category = "Getters")
-    bool GetCanFire() { return bCanFire; }
+    bool GetCanFire() const { return bCanFire; }
 
     UFUNCTION(BlueprintPure, Category = "Weapon|Data")
     UWeaponDataAsset* GetWeaponDataAsset() const { return WeaponDataAsset; };
@@ -146,6 +146,7 @@ protected:
     static constexpr float FallbackProjectileLifeSpan = 15.f;
 
 private:
+    UPROPERTY(EditDefaultsOnly, Category = "Weapon|Fire")
     bool bCanFire = true;
 
 };
