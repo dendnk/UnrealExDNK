@@ -54,6 +54,11 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Weapon|Fire")
     void ApplyDamage(AActor* DamagedActor, FVector const& HitFromDirection, FHitResult const& HitInfo, AController* EventInstigator, AActor* DamageCauser, TSubclassOf<UDamageType> DamageTypeClass);
 
+    UFUNCTION(BlueprintCallable, Category = "Setters")
+    void SetCanFire(bool bNewCanFire) { bCanFire = bNewCanFire; }
+
+    UFUNCTION(BlueprintCallable, Category = "Getters")
+    bool GetCanFire() const { return bCanFire; }
 
     UFUNCTION(BlueprintPure, Category = "Weapon|Data")
     UWeaponDataAsset* GetWeaponDataAsset() const { return WeaponDataAsset; };
@@ -114,8 +119,6 @@ protected:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon|Projectile", meta = (AllowPrivateAccess))
     TMap<EProjectileType, TSubclassOf<AProjectileBase>> ProjectileClasses;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Fire")
-    bool bCanFire = true;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Fire")
     bool bIsReloading = false;
@@ -140,4 +143,9 @@ protected:
     TArray<TWeakObjectPtr<AProjectileBase>> Projectiles;
 
     static constexpr float FallbackProjectileLifeSpan = 15.f;
+
+private:
+    UPROPERTY(EditDefaultsOnly, Category = "Weapon|Fire")
+    bool bCanFire = true;
+
 };
