@@ -12,6 +12,10 @@ class USoundBase;
 class UWeaponViewModel;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnProjectileClassChangedDelegate, TSubclassOf<AProjectileBase>, NewProjectileClass);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnWeaponFireStateChangedDelegate);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnWeaponShotFiredDelegate, FTransform, MuzzleTransform);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnWeaponHitscanHitDelegate, const FHitResult&, HitResult);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnWeaponHitscanMissDelegate, FVector, TraceStart, FVector, TraceEnd);
 
 
 /**
@@ -32,6 +36,9 @@ protected:
     virtual void FireHitscan();
     virtual void FireBeam();
     virtual bool HandleProjectileCollisionHit(const FHitResult& Hit);
+    void BroadcastWeaponShotFired(const FTransform& MuzzleTransform);
+    void BroadcastWeaponHitscanHit(const FHitResult& Hit);
+    void BroadcastWeaponHitscanMiss(const FVector& TraceStart, const FVector& TraceEnd);
 
 public:
     virtual void HandleBurstFire();
@@ -96,6 +103,21 @@ public:
 
     UPROPERTY(BlueprintAssignable, Category = "Weapon|Projectile")
     FOnProjectileClassChangedDelegate OnProjectileClassChanged;
+
+    UPROPERTY(BlueprintAssignable, Category = "Weapon|Fire")
+    FOnWeaponFireStateChangedDelegate OnFireStarted;
+
+    UPROPERTY(BlueprintAssignable, Category = "Weapon|Fire")
+    FOnWeaponFireStateChangedDelegate OnFireStopped;
+
+    UPROPERTY(BlueprintAssignable, Category = "Weapon|Fire")
+    FOnWeaponShotFiredDelegate OnShotFired;
+
+    UPROPERTY(BlueprintAssignable, Category = "Weapon|Hitscan")
+    FOnWeaponHitscanHitDelegate OnHitscanHit;
+
+    UPROPERTY(BlueprintAssignable, Category = "Weapon|Hitscan")
+    FOnWeaponHitscanMissDelegate OnHitscanMiss;
 
     UFUNCTION(BlueprintPure, Category = "Weapon|UI")
     UWeaponViewModel* GetViewModel() const { return WeaponViewModel; }

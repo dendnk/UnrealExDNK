@@ -5,6 +5,7 @@
 #include "Blueprint/WidgetTree.h"
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraFunctionLibrary.h"
+#include "Interfaces/IWeaponUserInterface.h"
 #include "Projectiles/ProjectileBase.h"
 #include "Projectiles/ProjectileCollisionRuleUtils.h"
 #include "UI/WeaponComponentBaseWidget.h"
@@ -93,6 +94,8 @@ void UWeaponComponentBase::StartFire_Implementation()
 		return;
 	}
 
+	OnFireStarted.Broadcast();
+
 	switch (WeaponDataRuntime->FiringMode)
 	{
 	case EFiringMode::SemiAuto:
@@ -118,6 +121,7 @@ void UWeaponComponentBase::StopFire_Implementation()
 {
 	GetWorld()->GetTimerManager().ClearTimer(FireLoopHandle);
 	GetWorld()->GetTimerManager().ClearTimer(BurstHandle);
+	OnFireStopped.Broadcast();
 }
 
 void UWeaponComponentBase::Fire()
@@ -232,6 +236,7 @@ void UWeaponComponentBase::FireProjectile()
 
 	SpawnFXAtLocation(WeaponDataRuntime->FXData.MuzzleFlashFX, MuzzleTransform.GetLocation());
 	PlaySoundAtLocation(WeaponDataRuntime->FXData.FireSound, MuzzleTransform.GetLocation());
+	BroadcastWeaponShotFired(MuzzleTransform);
 }
 
 void UWeaponComponentBase::FireHitscan()
@@ -263,8 +268,15 @@ void UWeaponComponentBase::FireHitscan()
 
 	if (World->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params))
 	{
+		BroadcastWeaponHitscanHit(Hit);
 		HandleProjectileCollisionHit(Hit);
 	}
+	else
+	{
+		BroadcastWeaponHitscanMiss(Start, End);
+	}
+
+	BroadcastWeaponShotFired(MuzzleTransform);
 }
 
 bool UWeaponComponentBase::HandleProjectileCollisionHit(const FHitResult& Hit)
@@ -342,12 +354,29 @@ void UWeaponComponentBase::FireBeam()
 		SetCurrentAmmo(GetCurrentAmmo() - WeaponDataRuntime->AmmoPerShot);
 	}
 
+	BroadcastWeaponShotFired(GetMuzzleTransform());
+
 	// Spawn a beam FX from muzzle
 	// Optionally attach a timer to apply DoT every X seconds
 	if (WeaponDataRuntime->DamageData.DamagePerTick > 0)
 	{
 		// Start a timer to apply WeaponData->DamagePerTick over WeaponData->BeamDuration
 	}
+}
+
+void UWeaponComponentBase::BroadcastWeaponShotFired(const FTransform& MuzzleTransform)
+{
+	OnShotFired.Broadcast(MuzzleTransform);
+}
+
+void UWeaponComponentBase::BroadcastWeaponHitscanHit(const FHitResult& Hit)
+{
+	OnHitscanHit.Broadcast(Hit);
+}
+
+void UWeaponComponentBase::BroadcastWeaponHitscanMiss(const FVector& TraceStart, const FVector& TraceEnd)
+{
+	OnHitscanMiss.Broadcast(TraceStart, TraceEnd);
 }
 
 void UWeaponComponentBase::HandleOnWeaponDataPropertyChanged()
@@ -531,17 +560,34 @@ FTransform UWeaponComponentBase::GetMuzzleTransform_Implementation() const
 		return FTransform::Identity;
 	}
 
+	const FName MuzzleSocketName = IsValid(WeaponDataRuntime)
+		                              ? WeaponDataRuntime->MuzzleSocketName
+		                              : NAME_None;
+
+	if (Owner->GetClass()->ImplementsInterface(UWeaponUserInterface::StaticClass()))
+	{
+		FTransform OwnerResolvedMuzzleTransform = FTransform::Identity;
+		if (IWeaponUserInterface::Execute_TryResolveWeaponMuzzleTransform(
+			Owner,
+			const_cast<UWeaponComponentBase*>(this),
+			MuzzleSocketName,
+			OwnerResolvedMuzzleTransform))
+		{
+			return OwnerResolvedMuzzleTransform;
+		}
+	}
+
 	if (USkeletalMeshComponent* SkeletalMesh = Owner->FindComponentByClass<USkeletalMeshComponent>())
 	{
-		return SkeletalMesh->GetSocketTransform(WeaponDataRuntime->MuzzleSocketName);
+		return SkeletalMesh->GetSocketTransform(MuzzleSocketName);
 	}
 	else if (UStaticMeshComponent* StaticMesh = Owner->FindComponentByClass<UStaticMeshComponent>())
 	{
-		return StaticMesh->GetSocketTransform(WeaponDataRuntime->MuzzleSocketName);
+		return StaticMesh->GetSocketTransform(MuzzleSocketName);
 	}
 	else if (USceneComponent* SceneComponent = Owner->FindComponentByClass<USceneComponent>())
 	{
-		return SceneComponent->GetSocketTransform(WeaponDataRuntime->MuzzleSocketName);
+		return SceneComponent->GetSocketTransform(MuzzleSocketName);
 	}
 
 	UE_DNK_LOG(LogTemp, Error, "Setup MuzzleSocketName for you Weapon Component!");

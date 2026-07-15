@@ -5,6 +5,8 @@
 #include "UObject/Interface.h"
 #include "IWeaponUserInterface.generated.h"
 
+class UWeaponComponentBase;
+
 UINTERFACE(Blueprintable)
 class MODULARWEAPONSYSTEM_API UWeaponUserInterface : public UInterface
 {
@@ -22,6 +24,10 @@ public:
     /** Returns the world transform */
     UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Weapon")
     FTransform GetMuzzleTransform() const;
+
+    /** Allows the weapon owner to resolve a muzzle transform for a specific weapon/socket. */
+    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Weapon")
+    bool TryResolveWeaponMuzzleTransform(UWeaponComponentBase* WeaponComponent, FName MuzzleSocketName, UPARAM(ref) FTransform& OutMuzzleTransform) const;
 
     /** Returns the parent component this is attached to, or nullptr if none. */
     UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Weapon")
