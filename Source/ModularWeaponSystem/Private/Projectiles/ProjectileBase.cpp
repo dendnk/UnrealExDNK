@@ -19,6 +19,7 @@ AProjectileBase::AProjectileBase()
     RootComponent = MeshComponent;
 
     MovementComponent = CreateDefaultSubobject<UProjectileMovementComponent>(WeaponSystemNames::ProjectileMovement);
+    MovementComponent->UpdatedComponent = MeshComponent;
 
     MeshComponent->OnComponentHit.AddDynamic(this, &AProjectileBase::OnProjectileHit);
 }

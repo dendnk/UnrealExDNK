@@ -58,6 +58,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Common")
 	FDamageData DamageData;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Common", meta = (ClampMin = "0.0"))
+	float DamageMultiplierFromEnemyDamage = 1.0f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Common")
 	FReloadData ReloadData;
 

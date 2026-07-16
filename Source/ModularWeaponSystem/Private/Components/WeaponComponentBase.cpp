@@ -94,6 +94,11 @@ void UWeaponComponentBase::StartFire_Implementation()
 		return;
 	}
 
+	if (!CanOwnerFireWeapon())
+	{
+		return;
+	}
+
 	OnFireStarted.Broadcast();
 
 	switch (WeaponDataRuntime->FiringMode)
@@ -137,6 +142,11 @@ void UWeaponComponentBase::Fire()
 	{
 		UE_DNK_LOG(LogTemp, Warning, "CurrentAmmo == 0!");
 		StopFire();
+		return;
+	}
+
+	if (!CanOwnerFireWeapon())
+	{
 		return;
 	}
 
@@ -210,18 +220,21 @@ void UWeaponComponentBase::FireProjectile()
 
 	ArrayUtils::CleanArray(Projectiles);
 
-	FTransform MuzzleTransform = GetMuzzleTransform();
+	FTransform MuzzleTransform = GetShotMuzzleTransform();
+	const FVector ShotDirection = MuzzleTransform.GetRotation().Vector();
+	const FVector SpawnLocation = MuzzleTransform.GetLocation() + ShotDirection * 100.0f;
 
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = Owner;
-	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
 	for (int32 i = 0; i < WeaponDataRuntime->AmmoPerShot; ++i)
 	{
 		AProjectileBase* Projectile = World->SpawnActor<AProjectileBase>(
 			ProjectileClass,
-			MuzzleTransform.GetLocation(),
-			MuzzleTransform.GetRotation().Rotator()
+			SpawnLocation,
+			MuzzleTransform.GetRotation().Rotator(),
+			SpawnParams
 		);
 
 		SetupSpawnedProjectile(Projectile);
@@ -244,7 +257,7 @@ void UWeaponComponentBase::FireHitscan()
 	UWorld* World = GetWorld();
 	if (!World) return;
 
-	FTransform MuzzleTransform = GetMuzzleTransform();
+	FTransform MuzzleTransform = GetShotMuzzleTransform();
 	FVector Start = MuzzleTransform.GetLocation();
 	FVector ShotDirection = MuzzleTransform.GetRotation().Vector();
 	FVector End = Start + (ShotDirection * WeaponDataRuntime->HitscanRange);
@@ -339,6 +352,49 @@ bool UWeaponComponentBase::HandleProjectileCollisionHit(const FHitResult& Hit)
 	return true;
 }
 
+bool UWeaponComponentBase::CanOwnerFireWeapon() const
+{
+	AActor* Owner = GetOwner();
+	if (!IsValid(Owner) || !Owner->GetClass()->ImplementsInterface(UWeaponUserInterface::StaticClass()))
+	{
+		return true;
+	}
+
+	return IWeaponUserInterface::Execute_CanFireWeapon(Owner, const_cast<UWeaponComponentBase*>(this));
+}
+
+FTransform UWeaponComponentBase::GetShotMuzzleTransform() const
+{
+	if (IsValid(WeaponDataRuntime) == false)
+	{
+		UE_DNK_LOG(LogTemp, Error, "Invalid WeaponData!");
+		return FTransform::Identity;
+	}
+
+	AActor* Owner = GetOwner();
+	if (IsValid(Owner) == false)
+	{
+		UE_DNK_LOG(LogTemp, Error, "Invalid Owner!");
+		return FTransform::Identity;
+	}
+
+	const FName MuzzleSocketName = WeaponDataRuntime->MuzzleSocketName;
+	if (Owner->GetClass()->ImplementsInterface(UWeaponUserInterface::StaticClass()))
+	{
+		FTransform OwnerResolvedMuzzleTransform = FTransform::Identity;
+		if (IWeaponUserInterface::Execute_TryResolveWeaponMuzzleTransformForShot(
+			Owner,
+			const_cast<UWeaponComponentBase*>(this),
+			MuzzleSocketName,
+			OwnerResolvedMuzzleTransform))
+		{
+			return OwnerResolvedMuzzleTransform;
+		}
+	}
+
+	return GetMuzzleTransform();
+}
+
 void UWeaponComponentBase::FireBeam()
 {
 	if (WeaponDataRuntime->FireType != EFireType::Beam)
@@ -354,7 +410,7 @@ void UWeaponComponentBase::FireBeam()
 		SetCurrentAmmo(GetCurrentAmmo() - WeaponDataRuntime->AmmoPerShot);
 	}
 
-	BroadcastWeaponShotFired(GetMuzzleTransform());
+	BroadcastWeaponShotFired(GetShotMuzzleTransform());
 
 	// Spawn a beam FX from muzzle
 	// Optionally attach a timer to apply DoT every X seconds
@@ -532,8 +588,26 @@ void UWeaponComponentBase::SetupSpawnedProjectile(AProjectileBase* SpawnedProjec
 	if (IsValid(SpawnedProjectile))
 	{
 		const float ProjectileLifeSpan = WeaponDataRuntime ? WeaponDataRuntime->ProjectileLifeSpan : FallbackProjectileLifeSpan;
+		SpawnedProjectile->SetOwner(Owner);
 		SpawnedProjectile->SetInstigator(Owner->GetInstigator());
-		SpawnedProjectile->MeshComponent->IgnoreActorWhenMoving(GetOwner(), true);
+
+		TArray<AActor*> IgnoredActors;
+		IgnoredActors.Add(Owner);
+		Owner->GetAttachedActors(IgnoredActors, false, true);
+
+		if (IsValid(SpawnedProjectile->MeshComponent))
+		{
+			for (AActor* IgnoredActor : IgnoredActors)
+			{
+				if (!IsValid(IgnoredActor))
+				{
+					continue;
+				}
+
+				SpawnedProjectile->MeshComponent->IgnoreActorWhenMoving(IgnoredActor, true);
+			}
+		}
+
 		SpawnedProjectile->SetLifeSpan(ProjectileLifeSpan);
 
 		SpawnedProjectile->OnProjectileSetupFinished.Broadcast();
