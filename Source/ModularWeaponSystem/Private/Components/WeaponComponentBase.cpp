@@ -3,9 +3,9 @@
 #include "Components/WeaponComponentBase.h"
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetTree.h"
+#include "Interfaces/IWeaponUserInterface.h"
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraFunctionLibrary.h"
-#include "Interfaces/IWeaponUserInterface.h"
 #include "Projectiles/ProjectileBase.h"
 #include "Projectiles/ProjectileCollisionRuleUtils.h"
 #include "UI/WeaponComponentBaseWidget.h"
@@ -75,9 +75,8 @@ void UWeaponComponentBase::InitWeaponData()
 
 void UWeaponComponentBase::StartFire_Implementation()
 {
-	if (bCanFire == false)
+	if (!CanOwnerFireWeapon())
 	{
-		UE_DNK_LOG(LogTemp, Warning, "bCanFire is false");
 		return;
 	}
 
@@ -91,11 +90,6 @@ void UWeaponComponentBase::StartFire_Implementation()
 		WeaponDataRuntime->bInfiniteAmmo == false)
 	{
 		UE_DNK_LOG(LogTemp, Warning, "CurrentAmmo == 0!");
-		return;
-	}
-
-	if (!CanOwnerFireWeapon())
-	{
 		return;
 	}
 
@@ -131,9 +125,8 @@ void UWeaponComponentBase::StopFire_Implementation()
 
 void UWeaponComponentBase::Fire()
 {
-	if (bCanFire == false)
+	if (!CanOwnerFireWeapon())
 	{
-		UE_DNK_LOG(LogTemp, Warning, "bCanFire is false");
 		return;
 	}
 
@@ -142,11 +135,6 @@ void UWeaponComponentBase::Fire()
 	{
 		UE_DNK_LOG(LogTemp, Warning, "CurrentAmmo == 0!");
 		StopFire();
-		return;
-	}
-
-	if (!CanOwnerFireWeapon())
-	{
 		return;
 	}
 
@@ -354,10 +342,16 @@ bool UWeaponComponentBase::HandleProjectileCollisionHit(const FHitResult& Hit)
 
 bool UWeaponComponentBase::CanOwnerFireWeapon() const
 {
+	if (bCanFire == false)
+	{
+		UE_DNK_LOG(LogTemp, Warning, "bCanFire is false");
+		return false;
+	}
+
 	AActor* Owner = GetOwner();
 	if (!IsValid(Owner) || !Owner->GetClass()->ImplementsInterface(UWeaponUserInterface::StaticClass()))
 	{
-		return true;
+		return false;
 	}
 
 	return IWeaponUserInterface::Execute_CanFireWeapon(Owner, const_cast<UWeaponComponentBase*>(this));
@@ -381,12 +375,12 @@ FTransform UWeaponComponentBase::GetShotMuzzleTransform() const
 	const FName MuzzleSocketName = WeaponDataRuntime->MuzzleSocketName;
 	if (Owner->GetClass()->ImplementsInterface(UWeaponUserInterface::StaticClass()))
 	{
-		FTransform OwnerResolvedMuzzleTransform = FTransform::Identity;
-		if (IWeaponUserInterface::Execute_TryResolveWeaponMuzzleTransformForShot(
+		const FTransform OwnerResolvedMuzzleTransform = IWeaponUserInterface::Execute_GetMuzzleTransform(
 			Owner,
 			const_cast<UWeaponComponentBase*>(this),
 			MuzzleSocketName,
-			OwnerResolvedMuzzleTransform))
+			EWeaponMuzzleTransformUsage::Shot);
+		if (!OwnerResolvedMuzzleTransform.Equals(FTransform::Identity))
 		{
 			return OwnerResolvedMuzzleTransform;
 		}
@@ -640,12 +634,12 @@ FTransform UWeaponComponentBase::GetMuzzleTransform_Implementation() const
 
 	if (Owner->GetClass()->ImplementsInterface(UWeaponUserInterface::StaticClass()))
 	{
-		FTransform OwnerResolvedMuzzleTransform = FTransform::Identity;
-		if (IWeaponUserInterface::Execute_TryResolveWeaponMuzzleTransform(
+		const FTransform OwnerResolvedMuzzleTransform = IWeaponUserInterface::Execute_GetMuzzleTransform(
 			Owner,
 			const_cast<UWeaponComponentBase*>(this),
 			MuzzleSocketName,
-			OwnerResolvedMuzzleTransform))
+			EWeaponMuzzleTransformUsage::Preview);
+		if (!OwnerResolvedMuzzleTransform.Equals(FTransform::Identity))
 		{
 			return OwnerResolvedMuzzleTransform;
 		}

@@ -91,7 +91,7 @@ void URocketLauncherComponent::FireProjectile()
 
 	FTransform MuzzleTransform = GetShotMuzzleTransform();
 	const FVector ShotDirection = MuzzleTransform.GetRotation().Vector();
-	const FVector SpawnLocation = MuzzleTransform.GetLocation() + ShotDirection * 100.0f;
+	const FVector SpawnLocation = MuzzleTransform.GetLocation() + ShotDirection * ProjectileSpawnForwardOffset;
 
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = Owner;

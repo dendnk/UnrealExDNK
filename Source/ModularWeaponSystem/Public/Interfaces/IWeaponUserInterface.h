@@ -7,6 +7,14 @@
 
 class UWeaponComponentBase;
 
+// Defines whether a muzzle transform request is read-only or should consume the next sequential muzzle socket.
+UENUM(BlueprintType)
+enum class EWeaponMuzzleTransformUsage : uint8
+{
+    Preview,
+    Shot
+};
+
 UINTERFACE(Blueprintable)
 class MODULARWEAPONSYSTEM_API UWeaponUserInterface : public UInterface
 {
@@ -21,22 +29,10 @@ class MODULARWEAPONSYSTEM_API IWeaponUserInterface
     GENERATED_BODY()
 
 public:
-    /** Returns the world transform */
+    /** Returns the world muzzle transform for a weapon/socket. */
     UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Weapon")
-    FTransform GetMuzzleTransform() const;
-
-    /** Allows the weapon owner to resolve a muzzle transform for a specific weapon/socket. */
-    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Weapon")
-    bool TryResolveWeaponMuzzleTransform(UWeaponComponentBase* WeaponComponent, FName MuzzleSocketName, UPARAM(ref) FTransform& OutMuzzleTransform) const;
-    virtual bool TryResolveWeaponMuzzleTransform_Implementation(UWeaponComponentBase* WeaponComponent, FName MuzzleSocketName, FTransform& OutMuzzleTransform) const { return false; }
-
-    /** Allows the weapon owner to consume a muzzle transform for an actual shot. */
-    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Weapon")
-    bool TryResolveWeaponMuzzleTransformForShot(UWeaponComponentBase* WeaponComponent, FName MuzzleSocketName, UPARAM(ref) FTransform& OutMuzzleTransform) const;
-    virtual bool TryResolveWeaponMuzzleTransformForShot_Implementation(UWeaponComponentBase* WeaponComponent, FName MuzzleSocketName, FTransform& OutMuzzleTransform) const
-    {
-        return false;
-    }
+    FTransform GetMuzzleTransform(UWeaponComponentBase* WeaponComponent, FName MuzzleSocketName, EWeaponMuzzleTransformUsage Usage) const;
+    virtual FTransform GetMuzzleTransform_Implementation(UWeaponComponentBase* WeaponComponent, FName MuzzleSocketName, EWeaponMuzzleTransformUsage Usage) const { return FTransform::Identity; }
 
     /** Allows the weapon owner to block firing when its own aim/state is not ready. */
     UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Weapon")
