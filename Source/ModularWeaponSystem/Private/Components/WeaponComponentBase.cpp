@@ -3,6 +3,7 @@
 #include "Components/WeaponComponentBase.h"
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetTree.h"
+#include "Interfaces/IWeaponUserInterface.h"
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraFunctionLibrary.h"
 #include "Projectiles/ProjectileBase.h"
@@ -74,9 +75,8 @@ void UWeaponComponentBase::InitWeaponData()
 
 void UWeaponComponentBase::StartFire_Implementation()
 {
-	if (bCanFire == false)
+	if (!CanOwnerFireWeapon())
 	{
-		UE_DNK_LOG(LogTemp, Warning, "bCanFire is false");
 		return;
 	}
 
@@ -92,6 +92,8 @@ void UWeaponComponentBase::StartFire_Implementation()
 		UE_DNK_LOG(LogTemp, Warning, "CurrentAmmo == 0!");
 		return;
 	}
+
+	OnFireStarted.Broadcast();
 
 	switch (WeaponDataRuntime->FiringMode)
 	{
@@ -118,13 +120,13 @@ void UWeaponComponentBase::StopFire_Implementation()
 {
 	GetWorld()->GetTimerManager().ClearTimer(FireLoopHandle);
 	GetWorld()->GetTimerManager().ClearTimer(BurstHandle);
+	OnFireStopped.Broadcast();
 }
 
 void UWeaponComponentBase::Fire()
 {
-	if (bCanFire == false)
+	if (!CanOwnerFireWeapon())
 	{
-		UE_DNK_LOG(LogTemp, Warning, "bCanFire is false");
 		return;
 	}
 
@@ -206,18 +208,21 @@ void UWeaponComponentBase::FireProjectile()
 
 	ArrayUtils::CleanArray(Projectiles);
 
-	FTransform MuzzleTransform = GetMuzzleTransform();
+	FTransform MuzzleTransform = GetShotMuzzleTransform();
+	const FVector ShotDirection = MuzzleTransform.GetRotation().Vector();
+	const FVector SpawnLocation = MuzzleTransform.GetLocation() + ShotDirection * 100.0f;
 
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = Owner;
-	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
 	for (int32 i = 0; i < WeaponDataRuntime->AmmoPerShot; ++i)
 	{
 		AProjectileBase* Projectile = World->SpawnActor<AProjectileBase>(
 			ProjectileClass,
-			MuzzleTransform.GetLocation(),
-			MuzzleTransform.GetRotation().Rotator()
+			SpawnLocation,
+			MuzzleTransform.GetRotation().Rotator(),
+			SpawnParams
 		);
 
 		SetupSpawnedProjectile(Projectile);
@@ -232,6 +237,7 @@ void UWeaponComponentBase::FireProjectile()
 
 	SpawnFXAtLocation(WeaponDataRuntime->FXData.MuzzleFlashFX, MuzzleTransform.GetLocation());
 	PlaySoundAtLocation(WeaponDataRuntime->FXData.FireSound, MuzzleTransform.GetLocation());
+	BroadcastWeaponShotFired(MuzzleTransform);
 }
 
 void UWeaponComponentBase::FireHitscan()
@@ -239,7 +245,7 @@ void UWeaponComponentBase::FireHitscan()
 	UWorld* World = GetWorld();
 	if (!World) return;
 
-	FTransform MuzzleTransform = GetMuzzleTransform();
+	FTransform MuzzleTransform = GetShotMuzzleTransform();
 	FVector Start = MuzzleTransform.GetLocation();
 	FVector ShotDirection = MuzzleTransform.GetRotation().Vector();
 	FVector End = Start + (ShotDirection * WeaponDataRuntime->HitscanRange);
@@ -263,8 +269,15 @@ void UWeaponComponentBase::FireHitscan()
 
 	if (World->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params))
 	{
+		BroadcastWeaponHitscanHit(Hit);
 		HandleProjectileCollisionHit(Hit);
 	}
+	else
+	{
+		BroadcastWeaponHitscanMiss(Start, End);
+	}
+
+	BroadcastWeaponShotFired(MuzzleTransform);
 }
 
 bool UWeaponComponentBase::HandleProjectileCollisionHit(const FHitResult& Hit)
@@ -327,6 +340,55 @@ bool UWeaponComponentBase::HandleProjectileCollisionHit(const FHitResult& Hit)
 	return true;
 }
 
+bool UWeaponComponentBase::CanOwnerFireWeapon() const
+{
+	if (bCanFire == false)
+	{
+		UE_DNK_LOG(LogTemp, Warning, "bCanFire is false");
+		return false;
+	}
+
+	AActor* Owner = GetOwner();
+	if (!IsValid(Owner) || !Owner->GetClass()->ImplementsInterface(UWeaponUserInterface::StaticClass()))
+	{
+		return false;
+	}
+
+	return IWeaponUserInterface::Execute_CanFireWeapon(Owner, const_cast<UWeaponComponentBase*>(this));
+}
+
+FTransform UWeaponComponentBase::GetShotMuzzleTransform() const
+{
+	if (IsValid(WeaponDataRuntime) == false)
+	{
+		UE_DNK_LOG(LogTemp, Error, "Invalid WeaponData!");
+		return FTransform::Identity;
+	}
+
+	AActor* Owner = GetOwner();
+	if (IsValid(Owner) == false)
+	{
+		UE_DNK_LOG(LogTemp, Error, "Invalid Owner!");
+		return FTransform::Identity;
+	}
+
+	const FName MuzzleSocketName = WeaponDataRuntime->MuzzleSocketName;
+	if (Owner->GetClass()->ImplementsInterface(UWeaponUserInterface::StaticClass()))
+	{
+		const FTransform OwnerResolvedMuzzleTransform = IWeaponUserInterface::Execute_GetMuzzleTransform(
+			Owner,
+			const_cast<UWeaponComponentBase*>(this),
+			MuzzleSocketName,
+			EWeaponMuzzleTransformUsage::Shot);
+		if (!OwnerResolvedMuzzleTransform.Equals(FTransform::Identity))
+		{
+			return OwnerResolvedMuzzleTransform;
+		}
+	}
+
+	return GetMuzzleTransform();
+}
+
 void UWeaponComponentBase::FireBeam()
 {
 	if (WeaponDataRuntime->FireType != EFireType::Beam)
@@ -342,12 +404,29 @@ void UWeaponComponentBase::FireBeam()
 		SetCurrentAmmo(GetCurrentAmmo() - WeaponDataRuntime->AmmoPerShot);
 	}
 
+	BroadcastWeaponShotFired(GetShotMuzzleTransform());
+
 	// Spawn a beam FX from muzzle
 	// Optionally attach a timer to apply DoT every X seconds
 	if (WeaponDataRuntime->DamageData.DamagePerTick > 0)
 	{
 		// Start a timer to apply WeaponData->DamagePerTick over WeaponData->BeamDuration
 	}
+}
+
+void UWeaponComponentBase::BroadcastWeaponShotFired(const FTransform& MuzzleTransform)
+{
+	OnShotFired.Broadcast(MuzzleTransform);
+}
+
+void UWeaponComponentBase::BroadcastWeaponHitscanHit(const FHitResult& Hit)
+{
+	OnHitscanHit.Broadcast(Hit);
+}
+
+void UWeaponComponentBase::BroadcastWeaponHitscanMiss(const FVector& TraceStart, const FVector& TraceEnd)
+{
+	OnHitscanMiss.Broadcast(TraceStart, TraceEnd);
 }
 
 void UWeaponComponentBase::HandleOnWeaponDataPropertyChanged()
@@ -503,8 +582,26 @@ void UWeaponComponentBase::SetupSpawnedProjectile(AProjectileBase* SpawnedProjec
 	if (IsValid(SpawnedProjectile))
 	{
 		const float ProjectileLifeSpan = WeaponDataRuntime ? WeaponDataRuntime->ProjectileLifeSpan : FallbackProjectileLifeSpan;
+		SpawnedProjectile->SetOwner(Owner);
 		SpawnedProjectile->SetInstigator(Owner->GetInstigator());
-		SpawnedProjectile->MeshComponent->IgnoreActorWhenMoving(GetOwner(), true);
+
+		TArray<AActor*> IgnoredActors;
+		IgnoredActors.Add(Owner);
+		Owner->GetAttachedActors(IgnoredActors, false, true);
+
+		if (IsValid(SpawnedProjectile->MeshComponent))
+		{
+			for (AActor* IgnoredActor : IgnoredActors)
+			{
+				if (!IsValid(IgnoredActor))
+				{
+					continue;
+				}
+
+				SpawnedProjectile->MeshComponent->IgnoreActorWhenMoving(IgnoredActor, true);
+			}
+		}
+
 		SpawnedProjectile->SetLifeSpan(ProjectileLifeSpan);
 
 		SpawnedProjectile->OnProjectileSetupFinished.Broadcast();
@@ -531,17 +628,34 @@ FTransform UWeaponComponentBase::GetMuzzleTransform_Implementation() const
 		return FTransform::Identity;
 	}
 
+	const FName MuzzleSocketName = IsValid(WeaponDataRuntime)
+		                              ? WeaponDataRuntime->MuzzleSocketName
+		                              : NAME_None;
+
+	if (Owner->GetClass()->ImplementsInterface(UWeaponUserInterface::StaticClass()))
+	{
+		const FTransform OwnerResolvedMuzzleTransform = IWeaponUserInterface::Execute_GetMuzzleTransform(
+			Owner,
+			const_cast<UWeaponComponentBase*>(this),
+			MuzzleSocketName,
+			EWeaponMuzzleTransformUsage::Preview);
+		if (!OwnerResolvedMuzzleTransform.Equals(FTransform::Identity))
+		{
+			return OwnerResolvedMuzzleTransform;
+		}
+	}
+
 	if (USkeletalMeshComponent* SkeletalMesh = Owner->FindComponentByClass<USkeletalMeshComponent>())
 	{
-		return SkeletalMesh->GetSocketTransform(WeaponDataRuntime->MuzzleSocketName);
+		return SkeletalMesh->GetSocketTransform(MuzzleSocketName);
 	}
 	else if (UStaticMeshComponent* StaticMesh = Owner->FindComponentByClass<UStaticMeshComponent>())
 	{
-		return StaticMesh->GetSocketTransform(WeaponDataRuntime->MuzzleSocketName);
+		return StaticMesh->GetSocketTransform(MuzzleSocketName);
 	}
 	else if (USceneComponent* SceneComponent = Owner->FindComponentByClass<USceneComponent>())
 	{
-		return SceneComponent->GetSocketTransform(WeaponDataRuntime->MuzzleSocketName);
+		return SceneComponent->GetSocketTransform(MuzzleSocketName);
 	}
 
 	UE_DNK_LOG(LogTemp, Error, "Setup MuzzleSocketName for you Weapon Component!");

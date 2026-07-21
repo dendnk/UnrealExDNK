@@ -37,6 +37,8 @@ protected:
     virtual void SetupSpawnedProjectile(AProjectileBase* SpawnedProjectile) override;
 
 private:
+    static constexpr float ProjectileSpawnForwardOffset = 100.f;
+
     void ResetCachedRocketBounds();
     void UpdateHomingRocketData();
     void ClearHomingRocketData();

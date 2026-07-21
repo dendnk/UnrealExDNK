@@ -16,11 +16,17 @@ AProjectileBase::AProjectileBase()
     PrimaryActorTick.bCanEverTick = false;
 
     MeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(WeaponSystemNames::ProjectileMesh);
-    RootComponent = MeshComponent;
+    if (IsValid(MeshComponent))
+    {
+        RootComponent = MeshComponent;
+        MeshComponent->OnComponentHit.AddDynamic(this, &AProjectileBase::OnProjectileHit);
+    }
 
     MovementComponent = CreateDefaultSubobject<UProjectileMovementComponent>(WeaponSystemNames::ProjectileMovement);
-
-    MeshComponent->OnComponentHit.AddDynamic(this, &AProjectileBase::OnProjectileHit);
+    if (IsValid(MovementComponent))
+    {
+        MovementComponent->UpdatedComponent = MeshComponent;
+    }
 }
 
 void AProjectileBase::PostInitProperties()

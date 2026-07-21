@@ -89,17 +89,19 @@ void URocketLauncherComponent::FireProjectile()
 		return;
 	}
 
-	FTransform MuzzleTransform = GetMuzzleTransform();
+	FTransform MuzzleTransform = GetShotMuzzleTransform();
+	const FVector ShotDirection = MuzzleTransform.GetRotation().Vector();
+	const FVector SpawnLocation = MuzzleTransform.GetLocation() + ShotDirection * ProjectileSpawnForwardOffset;
 
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = Owner;
-	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
 	for (int32 i = 0; i < WeaponDataRuntime->AmmoPerShot; ++i)
 	{
 		AProjectileBase* Projectile = World->SpawnActor<AProjectileBase>(
 			ProjectileClass,
-			MuzzleTransform.GetLocation(),
+			SpawnLocation,
 			MuzzleTransform.GetRotation().Rotator(), 
 			SpawnParams
 		);
@@ -122,11 +124,6 @@ void URocketLauncherComponent::SetupSpawnedProjectile(AProjectileBase* SpawnedPr
 {
     if (IsValid(SpawnedProjectile) && IsValid(SpawnedProjectile->MeshComponent))
     {
-		SpawnedProjectile->MeshComponent->SetCollisionResponseToChannel(
-			ECC_GameTraceChannel3,
-			ECR_Ignore
-		);
-    	
     	if (IsValid(WeaponDataRuntime))
     	{
     		SpawnedProjectile->Config.Damage = WeaponDataRuntime->DamageData.BaseDamage;
@@ -134,7 +131,7 @@ void URocketLauncherComponent::SetupSpawnedProjectile(AProjectileBase* SpawnedPr
     	
         if (UProjectileMovementComponent* Movement = SpawnedProjectile->FindComponentByClass<UProjectileMovementComponent>())
         {
-            Movement->Velocity = GetMuzzleTransform().GetRotation().Vector() * WeaponDataRuntime->ProjectileSpeed;
+            Movement->Velocity = SpawnedProjectile->GetActorForwardVector() * WeaponDataRuntime->ProjectileSpeed;
             if (GetWeaponDataRuntime()->ProjectileType == EProjectileType::HomingRocket)
             {
                 if (AActor* Actor = GetNearestTarget())
