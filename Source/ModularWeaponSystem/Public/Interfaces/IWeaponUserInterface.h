@@ -45,5 +45,10 @@ public:
 
     /** Provide access to owner actor */
     UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Weapon")
-    AActor* GetWeaponOwner() const;
+    AActor* GetWeaponOwner();
+
+    /** Called from weapon animation notifies when the montage reaches its fire frame. */
+    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Weapon|Animation")
+    void HandleFireWeaponNotify();
+    virtual void HandleFireWeaponNotify_Implementation() {}
 };
