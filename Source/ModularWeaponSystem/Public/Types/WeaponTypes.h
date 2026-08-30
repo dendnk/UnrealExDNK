@@ -54,6 +54,10 @@ enum class EProjectileType : uint8
 	WobbleRocket			UMETA(DisplayName = "Wobble Rocket"),
 	// Guided rocket that follows the target
 	HomingRocket			UMETA(DisplayName = "Homing Rocket"),
+	// Lobbed explosive, arcs under gravity, explodes on any hit (ground, helicopter, etc.)
+	Grenade					UMETA(DisplayName = "Grenade"),
+	// Flies flat (no gravity), explodes at the target's position when fired, or on direct hit
+	FlackProjectile			UMETA(DisplayName = "Flack Projectile"),
 };
 
 USTRUCT(BlueprintType)
@@ -164,4 +168,10 @@ struct FProjectileConfig
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|Collision")
 	FProjectileCollisionRuleConfig CollisionRuleConfig;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|AoE")
+	uint8 bHasAoEOnExplode : 1 = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|AoE", meta = (EditCondition = "bHasAoEOnExplode", ClampMin = "0.0", Units = "cm"))
+	float AoERadius = 0.f;
 };
