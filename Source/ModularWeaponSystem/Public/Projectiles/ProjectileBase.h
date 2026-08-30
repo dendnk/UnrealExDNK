@@ -33,7 +33,7 @@ public:
     virtual void OnProjectileHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 
     UFUNCTION(BlueprintCallable, Category="Projectile")
-    virtual void ExplodeProjectile(const FHitResult& Hit);
+    virtual void ExplodeProjectile(const FHitResult& Hit, bool bSuppressFx = false);
 
 protected:
     virtual void BeginPlay() override;
