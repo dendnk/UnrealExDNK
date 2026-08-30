@@ -56,12 +56,12 @@ UAudioComponent* AProjectileBase::CustomSpawnSoundAttached(USoundBase* Sound, US
     return UGameplayStatics::SpawnSoundAttached(Sound, AttachToComponent, AttachPointName, Location, LocationType, bStopWhenAttachedToDestroyed, VolumeMultiplier, PitchMultiplier, StartTime, AttenuationSettings, ConcurrencySettings, bAutoDestroy);
 }
 
-float AProjectileBase::CustomApplyDamage(float Damage, AActor* DamageCauser, AActor* OtherActor)
+float AProjectileBase::CustomApplyDamage(float Damage, AActor* DamageCauser, AActor* OtherActor, TSubclassOf<UDamageType> DamageTypeClass)
 {
     AController* InstigatorController = DamageCauser != nullptr
                                         ? DamageCauser->GetInstigatorController()
                                         : nullptr;
-    return UGameplayStatics::ApplyDamage(OtherActor, Damage, InstigatorController, DamageCauser, nullptr);
+    return UGameplayStatics::ApplyDamage(OtherActor, Damage, InstigatorController, DamageCauser, DamageTypeClass);
 }
 
 void AProjectileBase::CustomPlaySoundAtLocation(const UObject* WorldContextObject, USoundBase* Sound, FVector Location, float VolumeMultiplier, float PitchMultiplier, float StartTime, USoundAttenuation* AttenuationSettings, USoundConcurrency* ConcurrencySettings, const UInitialActiveSoundParams* InitialParams)
@@ -71,7 +71,10 @@ void AProjectileBase::CustomPlaySoundAtLocation(const UObject* WorldContextObjec
 
 void AProjectileBase::LifeSpanExpired()
 {
-    ExplodeProjectile(FHitResult());
+    FHitResult Hit;
+    Hit.Location = GetActorLocation();
+    Hit.ImpactPoint = GetActorLocation();
+    ExplodeProjectile(Hit, Config.bSuppressExplosionFxOnLifespanExpiry);
 }
 
 void AProjectileBase::Tick(float DeltaTime)
@@ -96,7 +99,7 @@ void AProjectileBase::OnProjectileHit(UPrimitiveComponent* HitComponent, AActor*
     HandleProjectileCollisionHit(OtherActor, Hit);
 }
 
-void AProjectileBase::ExplodeProjectile(const FHitResult& Hit)
+void AProjectileBase::ExplodeProjectile(const FHitResult& Hit, bool bSuppressFx)
 {
     if (bIsAlreadyExploded)
     {
@@ -106,7 +109,9 @@ void AProjectileBase::ExplodeProjectile(const FHitResult& Hit)
     bIsAlreadyExploded = true;
     SetActorEnableCollision(false);
 
-    if (ExplosionEffect != nullptr)
+    ApplyAoEDamage(Hit);
+
+    if (!bSuppressFx && ExplosionEffect != nullptr)
     {
         UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, ExplosionEffect, Hit.Location);
     }
@@ -116,7 +121,7 @@ void AProjectileBase::ExplodeProjectile(const FHitResult& Hit)
         IdleAudioComponent->Stop();
     }
 
-    if (ExplosionSound != nullptr)
+    if (!bSuppressFx && ExplosionSound != nullptr)
     {
         CustomPlaySoundAtLocation(this, ExplosionSound, GetActorLocation());
     }
@@ -138,7 +143,10 @@ void AProjectileBase::HandleProjectileCollisionHit(AActor* HitActor, const FHitR
     {
     case EProjectileCollisionRuleResult::NotProjectile:
     case EProjectileCollisionRuleResult::RulesDisabled:
-        CustomApplyDamage(Config.Damage, this, HitActor);
+        if (!Config.bHasAoEOnExplode)
+        {
+            CustomApplyDamage(Config.Damage, this, HitActor);
+        }
         ExplodeProjectile(Hit);
         return;
 

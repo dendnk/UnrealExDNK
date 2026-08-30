@@ -122,29 +122,21 @@ void URocketLauncherComponent::FireProjectile()
 
 void URocketLauncherComponent::SetupSpawnedProjectile(AProjectileBase* SpawnedProjectile)
 {
-    if (IsValid(SpawnedProjectile) && IsValid(SpawnedProjectile->MeshComponent))
+    Super::SetupSpawnedProjectile(SpawnedProjectile);
+
+    if (IsValid(SpawnedProjectile) && IsValid(SpawnedProjectile->MeshComponent) &&
+        GetWeaponDataRuntime()->ProjectileType == EProjectileType::HomingRocket)
     {
-    	if (IsValid(WeaponDataRuntime))
-    	{
-    		SpawnedProjectile->Config.Damage = WeaponDataRuntime->DamageData.BaseDamage;
-    	}
-    	
         if (UProjectileMovementComponent* Movement = SpawnedProjectile->FindComponentByClass<UProjectileMovementComponent>())
         {
-            Movement->Velocity = SpawnedProjectile->GetActorForwardVector() * WeaponDataRuntime->ProjectileSpeed;
-            if (GetWeaponDataRuntime()->ProjectileType == EProjectileType::HomingRocket)
+            if (AActor* Actor = GetNearestTarget())
             {
-                if (AActor* Actor = GetNearestTarget())
-                {
-                    Movement->HomingTargetComponent = Actor->GetRootComponent();
+                Movement->HomingTargetComponent = Actor->GetRootComponent();
 
-                    HomingTargets.Add({ SpawnedProjectile, Actor });
-                }
+                HomingTargets.Add({ SpawnedProjectile, Actor });
             }
         }
     }
-
-    Super::SetupSpawnedProjectile(SpawnedProjectile);
 }
 
 void URocketLauncherComponent::ResetCachedRocketBounds()
