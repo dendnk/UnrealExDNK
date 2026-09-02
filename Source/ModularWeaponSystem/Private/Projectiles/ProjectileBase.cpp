@@ -20,6 +20,13 @@ AProjectileBase::AProjectileBase()
     {
         RootComponent = MeshComponent;
         MeshComponent->OnComponentHit.AddDynamic(this, &AProjectileBase::OnProjectileHit);
+
+        // "Projectile" object channel: overlap (not block) other projectiles so an
+        // IgnoredByRules/pass-through pair truly passes through with zero physical
+        // deflection. Every other response (WorldStatic, Pawn, etc.) is untouched.
+        MeshComponent->SetCollisionObjectType(ECC_GameTraceChannel2);
+        MeshComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel2, ECR_Overlap);
+        MeshComponent->OnComponentBeginOverlap.AddDynamic(this, &AProjectileBase::OnProjectileBeginOverlap);
     }
 
     MovementComponent = CreateDefaultSubobject<UProjectileMovementComponent>(WeaponSystemNames::ProjectileMovement);
@@ -82,7 +89,7 @@ void AProjectileBase::Tick(float DeltaTime)
     Super::Tick(DeltaTime);
 }
 
-void AProjectileBase::OnProjectileHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+void AProjectileBase::OnProjectileHit_Implementation(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
     if (bIsAlreadyExploded)
     {
@@ -97,6 +104,23 @@ void AProjectileBase::OnProjectileHit(UPrimitiveComponent* HitComponent, AActor*
     }
 
     HandleProjectileCollisionHit(OtherActor, Hit);
+}
+
+void AProjectileBase::OnProjectileBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+    if (bIsAlreadyExploded)
+    {
+        return;
+    }
+
+    if (IsValid(OtherActor) == false ||
+        OtherActor == this ||
+        OtherActor == GetOwner())
+    {
+        return;
+    }
+
+    HandleProjectileCollisionHit(OtherActor, SweepResult);
 }
 
 void AProjectileBase::ExplodeProjectile(const FHitResult& Hit, bool bSuppressFx)

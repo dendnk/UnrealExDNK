@@ -18,4 +18,16 @@ namespace ModularWeaponSystem
 	                               "Instant line checks that apply damage immediately when the shot is fired.")
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Beam, "ModularWeaponSystem.Beam",
 	                               "Continuous damage streams that require staying aimed at the target over time.")
+
+	namespace ProjectileClass
+	{
+		UE_DEFINE_GAMEPLAY_TAG_COMMENT(RocketClass, "ModularWeaponSystem.Projectile.RocketClass",
+		                               "Explosive, AoE-capable shell: rockets, grenades, etc.")
+		UE_DEFINE_GAMEPLAY_TAG_COMMENT(Bullet, "ModularWeaponSystem.Projectile.Bullet",
+		                               "Rapid-fire, non-explosive round.")
+		UE_DEFINE_GAMEPLAY_TAG_COMMENT(None, "ModularWeaponSystem.Projectile.None",
+		                               "Reserved placeholder no real projectile is ever tagged with; exists so "
+		                               "ValidTargetProjectileTags can express \"matches nothing\" (an empty "
+		                               "container instead means \"matches everything\").")
+	}
 }

@@ -29,8 +29,16 @@ public:
     virtual void PostInitProperties() override;
     virtual void LifeSpanExpired() override;
 
+    // BlueprintNativeEvent (not a plain virtual UFUNCTION) so a projectile Blueprint
+    // can override the component-bound hit handler directly from its graph, e.g.
+    // BP_CasseteRocket routing a direct hit into its Disassemble split instead of
+    // the default damage-then-explode behavior.
+    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Projectiles)
+    void OnProjectileHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+    virtual void OnProjectileHit_Implementation(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+
     UFUNCTION(BlueprintCallable, Category = Projectiles)
-    virtual void OnProjectileHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+    virtual void OnProjectileBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
     UFUNCTION(BlueprintCallable, Category="Projectile")
     virtual void ExplodeProjectile(const FHitResult& Hit, bool bSuppressFx = false);
