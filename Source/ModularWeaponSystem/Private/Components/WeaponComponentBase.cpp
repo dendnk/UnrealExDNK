@@ -617,7 +617,7 @@ void UWeaponComponentBase::SetupSpawnedProjectile(AProjectileBase* SpawnedProjec
 
 		SpawnedProjectile->OnProjectileSetupFinished.Broadcast();
 
-		SpawnedProjectile->Config.CollisionRuleConfig = WeaponDataAsset->ProjectileCollisionRuleConfig;
+		SpawnedProjectile->Config.CollisionRuleConfig = WeaponDataRuntime->ProjectileCollisionRuleConfig;
 
 		// TODO: Make Interface call to owner of the component to get it`s tag and set ProjectileFaction
 		// SpawnedProjectile->Config.CollisionRuleConfig.ProjectileFactionTag = ModularWeaponSystem::None;

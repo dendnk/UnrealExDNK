@@ -35,6 +35,12 @@ public:
     UFUNCTION(BlueprintCallable, Category="Projectile")
     virtual void ExplodeProjectile(const FHitResult& Hit, bool bSuppressFx = false);
 
+    // Gives the projectile a target actor to react to (e.g. steer towards). No-op unless a
+    // subclass overrides it; the weapon that spawned this projectile calls it with its
+    // nearest valid target right after spawn.
+    UFUNCTION(BlueprintCallable, Category = Projectiles)
+    virtual void SetProjectileTarget(AActor* NewTarget) {}
+
 protected:
     virtual void BeginPlay() override;
     virtual UAudioComponent* CustomSpawnSoundAttached(USoundBase* Sound, USceneComponent* AttachToComponent, FName AttachPointName = NAME_None, FVector Location = FVector(ForceInit), FRotator Rotation = FRotator::ZeroRotator, EAttachLocation::Type LocationType = EAttachLocation::KeepRelativeOffset, bool bStopWhenAttachedToDestroyed = false, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, float StartTime = 0.f, USoundAttenuation* AttenuationSettings = nullptr, USoundConcurrency* ConcurrencySettings = nullptr, bool bAutoDestroy = true);

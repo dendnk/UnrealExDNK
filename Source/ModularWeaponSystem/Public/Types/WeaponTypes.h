@@ -180,4 +180,8 @@ struct FProjectileConfig
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|AoE", meta = (EditCondition = "bHasAoEOnExplode", ClampMin = "0.0", Units = "cm"))
 	float AoERadius = 0.f;
+
+	/** How long the AoE radius debug sphere stays visible after explosion. Match this to the ExplosionEffect's playback length. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|AoE", meta = (EditCondition = "bHasAoEOnExplode", ClampMin = "0.0", Units = "s"))
+	float AoEVisualizationDuration = 0.5f;
 };

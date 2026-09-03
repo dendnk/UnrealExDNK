@@ -158,13 +158,11 @@ void AProjectileBase::HandleProjectileCollisionHit(AActor* HitActor, const FHitR
         {
             HitProjectile->ExplodeProjectile(Hit);
         }
-        break;
-    }
 
-    if (Config.CollisionRuleConfig.bConsumeSelfOnProjectileCollision)
-    {
-        bIsAlreadyExploded = true;
-        SetActorEnableCollision(false);
-        Destroy();
+        if (Config.CollisionRuleConfig.bConsumeSelfOnProjectileCollision)
+        {
+            ExplodeProjectile(Hit);
+        }
+        return;
     }
 }
