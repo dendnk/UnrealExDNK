@@ -15,7 +15,7 @@ URocketLauncherComponent::URocketLauncherComponent()
 
 AActor* URocketLauncherComponent::GetNearestTarget_Implementation()
 {
-    return Super::GetNearestTarget();
+    return Super::GetNearestTarget_Implementation();
 }
 
 void URocketLauncherComponent::BeginPlay()
