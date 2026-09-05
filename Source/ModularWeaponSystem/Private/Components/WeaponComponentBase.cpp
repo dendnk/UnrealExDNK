@@ -76,6 +76,11 @@ void UWeaponComponentBase::InitWeaponData()
 
 void UWeaponComponentBase::StartFire_Implementation()
 {
+	if (bBurstPauseActive)
+	{
+		return;
+	}
+
 	if (!CanOwnerFireWeapon())
 	{
 		return;
@@ -168,7 +173,31 @@ void UWeaponComponentBase::HandleBurstFire()
 	else
 	{
 		GetWorld()->GetTimerManager().ClearTimer(BurstHandle);
+
+		if (IsValid(WeaponDataRuntime) && WeaponDataRuntime->BurstPauseDuration > 0.f)
+		{
+			bBurstPauseActive = true;
+			GetWorld()->GetTimerManager().SetTimer(BurstPauseHandle, this, &ThisClass::HandleBurstPauseFinished,
+			                                       WeaponDataRuntime->BurstPauseDuration, false);
+		}
 	}
+}
+
+void UWeaponComponentBase::HandleBurstPauseFinished()
+{
+	bBurstPauseActive = false;
+}
+
+FVector UWeaponComponentBase::ApplyProjectileSpread(const FVector& BaseDirection) const
+{
+	if (!IsValid(WeaponDataRuntime) || WeaponDataRuntime->ProjectileSpread <= 0.f)
+	{
+		return BaseDirection;
+	}
+
+	const float SpreadDegrees = WeaponDataRuntime->ProjectileSpread
+		+ (CurrentBurstCount - 1) * WeaponDataRuntime->ProjectileSpreadBloomPerShot;
+	return FMath::VRandCone(BaseDirection, FMath::DegreesToRadians(SpreadDegrees));
 }
 
 void UWeaponComponentBase::FireProjectile()
@@ -210,8 +239,7 @@ void UWeaponComponentBase::FireProjectile()
 	ArrayUtils::CleanArray(Projectiles);
 
 	FTransform MuzzleTransform = GetShotMuzzleTransform();
-	const FVector ShotDirection = MuzzleTransform.GetRotation().Vector();
-	const FVector SpawnLocation = MuzzleTransform.GetLocation() + ShotDirection * 100.0f;
+	FVector BaseShotDirection = MuzzleTransform.GetRotation().Vector();
 
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = Owner;
@@ -219,10 +247,15 @@ void UWeaponComponentBase::FireProjectile()
 
 	for (int32 i = 0; i < WeaponDataRuntime->AmmoPerShot; ++i)
 	{
+		FVector ShotDirection = ApplyProjectileSpread(BaseShotDirection);
+		FVector SpawnLocation = MuzzleTransform.GetLocation() + ShotDirection * 100.0f;
+		AdjustProjectileSpawnTransform(SpawnLocation, ShotDirection);
+		const FRotator SpawnRotation = ShotDirection.Rotation();
+
 		AProjectileBase* Projectile = World->SpawnActor<AProjectileBase>(
 			ProjectileClass,
 			SpawnLocation,
-			MuzzleTransform.GetRotation().Rotator(),
+			SpawnRotation,
 			SpawnParams
 		);
 

@@ -96,7 +96,7 @@ void URocketLauncherComponent::FireProjectile()
 	// location here, before the projectile is spawned/velocity is derived from its
 	// forward vector in SetupSpawnedProjectile, so dumbfire rockets fly along Y=0
 	// instead of drifting away from on-lane targets.
-	FVector ShotDirection = MuzzleTransform.GetRotation().Vector();
+	FVector ShotDirection = ApplyProjectileSpread(MuzzleTransform.GetRotation().Vector());
 	ShotDirection.Y = 0.0f;
 	if (!ShotDirection.IsNearlyZero())
 	{
