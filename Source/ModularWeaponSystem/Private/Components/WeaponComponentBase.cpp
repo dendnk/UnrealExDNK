@@ -3,6 +3,7 @@
 #include "Components/WeaponComponentBase.h"
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetTree.h"
+#include "GameFramework/ProjectileMovementComponent.h"
 #include "Interfaces/IWeaponUserInterface.h"
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraFunctionLibrary.h"
@@ -75,6 +76,11 @@ void UWeaponComponentBase::InitWeaponData()
 
 void UWeaponComponentBase::StartFire_Implementation()
 {
+	if (bBurstPauseActive)
+	{
+		return;
+	}
+
 	if (!CanOwnerFireWeapon())
 	{
 		return;
@@ -167,7 +173,31 @@ void UWeaponComponentBase::HandleBurstFire()
 	else
 	{
 		GetWorld()->GetTimerManager().ClearTimer(BurstHandle);
+
+		if (IsValid(WeaponDataRuntime) && WeaponDataRuntime->BurstPauseDuration > 0.f)
+		{
+			bBurstPauseActive = true;
+			GetWorld()->GetTimerManager().SetTimer(BurstPauseHandle, this, &ThisClass::HandleBurstPauseFinished,
+			                                       WeaponDataRuntime->BurstPauseDuration, false);
+		}
 	}
+}
+
+void UWeaponComponentBase::HandleBurstPauseFinished()
+{
+	bBurstPauseActive = false;
+}
+
+FVector UWeaponComponentBase::ApplyProjectileSpread(const FVector& BaseDirection) const
+{
+	if (!IsValid(WeaponDataRuntime) || WeaponDataRuntime->ProjectileSpread <= 0.f)
+	{
+		return BaseDirection;
+	}
+
+	const float SpreadDegrees = WeaponDataRuntime->ProjectileSpread
+		+ (CurrentBurstCount - 1) * WeaponDataRuntime->ProjectileSpreadBloomPerShot;
+	return FMath::VRandCone(BaseDirection, FMath::DegreesToRadians(SpreadDegrees));
 }
 
 void UWeaponComponentBase::FireProjectile()
@@ -209,8 +239,7 @@ void UWeaponComponentBase::FireProjectile()
 	ArrayUtils::CleanArray(Projectiles);
 
 	FTransform MuzzleTransform = GetShotMuzzleTransform();
-	const FVector ShotDirection = MuzzleTransform.GetRotation().Vector();
-	const FVector SpawnLocation = MuzzleTransform.GetLocation() + ShotDirection * 100.0f;
+	FVector BaseShotDirection = MuzzleTransform.GetRotation().Vector();
 
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = Owner;
@@ -218,10 +247,15 @@ void UWeaponComponentBase::FireProjectile()
 
 	for (int32 i = 0; i < WeaponDataRuntime->AmmoPerShot; ++i)
 	{
+		FVector ShotDirection = ApplyProjectileSpread(BaseShotDirection);
+		FVector SpawnLocation = MuzzleTransform.GetLocation() + ShotDirection * 100.0f;
+		AdjustProjectileSpawnTransform(SpawnLocation, ShotDirection);
+		const FRotator SpawnRotation = ShotDirection.Rotation();
+
 		AProjectileBase* Projectile = World->SpawnActor<AProjectileBase>(
 			ProjectileClass,
 			SpawnLocation,
-			MuzzleTransform.GetRotation().Rotator(),
+			SpawnRotation,
 			SpawnParams
 		);
 
@@ -236,7 +270,7 @@ void UWeaponComponentBase::FireProjectile()
 	}
 
 	SpawnFXAtLocation(WeaponDataRuntime->FXData.MuzzleFlashFX, MuzzleTransform.GetLocation());
-	PlaySoundAtLocation(WeaponDataRuntime->FXData.FireSound, MuzzleTransform.GetLocation());
+	PlaySoundAtLocation(WeaponDataRuntime->FXData.FireSound, MuzzleTransform.GetLocation(), WeaponDataRuntime->FXData.FireSoundVolumeMultiplier);
 	BroadcastWeaponShotFired(MuzzleTransform);
 }
 
@@ -260,7 +294,7 @@ void UWeaponComponentBase::FireHitscan()
 	Params.AddIgnoredActor(GetOwner());
 
 	SpawnFXAtLocation(WeaponDataRuntime->FXData.MuzzleFlashFX, MuzzleTransform.GetLocation());
-	PlaySoundAtLocation(WeaponDataRuntime->FXData.FireSound, MuzzleTransform.GetLocation());
+	PlaySoundAtLocation(WeaponDataRuntime->FXData.FireSound, MuzzleTransform.GetLocation(), WeaponDataRuntime->FXData.FireSoundVolumeMultiplier);
 
 	if (WeaponDataRuntime->bInfiniteAmmo == false)
 	{
@@ -581,6 +615,16 @@ void UWeaponComponentBase::SetupSpawnedProjectile(AProjectileBase* SpawnedProjec
 
 	if (IsValid(SpawnedProjectile))
 	{
+		if (IsValid(WeaponDataRuntime) && IsValid(SpawnedProjectile->MeshComponent))
+		{
+			SpawnedProjectile->Config.Damage = WeaponDataRuntime->DamageData.BaseDamage;
+
+			if (UProjectileMovementComponent* Movement = SpawnedProjectile->FindComponentByClass<UProjectileMovementComponent>())
+			{
+				Movement->Velocity = SpawnedProjectile->GetActorForwardVector() * WeaponDataRuntime->ProjectileSpeed;
+			}
+		}
+
 		const float ProjectileLifeSpan = WeaponDataRuntime ? WeaponDataRuntime->ProjectileLifeSpan : FallbackProjectileLifeSpan;
 		SpawnedProjectile->SetOwner(Owner);
 		SpawnedProjectile->SetInstigator(Owner->GetInstigator());
@@ -606,7 +650,7 @@ void UWeaponComponentBase::SetupSpawnedProjectile(AProjectileBase* SpawnedProjec
 
 		SpawnedProjectile->OnProjectileSetupFinished.Broadcast();
 
-		SpawnedProjectile->Config.CollisionRuleConfig = WeaponDataAsset->ProjectileCollisionRuleConfig;
+		SpawnedProjectile->Config.CollisionRuleConfig = WeaponDataRuntime->ProjectileCollisionRuleConfig;
 
 		// TODO: Make Interface call to owner of the component to get it`s tag and set ProjectileFaction
 		// SpawnedProjectile->Config.CollisionRuleConfig.ProjectileFactionTag = ModularWeaponSystem::None;

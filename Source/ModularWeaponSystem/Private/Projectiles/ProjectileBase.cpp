@@ -10,6 +10,8 @@
 #include "Projectiles/ProjectileCollisionRuleUtils.h"
 #include "Types/WeaponTypes.h"
 
+DEFINE_LOG_CATEGORY(LogProjectile);
+
 
 AProjectileBase::AProjectileBase()
 {
@@ -49,6 +51,11 @@ void AProjectileBase::BeginPlay()
 
     IdleAudioComponent = CustomSpawnSoundAttached(IdleSound, MeshComponent, NAME_None, FVector(ForceInit), FRotator::ZeroRotator, EAttachLocation::KeepRelativeOffset, true, 1.f, 1.f, 0.f, nullptr, nullptr, false);
 
+    if (Config.StuckFailsafeSeconds > 0.f)
+    {
+        LastStuckCheckLocation = GetActorLocation();
+        GetWorldTimerManager().SetTimer(StuckFailsafeTimerHandle, this, &AProjectileBase::CheckForStuckProjectile, Config.StuckFailsafeSeconds, true);
+    }
 }
 
 UAudioComponent* AProjectileBase::CustomSpawnSoundAttached(USoundBase* Sound, USceneComponent* AttachToComponent, FName AttachPointName, FVector Location, FRotator Rotation, EAttachLocation::Type LocationType, bool bStopWhenAttachedToDestroyed, float VolumeMultiplier, float PitchMultiplier, float StartTime, USoundAttenuation* AttenuationSettings, USoundConcurrency* ConcurrencySettings, bool bAutoDestroy)
@@ -56,12 +63,12 @@ UAudioComponent* AProjectileBase::CustomSpawnSoundAttached(USoundBase* Sound, US
     return UGameplayStatics::SpawnSoundAttached(Sound, AttachToComponent, AttachPointName, Location, LocationType, bStopWhenAttachedToDestroyed, VolumeMultiplier, PitchMultiplier, StartTime, AttenuationSettings, ConcurrencySettings, bAutoDestroy);
 }
 
-float AProjectileBase::CustomApplyDamage(float Damage, AActor* DamageCauser, AActor* OtherActor)
+float AProjectileBase::CustomApplyDamage(float Damage, AActor* DamageCauser, AActor* OtherActor, TSubclassOf<UDamageType> DamageTypeClass)
 {
     AController* InstigatorController = DamageCauser != nullptr
                                         ? DamageCauser->GetInstigatorController()
                                         : nullptr;
-    return UGameplayStatics::ApplyDamage(OtherActor, Damage, InstigatorController, DamageCauser, nullptr);
+    return UGameplayStatics::ApplyDamage(OtherActor, Damage, InstigatorController, DamageCauser, DamageTypeClass);
 }
 
 void AProjectileBase::CustomPlaySoundAtLocation(const UObject* WorldContextObject, USoundBase* Sound, FVector Location, float VolumeMultiplier, float PitchMultiplier, float StartTime, USoundAttenuation* AttenuationSettings, USoundConcurrency* ConcurrencySettings, const UInitialActiveSoundParams* InitialParams)
@@ -71,7 +78,10 @@ void AProjectileBase::CustomPlaySoundAtLocation(const UObject* WorldContextObjec
 
 void AProjectileBase::LifeSpanExpired()
 {
-    ExplodeProjectile(FHitResult());
+    FHitResult Hit;
+    Hit.Location = GetActorLocation();
+    Hit.ImpactPoint = GetActorLocation();
+    ExplodeProjectile(Hit, Config.bSuppressExplosionFxOnLifespanExpiry);
 }
 
 void AProjectileBase::Tick(float DeltaTime)
@@ -96,7 +106,7 @@ void AProjectileBase::OnProjectileHit(UPrimitiveComponent* HitComponent, AActor*
     HandleProjectileCollisionHit(OtherActor, Hit);
 }
 
-void AProjectileBase::ExplodeProjectile(const FHitResult& Hit)
+void AProjectileBase::ExplodeProjectile(const FHitResult& Hit, bool bSuppressFx)
 {
     if (bIsAlreadyExploded)
     {
@@ -104,9 +114,12 @@ void AProjectileBase::ExplodeProjectile(const FHitResult& Hit)
     }
 
     bIsAlreadyExploded = true;
+    GetWorldTimerManager().ClearTimer(StuckFailsafeTimerHandle);
     SetActorEnableCollision(false);
 
-    if (ExplosionEffect != nullptr)
+    ApplyAoEDamage(Hit);
+
+    if (!bSuppressFx && ExplosionEffect != nullptr)
     {
         UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, ExplosionEffect, Hit.Location);
     }
@@ -116,7 +129,7 @@ void AProjectileBase::ExplodeProjectile(const FHitResult& Hit)
         IdleAudioComponent->Stop();
     }
 
-    if (ExplosionSound != nullptr)
+    if (!bSuppressFx && ExplosionSound != nullptr)
     {
         CustomPlaySoundAtLocation(this, ExplosionSound, GetActorLocation());
     }
@@ -138,7 +151,10 @@ void AProjectileBase::HandleProjectileCollisionHit(AActor* HitActor, const FHitR
     {
     case EProjectileCollisionRuleResult::NotProjectile:
     case EProjectileCollisionRuleResult::RulesDisabled:
-        CustomApplyDamage(Config.Damage, this, HitActor);
+        if (!Config.bHasAoEOnExplode)
+        {
+            CustomApplyDamage(Config.Damage, this, HitActor);
+        }
         ExplodeProjectile(Hit);
         return;
 
@@ -150,13 +166,56 @@ void AProjectileBase::HandleProjectileCollisionHit(AActor* HitActor, const FHitR
         {
             HitProjectile->ExplodeProjectile(Hit);
         }
-        break;
+
+        if (Config.CollisionRuleConfig.bConsumeSelfOnProjectileCollision)
+        {
+            ExplodeProjectile(Hit);
+        }
+        return;
+    }
+}
+
+void AProjectileBase::DisappearProjectile()
+{
+    if (bIsAlreadyExploded)
+    {
+        return;
     }
 
-    if (Config.CollisionRuleConfig.bConsumeSelfOnProjectileCollision)
+    bIsAlreadyExploded = true;
+    GetWorldTimerManager().ClearTimer(StuckFailsafeTimerHandle);
+    SetActorEnableCollision(false);
+
+    if (IdleAudioComponent != nullptr)
     {
-        bIsAlreadyExploded = true;
-        SetActorEnableCollision(false);
-        Destroy();
+        IdleAudioComponent->Stop();
     }
+
+    Destroy();
+}
+
+void AProjectileBase::CheckForStuckProjectile()
+{
+    if (bIsAlreadyExploded)
+    {
+        GetWorldTimerManager().ClearTimer(StuckFailsafeTimerHandle);
+        return;
+    }
+
+    constexpr float StationaryDistanceThreshold = 5.f; // cm
+    const FVector CurrentLocation = GetActorLocation();
+
+    if (FVector::DistSquared(CurrentLocation, LastStuckCheckLocation) <= FMath::Square(StationaryDistanceThreshold))
+    {
+        UE_LOG(LogProjectile, Warning, TEXT("%s stuck at %s with no explosion reaction after %.2fs; forcing explosion via stuck failsafe."),
+            *GetName(), *CurrentLocation.ToString(), Config.StuckFailsafeSeconds);
+
+        FHitResult Hit;
+        Hit.Location = CurrentLocation;
+        Hit.ImpactPoint = CurrentLocation;
+        ExplodeProjectile(Hit);
+        return;
+    }
+
+    LastStuckCheckLocation = CurrentLocation;
 }

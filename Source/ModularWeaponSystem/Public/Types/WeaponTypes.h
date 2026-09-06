@@ -54,6 +54,12 @@ enum class EProjectileType : uint8
 	WobbleRocket			UMETA(DisplayName = "Wobble Rocket"),
 	// Guided rocket that follows the target
 	HomingRocket			UMETA(DisplayName = "Homing Rocket"),
+	// Lobbed explosive, arcs under gravity, explodes on any hit (ground, helicopter, etc.)
+	Grenade					UMETA(DisplayName = "Grenade"),
+	// Flies flat (no gravity), explodes at the target's position when fired, or on direct hit
+	FlackProjectile			UMETA(DisplayName = "Flack Projectile"),
+	// Flies flat (no gravity), single-target, explodes on direct hit; silently despawns with no FX/SFX if it reaches its lifespan without hitting anything
+	Bullet					UMETA(DisplayName = "Bullet"),
 };
 
 USTRUCT(BlueprintType)
@@ -93,6 +99,10 @@ struct FFXData
 	/** Optional fire sound */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TObjectPtr<USoundBase> FireSound = nullptr;
+
+	/** Volume multiplier applied when playing FireSound. Lets a weapon reuse another weapon's fire sound at a different loudness. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (ClampMin = "0.0"))
+	float FireSoundVolumeMultiplier = 1.f;
 };
 
 USTRUCT(BlueprintType)
@@ -162,6 +172,24 @@ struct FProjectileConfig
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
 	uint8 bShouldBounce : 1 = false;
 
+	/** When true, skip spawning ExplosionEffect/ExplosionSound specifically when this projectile's lifespan expires (a miss). A direct hit still explodes with FX/SFX regardless of this flag. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
+	uint8 bSuppressExplosionFxOnLifespanExpiry : 1 = false;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|Collision")
 	FProjectileCollisionRuleConfig CollisionRuleConfig;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|AoE")
+	uint8 bHasAoEOnExplode : 1 = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|AoE", meta = (EditCondition = "bHasAoEOnExplode", ClampMin = "0.0", Units = "cm"))
+	float AoERadius = 0.f;
+
+	/** How long the AoE radius debug sphere stays visible after explosion. Match this to the ExplosionEffect's playback length. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|AoE", meta = (EditCondition = "bHasAoEOnExplode", ClampMin = "0.0", Units = "s"))
+	float AoEVisualizationDuration = 0.5f;
+
+	/** Safety net: if the projectile stops making progress for this long without exploding (e.g. it collided with something its collision rules ignored), it silently disappears instead of sitting frozen forever. 0 disables the check. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|Failsafe", meta = (ClampMin = "0.0", Units = "s"))
+	float StuckFailsafeSeconds = 0.35f;
 };
