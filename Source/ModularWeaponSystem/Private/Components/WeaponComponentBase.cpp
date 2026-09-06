@@ -622,6 +622,9 @@ void UWeaponComponentBase::SetupSpawnedProjectile(AProjectileBase* SpawnedProjec
 			if (UProjectileMovementComponent* Movement = SpawnedProjectile->FindComponentByClass<UProjectileMovementComponent>())
 			{
 				Movement->Velocity = SpawnedProjectile->GetActorForwardVector() * WeaponDataRuntime->ProjectileSpeed;
+				UE_LOG(LogTemp, Warning, TEXT("[SetupSpawnedProjectile] Owner=%s WeaponDataRuntime(%s)->ProjectileSpeed=%.1f -> Velocity=%s (Size=%.1f) MaxSpeed=%.1f"),
+					*GetNameSafe(Owner), *GetNameSafe(WeaponDataRuntime), WeaponDataRuntime->ProjectileSpeed,
+					*Movement->Velocity.ToString(), Movement->Velocity.Size(), Movement->MaxSpeed);
 			}
 		}
 
