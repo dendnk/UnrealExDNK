@@ -49,6 +49,11 @@ void AProjectileBase::BeginPlay()
 
     IdleAudioComponent = CustomSpawnSoundAttached(IdleSound, MeshComponent, NAME_None, FVector(ForceInit), FRotator::ZeroRotator, EAttachLocation::KeepRelativeOffset, true, 1.f, 1.f, 0.f, nullptr, nullptr, false);
 
+    if (Config.StuckFailsafeSeconds > 0.f)
+    {
+        LastStuckCheckLocation = GetActorLocation();
+        GetWorldTimerManager().SetTimer(StuckFailsafeTimerHandle, this, &AProjectileBase::CheckForStuckProjectile, Config.StuckFailsafeSeconds, true);
+    }
 }
 
 UAudioComponent* AProjectileBase::CustomSpawnSoundAttached(USoundBase* Sound, USceneComponent* AttachToComponent, FName AttachPointName, FVector Location, FRotator Rotation, EAttachLocation::Type LocationType, bool bStopWhenAttachedToDestroyed, float VolumeMultiplier, float PitchMultiplier, float StartTime, USoundAttenuation* AttenuationSettings, USoundConcurrency* ConcurrencySettings, bool bAutoDestroy)
@@ -107,6 +112,7 @@ void AProjectileBase::ExplodeProjectile(const FHitResult& Hit, bool bSuppressFx)
     }
 
     bIsAlreadyExploded = true;
+    GetWorldTimerManager().ClearTimer(StuckFailsafeTimerHandle);
     SetActorEnableCollision(false);
 
     ApplyAoEDamage(Hit);
@@ -165,4 +171,43 @@ void AProjectileBase::HandleProjectileCollisionHit(AActor* HitActor, const FHitR
         }
         return;
     }
+}
+
+void AProjectileBase::DisappearProjectile()
+{
+    if (bIsAlreadyExploded)
+    {
+        return;
+    }
+
+    bIsAlreadyExploded = true;
+    GetWorldTimerManager().ClearTimer(StuckFailsafeTimerHandle);
+    SetActorEnableCollision(false);
+
+    if (IdleAudioComponent != nullptr)
+    {
+        IdleAudioComponent->Stop();
+    }
+
+    Destroy();
+}
+
+void AProjectileBase::CheckForStuckProjectile()
+{
+    if (bIsAlreadyExploded)
+    {
+        GetWorldTimerManager().ClearTimer(StuckFailsafeTimerHandle);
+        return;
+    }
+
+    constexpr float StationaryDistanceThreshold = 5.f; // cm
+    const FVector CurrentLocation = GetActorLocation();
+
+    if (FVector::DistSquared(CurrentLocation, LastStuckCheckLocation) <= FMath::Square(StationaryDistanceThreshold))
+    {
+        DisappearProjectile();
+        return;
+    }
+
+    LastStuckCheckLocation = CurrentLocation;
 }

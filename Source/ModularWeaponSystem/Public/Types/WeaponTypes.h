@@ -188,4 +188,8 @@ struct FProjectileConfig
 	/** How long the AoE radius debug sphere stays visible after explosion. Match this to the ExplosionEffect's playback length. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|AoE", meta = (EditCondition = "bHasAoEOnExplode", ClampMin = "0.0", Units = "s"))
 	float AoEVisualizationDuration = 0.5f;
+
+	/** Safety net: if the projectile stops making progress for this long without exploding (e.g. it collided with something its collision rules ignored), it silently disappears instead of sitting frozen forever. 0 disables the check. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|Failsafe", meta = (ClampMin = "0.0", Units = "s"))
+	float StuckFailsafeSeconds = 0.35f;
 };

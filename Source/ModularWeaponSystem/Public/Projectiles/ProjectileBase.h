@@ -35,6 +35,11 @@ public:
     UFUNCTION(BlueprintCallable, Category="Projectile")
     virtual void ExplodeProjectile(const FHitResult& Hit, bool bSuppressFx = false);
 
+    // Silently removes the projectile with no explosion FX/sound/AoE damage. Used when a hit
+    // shouldn't cause a reaction at all (e.g. the stuck failsafe below).
+    UFUNCTION(BlueprintCallable, Category = "Projectile")
+    virtual void DisappearProjectile();
+
     // Gives the projectile a target actor to react to (e.g. steer towards). No-op unless a
     // subclass overrides it; the weapon that spawned this projectile calls it with its
     // nearest valid target right after spawn.
@@ -43,6 +48,12 @@ public:
 
 protected:
     virtual void BeginPlay() override;
+
+    // Periodic check bound to a timer (not Tick, so non-ticking projectiles stay non-ticking):
+    // if the projectile hasn't moved meaningfully since the last check, something stopped it
+    // without exploding it (e.g. a collision rule result that intentionally does nothing), so
+    // it disappears instead of sitting frozen in place forever.
+    void CheckForStuckProjectile();
     virtual UAudioComponent* CustomSpawnSoundAttached(USoundBase* Sound, USceneComponent* AttachToComponent, FName AttachPointName = NAME_None, FVector Location = FVector(ForceInit), FRotator Rotation = FRotator::ZeroRotator, EAttachLocation::Type LocationType = EAttachLocation::KeepRelativeOffset, bool bStopWhenAttachedToDestroyed = false, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, float StartTime = 0.f, USoundAttenuation* AttenuationSettings = nullptr, USoundConcurrency* ConcurrencySettings = nullptr, bool bAutoDestroy = true);
     virtual float CustomApplyDamage(float Damage, AActor* DamageCauser, AActor* OtherActor, TSubclassOf<UDamageType> DamageTypeClass = nullptr);
 
@@ -79,4 +90,7 @@ private:
     TObjectPtr<UAudioComponent> IdleAudioComponent;
 
     bool bIsAlreadyExploded = false;
+
+    FTimerHandle StuckFailsafeTimerHandle;
+    FVector LastStuckCheckLocation = FVector::ZeroVector;
 };
