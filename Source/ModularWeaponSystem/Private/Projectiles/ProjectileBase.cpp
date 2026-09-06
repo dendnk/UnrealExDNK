@@ -10,6 +10,8 @@
 #include "Projectiles/ProjectileCollisionRuleUtils.h"
 #include "Types/WeaponTypes.h"
 
+DEFINE_LOG_CATEGORY(LogProjectile);
+
 
 AProjectileBase::AProjectileBase()
 {
@@ -205,7 +207,13 @@ void AProjectileBase::CheckForStuckProjectile()
 
     if (FVector::DistSquared(CurrentLocation, LastStuckCheckLocation) <= FMath::Square(StationaryDistanceThreshold))
     {
-        DisappearProjectile();
+        UE_LOG(LogProjectile, Warning, TEXT("%s stuck at %s with no explosion reaction after %.2fs; forcing explosion via stuck failsafe."),
+            *GetName(), *CurrentLocation.ToString(), Config.StuckFailsafeSeconds);
+
+        FHitResult Hit;
+        Hit.Location = CurrentLocation;
+        Hit.ImpactPoint = CurrentLocation;
+        ExplodeProjectile(Hit);
         return;
     }
 

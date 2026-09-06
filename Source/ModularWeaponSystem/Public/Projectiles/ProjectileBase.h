@@ -13,6 +13,8 @@ class UProjectileMovementComponent;
 class USoundBase;
 class UStaticMeshComponent;
 
+DECLARE_LOG_CATEGORY_EXTERN(LogProjectile, Log, All);
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnProjectileSetupFinishedDelegate);
 
 /**
@@ -52,7 +54,7 @@ protected:
     // Periodic check bound to a timer (not Tick, so non-ticking projectiles stay non-ticking):
     // if the projectile hasn't moved meaningfully since the last check, something stopped it
     // without exploding it (e.g. a collision rule result that intentionally does nothing), so
-    // it disappears instead of sitting frozen in place forever.
+    // it explodes instead of sitting frozen in place forever.
     void CheckForStuckProjectile();
     virtual UAudioComponent* CustomSpawnSoundAttached(USoundBase* Sound, USceneComponent* AttachToComponent, FName AttachPointName = NAME_None, FVector Location = FVector(ForceInit), FRotator Rotation = FRotator::ZeroRotator, EAttachLocation::Type LocationType = EAttachLocation::KeepRelativeOffset, bool bStopWhenAttachedToDestroyed = false, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, float StartTime = 0.f, USoundAttenuation* AttenuationSettings = nullptr, USoundConcurrency* ConcurrencySettings = nullptr, bool bAutoDestroy = true);
     virtual float CustomApplyDamage(float Damage, AActor* DamageCauser, AActor* OtherActor, TSubclassOf<UDamageType> DamageTypeClass = nullptr);
