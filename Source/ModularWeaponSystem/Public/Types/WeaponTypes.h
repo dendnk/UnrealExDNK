@@ -99,6 +99,10 @@ struct FFXData
 	/** Optional fire sound */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TObjectPtr<USoundBase> FireSound = nullptr;
+
+	/** Volume multiplier applied when playing FireSound. Lets a weapon reuse another weapon's fire sound at a different loudness. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (ClampMin = "0.0"))
+	float FireSoundVolumeMultiplier = 1.f;
 };
 
 USTRUCT(BlueprintType)

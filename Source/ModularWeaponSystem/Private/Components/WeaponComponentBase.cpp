@@ -270,7 +270,7 @@ void UWeaponComponentBase::FireProjectile()
 	}
 
 	SpawnFXAtLocation(WeaponDataRuntime->FXData.MuzzleFlashFX, MuzzleTransform.GetLocation());
-	PlaySoundAtLocation(WeaponDataRuntime->FXData.FireSound, MuzzleTransform.GetLocation());
+	PlaySoundAtLocation(WeaponDataRuntime->FXData.FireSound, MuzzleTransform.GetLocation(), WeaponDataRuntime->FXData.FireSoundVolumeMultiplier);
 	BroadcastWeaponShotFired(MuzzleTransform);
 }
 
@@ -294,7 +294,7 @@ void UWeaponComponentBase::FireHitscan()
 	Params.AddIgnoredActor(GetOwner());
 
 	SpawnFXAtLocation(WeaponDataRuntime->FXData.MuzzleFlashFX, MuzzleTransform.GetLocation());
-	PlaySoundAtLocation(WeaponDataRuntime->FXData.FireSound, MuzzleTransform.GetLocation());
+	PlaySoundAtLocation(WeaponDataRuntime->FXData.FireSound, MuzzleTransform.GetLocation(), WeaponDataRuntime->FXData.FireSoundVolumeMultiplier);
 
 	if (WeaponDataRuntime->bInfiniteAmmo == false)
 	{
