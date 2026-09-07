@@ -22,7 +22,6 @@ void UUnrealExDNKUtils::CheckInternetConnection(FOnInternetCheckComplete OnCompl
     Request->OnProcessRequestComplete().BindLambda([OnComplete](FHttpRequestPtr Req, FHttpResponsePtr Resp, bool bSuccess)
     {
         bool bConnected = bSuccess && Resp.IsValid() && Resp->GetResponseCode() == 200;
-        UE_LOG(LogTemp, Warning, TEXT("CheckInternetConnection result : [%s]"), bConnected ? TEXT("True") : TEXT("False"));
         OnComplete.ExecuteIfBound(bConnected);
     });
 
@@ -35,7 +34,6 @@ UWorld* UUnrealExDNKUtils::GetWorldSafe(const UObject* WorldContextObject)
 {
     if (!WorldContextObject)
     {
-        UE_LOG(LogTemp, Error, TEXT("GetWorldSafe: WorldContextObject is null!"));
         return nullptr;
     }
 
@@ -58,7 +56,6 @@ UWorld* UUnrealExDNKUtils::GetWorldSafe(const UObject* WorldContextObject)
         }
     }
 
-    UE_LOG(LogTemp, Error, TEXT("GetWorldSafe: Cannot get World from WorldContextObject!"));
     return nullptr;
 }
 
@@ -93,8 +90,6 @@ FString UUnrealExDNKUtils::GetGitCommitHash()
     {
         FString ProviderName = SourceControlModule.GetProvider().GetName().ToString();
 
-        UE_LOG(LogTemp, Log, TEXT("Project is connected to Source Control: %s"), *ProviderName);
-
         if (ProviderName == TEXT("Git"))
         {
             FString GitPath = TEXT("git");
@@ -109,22 +104,6 @@ FString UUnrealExDNKUtils::GetGitCommitHash()
                 return Result.TrimEnd();
             }
         }
-        else if (ProviderName == TEXT("Perforce"))
-        {
-            UE_LOG(LogTemp, Log, TEXT("The project is using Perforce for source control."));
-        }
-        else if (ProviderName == TEXT("Plastic SCM"))
-        {
-            UE_LOG(LogTemp, Log, TEXT("The project is using Plastic SCM for source control."));
-        }
-        else
-        {
-            UE_LOG(LogTemp, Log, TEXT("The project is using an unknown source control system: %s"), *ProviderName);
-        }
-    }
-    else
-    {
-        UE_LOG(LogTemp, Log, TEXT("The project is not connected to any source control."));
     }
 
     return TEXT("Unknown");
@@ -193,7 +172,6 @@ void UUnrealExDNKUtils::GetAllSubclassesOf(UClass* BaseClass, TArray<UClass*>& O
 {
     if (BaseClass == nullptr)
     {
-        UE_LOG(LogTemp, Error, TEXT("BaseClass is nullptr!"));
         return;
     }
 

@@ -46,9 +46,6 @@ void UWeaponComponentBase::BeginPlay()
 			}
 		}
 	}
-
-	UE_DNK_LOG(LogTemp, Error,
-	           "The UI widget is not a UWeaponComponentBaseWidget or does not contain a UWeaponComponentBaseWidget!");
 }
 
 void UWeaponComponentBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -63,7 +60,6 @@ void UWeaponComponentBase::InitWeaponData()
 {
 	if (IsValid(WeaponDataAsset) == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "WeaponDataAsset is invalid!");
 		return;
 	}
 
@@ -88,14 +84,12 @@ void UWeaponComponentBase::StartFire_Implementation()
 
 	if (IsValid(WeaponDataRuntime) == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "WeaponData is null");
 		return;
 	}
 
 	if (GetCurrentAmmo() <= 0 &&
 		WeaponDataRuntime->bInfiniteAmmo == false)
 	{
-		UE_DNK_LOG(LogTemp, Warning, "CurrentAmmo == 0!");
 		return;
 	}
 
@@ -139,7 +133,6 @@ void UWeaponComponentBase::Fire()
 	if (GetCurrentAmmo() <= 0 &&
 		WeaponDataRuntime->bInfiniteAmmo == false)
 	{
-		UE_DNK_LOG(LogTemp, Warning, "CurrentAmmo == 0!");
 		StopFire();
 		return;
 	}
@@ -159,7 +152,6 @@ void UWeaponComponentBase::Fire()
 		break;
 
 	default:
-		UE_DNK_LOG(LogTemp, Warning, "Unknown FireType in WeaponComponent");
 		break;
 	}
 }
@@ -205,34 +197,27 @@ void UWeaponComponentBase::FireProjectile()
 	UWorld* World = GetWorld();
 	if (IsValid(World) == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Invalid World!");
 		return;
 	}
 
 	if (IsValid(WeaponDataRuntime) == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Invalid WeaponData!");
 		return;
 	}
 
 	if (WeaponDataRuntime->FireType != EFireType::Projectile)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Wrong FireType [%s]!",
-		           *StaticEnum<EFireType>()->GetDisplayNameTextByValue(static_cast<int64>(WeaponDataRuntime->FireType)).
-		           ToString());
 		return;
 	}
 
 	if (ProjectileClass == nullptr)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Invalid ProjectileClass!");
 		return;
 	}
 
 	AActor* Owner = GetOwner();
 	if (IsValid(Owner) == false)
 	{
-		UE_LOG(LogTemp, Error, TEXT("Invalid Owner!"));
 		return;
 	}
 
@@ -378,7 +363,6 @@ bool UWeaponComponentBase::CanOwnerFireWeapon() const
 {
 	if (bCanFire == false)
 	{
-		UE_DNK_LOG(LogTemp, Warning, "bCanFire is false");
 		return false;
 	}
 
@@ -395,14 +379,12 @@ FTransform UWeaponComponentBase::GetShotMuzzleTransform() const
 {
 	if (IsValid(WeaponDataRuntime) == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Invalid WeaponData!");
 		return FTransform::Identity;
 	}
 
 	AActor* Owner = GetOwner();
 	if (IsValid(Owner) == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Invalid Owner!");
 		return FTransform::Identity;
 	}
 
@@ -427,9 +409,6 @@ void UWeaponComponentBase::FireBeam()
 {
 	if (WeaponDataRuntime->FireType != EFireType::Beam)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Wrong FireType [%s]!",
-		           *StaticEnum<EFireType>()->GetDisplayNameTextByValue(static_cast<int64>(WeaponDataRuntime->FireType)).
-		           ToString());
 		return;
 	}
 
@@ -473,7 +452,6 @@ void UWeaponComponentBase::Reload()
 	UWorld* const World = GetWorld();
 	if (!IsValid(World))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("World is not valid!"));
 		return;
 	}
 
@@ -574,7 +552,6 @@ void UWeaponComponentBase::SetProjectileClass(TSubclassOf<AProjectileBase> NewPr
 {
 	if (ProjectileClass == NewProjectileClass)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("ProjectileClass is the same!"));
 		return;
 	}
 
@@ -609,7 +586,6 @@ void UWeaponComponentBase::SetupSpawnedProjectile(AProjectileBase* SpawnedProjec
 	AActor* Owner = GetOwner();
 	if (IsValid(Owner) == false)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Invalid Owner!"));
 		return;
 	}
 
@@ -622,9 +598,6 @@ void UWeaponComponentBase::SetupSpawnedProjectile(AProjectileBase* SpawnedProjec
 			if (UProjectileMovementComponent* Movement = SpawnedProjectile->FindComponentByClass<UProjectileMovementComponent>())
 			{
 				Movement->Velocity = SpawnedProjectile->GetActorForwardVector() * WeaponDataRuntime->ProjectileSpeed;
-				UE_LOG(LogTemp, Warning, TEXT("[SetupSpawnedProjectile] Owner=%s WeaponDataRuntime(%s)->ProjectileSpeed=%.1f -> Velocity=%s (Size=%.1f) MaxSpeed=%.1f"),
-					*GetNameSafe(Owner), *GetNameSafe(WeaponDataRuntime), WeaponDataRuntime->ProjectileSpeed,
-					*Movement->Velocity.ToString(), Movement->Velocity.Size(), Movement->MaxSpeed);
 			}
 		}
 
@@ -664,14 +637,12 @@ FTransform UWeaponComponentBase::GetMuzzleTransform_Implementation() const
 {
 	if (IsValid(WeaponDataRuntime) == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Invalid WeaponData!");
 		return FTransform::Identity;
 	}
 
 	AActor* Owner = GetOwner();
 	if (IsValid(Owner) == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Invalid Owner!");
 		return FTransform::Identity;
 	}
 
@@ -704,8 +675,6 @@ FTransform UWeaponComponentBase::GetMuzzleTransform_Implementation() const
 	{
 		return SceneComponent->GetSocketTransform(MuzzleSocketName);
 	}
-
-	UE_DNK_LOG(LogTemp, Error, "Setup MuzzleSocketName for you Weapon Component!");
 
 	return FTransform::Identity;
 }

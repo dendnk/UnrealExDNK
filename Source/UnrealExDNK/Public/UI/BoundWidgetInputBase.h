@@ -28,9 +28,5 @@ protected:
 
     void ReportErrorIfInvalid() const
     {
-        if (!WidgetInputReceiver)
-        {
-            UE_LOG(LogTemp, Error, TEXT("[%s] WidgetInputReceiver is INVALID!"), *GetName());
-        }
     }
 };

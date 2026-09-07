@@ -42,33 +42,27 @@ void URocketLauncherComponent::FireProjectile()
 	UWorld* World = GetWorld();
 	if (IsValid(World) == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Invalid World!");
 		return;
 	}
 
 	if (IsValid(WeaponDataRuntime) == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Invalid WeaponData!");
 		return;
 	}
 
 	if (WeaponDataRuntime->FireType != EFireType::Projectile)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Wrong FireType [%s]!",
-			*StaticEnum<EFireType>()->GetDisplayNameTextByValue(static_cast<int64>(WeaponDataRuntime->FireType)).ToString());
 		return;
 	}
 
 	if (ProjectileClass == nullptr)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Invalid ProjectileClass!");
 		return;
 	}
 
 	AActor* Owner = GetOwner();
 	if (IsValid(Owner) == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Invalid Owner!");
 		return;
 	}
 
@@ -85,7 +79,6 @@ void URocketLauncherComponent::FireProjectile()
 
 	if (bAllowToSpawnProjectile == false)
 	{
-		UE_DNK_LOG(LogTemp, Warning, "Reach the max active homing projectiles. Failed to spawn!");
 		return;
 	}
 

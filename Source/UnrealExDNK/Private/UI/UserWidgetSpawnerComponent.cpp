@@ -23,19 +23,14 @@ void UUserWidgetSpawnerComponent::BeginPlay()
 
 void UUserWidgetSpawnerComponent::CreateAndAttachWidget()
 {
-    FString OwnerName = GetOwner() != nullptr ? *GetOwner()->GetName() : TEXT("Owner is nullptr!");
     if (IsValid(UIClass) == false)
     {
-        UE_DNK_LOG(LogTemp, Warning, "UIClass is not specified for component [%s] | Owner [%s]. If it was done intentionally, set bShouldHaveUIWidget to false!"
-            , *GetName()
-            , *OwnerName);
         return;
     }
 
     OwningPlayerController = UUnrealExDNKUtils::GetPlayerController(GetOwner());
     if (OwningPlayerController.IsValid() == false)
     {
-        UE_DNK_LOG(LogTemp, Warning, "OwningController is not valid for component [%s] | Owner [%s]", *GetName(), *OwnerName);
         return;
     }
 

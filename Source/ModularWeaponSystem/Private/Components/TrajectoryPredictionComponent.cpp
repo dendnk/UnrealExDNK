@@ -22,7 +22,6 @@ void UTrajectoryPredictionComponent::BeginPlay()
     if (IsValid(Owner) == false ||
         IsValid(GetWorld()) == false)
     {
-        UE_LOG(LogTemp, Error, TEXT("GetOwner == false || GetWorld == false!"));
         return;
     }
 
@@ -41,7 +40,6 @@ void UTrajectoryPredictionComponent::BeginPlay()
     Weapon = WeaponWithProjectiles.Num() > 0 ? WeaponWithProjectiles[0] : nullptr;
     if (Weapon.IsValid() == false)
     {
-        UE_LOG(LogTemp, Error, TEXT("No Weapon found on %s"), *GetOwner()->GetName());
         SetComponentTickEnabled(false);
         return;
     }
@@ -86,8 +84,6 @@ void UTrajectoryPredictionComponent::PredictAndDrawTrajectory(const FVector& Sta
         Weapon.IsValid() == false ||
         WeaponParentComponent.IsValid() == false)
     {
-        UE_LOG(LogTemp, Error, TEXT(
-            "GetOwner == false || GetWorld == false! || Weapon.IsValid() == false || WeaponParentComponent.IsValid() == false"));
         return;
     }
 
