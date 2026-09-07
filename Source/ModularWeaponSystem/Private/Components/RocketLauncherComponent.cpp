@@ -68,20 +68,6 @@ void URocketLauncherComponent::FireProjectile()
 
 	ArrayUtils::CleanArray(Projectiles);
 
-	bool bAllowToSpawnProjectile = true;
-	if (GetWeaponDataRuntime()->ProjectileType == EProjectileType::HomingRocket)
-	{
-		if (Projectiles.Num() >= MaxActiveHomingProjectiles)
-		{
-			bAllowToSpawnProjectile = false;
-		}
-	}
-
-	if (bAllowToSpawnProjectile == false)
-	{
-		return;
-	}
-
 	FTransform MuzzleTransform = GetShotMuzzleTransform();
 
 	// HeliAce plays out on a fixed Y=0 lane, but the muzzle's aim yaw can drift off it
