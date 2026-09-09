@@ -3,13 +3,30 @@
 #pragma once
 
 #include "Components/TrajectoryPredictionComponent.h"
-#include "Components/SplineComponent.h"
-#include "Components/SplineMeshComponent.h"
+#include "Components/InstancedStaticMeshComponent.h"
 #include "Components/WeaponComponentBase.h"
+#include "DrawDebugHelpers.h"
+#include "Engine/Engine.h"
+#include "Camera/PlayerCameraManager.h"
 #include "Interfaces/IWeaponUserInterface.h"
 #include "Kismet/GameplayStatics.h"
 #include "UnrealExDNKUtils.h"
 
+DEFINE_LOG_CATEGORY(LogTrajectoryPrediction);
+
+namespace
+{
+    void ReportTrajectoryPredictionFailure(uint64 MessageKey, const FString& Message)
+    {
+        UE_LOG(LogTrajectoryPrediction, Error, TEXT("%s"), *Message);
+#if !UE_BUILD_SHIPPING
+        if (GEngine)
+        {
+            GEngine->AddOnScreenDebugMessage(static_cast<int32>(MessageKey), 5.0f, FColor::Red, FString::Printf(TEXT("[TrajectoryPrediction] %s"), *Message));
+        }
+#endif
+    }
+}
 
 UTrajectoryPredictionComponent::UTrajectoryPredictionComponent()
 {
@@ -40,17 +57,22 @@ void UTrajectoryPredictionComponent::BeginPlay()
     Weapon = WeaponWithProjectiles.Num() > 0 ? WeaponWithProjectiles[0] : nullptr;
     if (Weapon.IsValid() == false)
     {
+        ReportTrajectoryPredictionFailure(static_cast<uint64>(GetUniqueID()), FString::Printf(TEXT("No projectile weapon found on '%s'; trajectory prediction disabled."), *Owner->GetName()));
         SetComponentTickEnabled(false);
         return;
     }
 
     WeaponParentComponent = IWeaponUserInterface::Execute_GetParentAttachment(Weapon->GetOwner());
 
-    TrajectorySpline = NewObject<USplineComponent>(Owner, USplineComponent::StaticClass(), TrajectorySplineName);
-    if (TrajectorySpline)
+    DotInstances = NewObject<UInstancedStaticMeshComponent>(Owner, UInstancedStaticMeshComponent::StaticClass(), DotInstancesName);
+    if (DotInstances)
     {
-        TrajectorySpline->RegisterComponent();
-        TrajectorySpline->AttachToComponent(WeaponParentComponent.Get(), FAttachmentTransformRules::KeepRelativeTransform);
+        DotInstances->SetStaticMesh(DotMesh);
+        DotInstances->SetMaterial(0, DotMaterial);
+        DotInstances->SetMobility(EComponentMobility::Movable);
+        DotInstances->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        DotInstances->RegisterComponent();
+        DotInstances->AttachToComponent(WeaponParentComponent.Get(), FAttachmentTransformRules::KeepRelativeTransform);
     }
 
     Super::BeginPlay();
@@ -62,14 +84,7 @@ void UTrajectoryPredictionComponent::TickComponent(float DeltaTime, ELevelTick T
     {
         const FVector StartLocation = Weapon->GetMuzzleTransform().GetLocation();
         const FVector ProjectileForwardDirection = Weapon->GetMuzzleTransform().GetRotation().GetForwardVector();
-        const FVector InheritedVelocity = -GetOwner()->GetVelocity();
         const FVector ProjectileInitialVelocity = Weapon->GetWeaponDataAsset()->ProjectileSpeed * ProjectileForwardDirection;
-
-        //FPredictProjectilePathParams Params = Config.RocketAimTrajectorySetup.Params;
-        //Params.StartLocation = StartLocation;
-        //Params.LaunchVelocity = InheritedVelocity + ProjectileInitialVelocity;
-        //Params.OverrideGravityZ = GetWorld()->GetGravityZ();
-        //Params.ActorsToIgnore.Add(GetOwner());
 
         PredictAndDrawTrajectory(StartLocation, ProjectileInitialVelocity);
     }
@@ -82,8 +97,10 @@ void UTrajectoryPredictionComponent::PredictAndDrawTrajectory(const FVector& Sta
     if (IsValid(GetOwner()) == false ||
         IsValid(GetWorld()) == false ||
         Weapon.IsValid() == false ||
-        WeaponParentComponent.IsValid() == false)
+        WeaponParentComponent.IsValid() == false ||
+        DotInstances == nullptr)
     {
+        ReportTrajectoryPredictionFailure(static_cast<uint64>(GetUniqueID()) + 1, TEXT("Trajectory prediction cannot render: owner, world, weapon, parent attachment, or dot instances invalid."));
         return;
     }
 
@@ -100,50 +117,37 @@ void UTrajectoryPredictionComponent::PredictAndDrawTrajectory(const FVector& Sta
     FPredictProjectilePathResult Result;
     UGameplayStatics::PredictProjectilePath(this, Params, Result);
     {
-        ClearArcMeshSegments();
-        const bool bShouldUpdateSpline = false;
-        TrajectorySpline->ClearSplinePoints(bShouldUpdateSpline);
+        DotInstances->ClearInstances();
+
+        const APlayerCameraManager* CameraManager = UGameplayStatics::GetPlayerCameraManager(this, 0);
+        const bool bHasCamera = IsValid(CameraManager);
+        const FVector FallbackFacing = -GetOwner()->GetActorForwardVector();
+        const float Scale = DotSize / 100.f;
 
         for (int32 i = 0; i < Result.PathData.Num(); ++i)
         {
-            TrajectorySpline->AddSplinePoint(Result.PathData[i].Location, ESplineCoordinateSpace::World, false);
-        }
+            const FVector& DotLocation = Result.PathData[i].Location;
+            FVector FacingDirection = FallbackFacing;
+            if (bHasCamera)
+            {
+                const FVector ToCamera = CameraManager->GetCameraLocation() - DotLocation;
+                if (ToCamera.SizeSquared() > UE_KINDA_SMALL_NUMBER)
+                {
+                    FacingDirection = ToCamera.GetUnsafeNormal();
+                }
+            }
 
-        TrajectorySpline->UpdateSpline();
+            const FRotator DotRotation = FRotationMatrix::MakeFromZ(FacingDirection).Rotator();
+            const FTransform DotTransform(DotRotation, DotLocation, FVector(Scale));
+            const bool bWorldSpace = true;
+            DotInstances->AddInstance(DotTransform, bWorldSpace);
 
-        const int32 NumSegments = Result.PathData.Num() - 1;
-        for (int32 i = 0; i < NumSegments; ++i)
-        {
-            FVector StartPos, StartTangent, EndPos, EndTangent;
-            FVector2D StartScale, EndScale;
-
-            StartPos = TrajectorySpline->GetLocationAtSplinePoint(i, ESplineCoordinateSpace::World);
-            StartTangent = TrajectorySpline->GetTangentAtSplinePoint(i, ESplineCoordinateSpace::World);
-            StartScale = FVector2D(TrajectoryScale);
-
-            EndPos = TrajectorySpline->GetLocationAtSplinePoint(i + 1, ESplineCoordinateSpace::World);
-            EndTangent = TrajectorySpline->GetTangentAtSplinePoint(i + 1, ESplineCoordinateSpace::World);
-            EndScale = StartScale;
-
-            USplineMeshComponent* SplineMesh = NewObject<USplineMeshComponent>(this);
-            SplineMesh->SetStaticMesh(ArcSegmentMesh);
-            SplineMesh->SetMaterial(0, ArcSegmentMaterial);
-            SplineMesh->SetStartAndEnd(StartPos, StartTangent, EndPos, EndTangent);
-            SplineMesh->SetStartScale(StartScale);
-            SplineMesh->SetEndScale(EndScale);
-            SplineMesh->SetMobility(EComponentMobility::Movable);
-            SplineMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-            SplineMesh->RegisterComponentWithWorld(GetWorld());
-            SplineMesh->AttachToComponent(WeaponParentComponent.Get(), FAttachmentTransformRules::KeepWorldTransform);
-
-            ArcMeshSegments.Add(SplineMesh);
-
-            if (bDrawDebug)
+            if (bDrawDebug && i > 0)
             {
                 DrawDebugLine(
                     GetWorld(),
+                    Result.PathData[i - 1].Location,
                     Result.PathData[i].Location,
-                    Result.PathData[i + 1].Location,
                     DebugColor,
                     bDebugPersistentLines,
                     DebugLifeTime,
@@ -153,16 +157,4 @@ void UTrajectoryPredictionComponent::PredictAndDrawTrajectory(const FVector& Sta
             }
         }
     }
-}
-
-void UTrajectoryPredictionComponent::ClearArcMeshSegments()
-{
-    for (USplineMeshComponent* Mesh : ArcMeshSegments)
-    {
-        if (Mesh)
-        {
-            Mesh->DestroyComponent();
-        }
-    }
-    ArcMeshSegments.Empty();
 }
