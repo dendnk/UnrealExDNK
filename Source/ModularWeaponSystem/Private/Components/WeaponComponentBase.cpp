@@ -3,6 +3,7 @@
 #include "Components/WeaponComponentBase.h"
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetTree.h"
+#include "GameFramework/ProjectileMovementComponent.h"
 #include "Interfaces/IWeaponUserInterface.h"
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraFunctionLibrary.h"
@@ -45,9 +46,6 @@ void UWeaponComponentBase::BeginPlay()
 			}
 		}
 	}
-
-	UE_DNK_LOG(LogTemp, Error,
-	           "The UI widget is not a UWeaponComponentBaseWidget or does not contain a UWeaponComponentBaseWidget!");
 }
 
 void UWeaponComponentBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -62,7 +60,6 @@ void UWeaponComponentBase::InitWeaponData()
 {
 	if (IsValid(WeaponDataAsset) == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "WeaponDataAsset is invalid!");
 		return;
 	}
 
@@ -75,6 +72,11 @@ void UWeaponComponentBase::InitWeaponData()
 
 void UWeaponComponentBase::StartFire_Implementation()
 {
+	if (bBurstPauseActive)
+	{
+		return;
+	}
+
 	if (!CanOwnerFireWeapon())
 	{
 		return;
@@ -82,14 +84,12 @@ void UWeaponComponentBase::StartFire_Implementation()
 
 	if (IsValid(WeaponDataRuntime) == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "WeaponData is null");
 		return;
 	}
 
 	if (GetCurrentAmmo() <= 0 &&
 		WeaponDataRuntime->bInfiniteAmmo == false)
 	{
-		UE_DNK_LOG(LogTemp, Warning, "CurrentAmmo == 0!");
 		return;
 	}
 
@@ -133,7 +133,6 @@ void UWeaponComponentBase::Fire()
 	if (GetCurrentAmmo() <= 0 &&
 		WeaponDataRuntime->bInfiniteAmmo == false)
 	{
-		UE_DNK_LOG(LogTemp, Warning, "CurrentAmmo == 0!");
 		StopFire();
 		return;
 	}
@@ -153,7 +152,6 @@ void UWeaponComponentBase::Fire()
 		break;
 
 	default:
-		UE_DNK_LOG(LogTemp, Warning, "Unknown FireType in WeaponComponent");
 		break;
 	}
 }
@@ -167,7 +165,31 @@ void UWeaponComponentBase::HandleBurstFire()
 	else
 	{
 		GetWorld()->GetTimerManager().ClearTimer(BurstHandle);
+
+		if (IsValid(WeaponDataRuntime) && WeaponDataRuntime->BurstPauseDuration > 0.f)
+		{
+			bBurstPauseActive = true;
+			GetWorld()->GetTimerManager().SetTimer(BurstPauseHandle, this, &ThisClass::HandleBurstPauseFinished,
+			                                       WeaponDataRuntime->BurstPauseDuration, false);
+		}
 	}
+}
+
+void UWeaponComponentBase::HandleBurstPauseFinished()
+{
+	bBurstPauseActive = false;
+}
+
+FVector UWeaponComponentBase::ApplyProjectileSpread(const FVector& BaseDirection) const
+{
+	if (!IsValid(WeaponDataRuntime) || WeaponDataRuntime->ProjectileSpread <= 0.f)
+	{
+		return BaseDirection;
+	}
+
+	const float SpreadDegrees = WeaponDataRuntime->ProjectileSpread
+		+ (CurrentBurstCount - 1) * WeaponDataRuntime->ProjectileSpreadBloomPerShot;
+	return FMath::VRandCone(BaseDirection, FMath::DegreesToRadians(SpreadDegrees));
 }
 
 void UWeaponComponentBase::FireProjectile()
@@ -175,42 +197,34 @@ void UWeaponComponentBase::FireProjectile()
 	UWorld* World = GetWorld();
 	if (IsValid(World) == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Invalid World!");
 		return;
 	}
 
 	if (IsValid(WeaponDataRuntime) == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Invalid WeaponData!");
 		return;
 	}
 
 	if (WeaponDataRuntime->FireType != EFireType::Projectile)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Wrong FireType [%s]!",
-		           *StaticEnum<EFireType>()->GetDisplayNameTextByValue(static_cast<int64>(WeaponDataRuntime->FireType)).
-		           ToString());
 		return;
 	}
 
 	if (ProjectileClass == nullptr)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Invalid ProjectileClass!");
 		return;
 	}
 
 	AActor* Owner = GetOwner();
 	if (IsValid(Owner) == false)
 	{
-		UE_LOG(LogTemp, Error, TEXT("Invalid Owner!"));
 		return;
 	}
 
 	ArrayUtils::CleanArray(Projectiles);
 
 	FTransform MuzzleTransform = GetShotMuzzleTransform();
-	const FVector ShotDirection = MuzzleTransform.GetRotation().Vector();
-	const FVector SpawnLocation = MuzzleTransform.GetLocation() + ShotDirection * 100.0f;
+	FVector BaseShotDirection = MuzzleTransform.GetRotation().Vector();
 
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = Owner;
@@ -218,10 +232,15 @@ void UWeaponComponentBase::FireProjectile()
 
 	for (int32 i = 0; i < WeaponDataRuntime->AmmoPerShot; ++i)
 	{
+		FVector ShotDirection = ApplyProjectileSpread(BaseShotDirection);
+		FVector SpawnLocation = MuzzleTransform.GetLocation() + ShotDirection * 100.0f;
+		AdjustProjectileSpawnTransform(SpawnLocation, ShotDirection);
+		const FRotator SpawnRotation = ShotDirection.Rotation();
+
 		AProjectileBase* Projectile = World->SpawnActor<AProjectileBase>(
 			ProjectileClass,
 			SpawnLocation,
-			MuzzleTransform.GetRotation().Rotator(),
+			SpawnRotation,
 			SpawnParams
 		);
 
@@ -236,7 +255,7 @@ void UWeaponComponentBase::FireProjectile()
 	}
 
 	SpawnFXAtLocation(WeaponDataRuntime->FXData.MuzzleFlashFX, MuzzleTransform.GetLocation());
-	PlaySoundAtLocation(WeaponDataRuntime->FXData.FireSound, MuzzleTransform.GetLocation());
+	PlaySoundAtLocation(WeaponDataRuntime->FXData.FireSound, MuzzleTransform.GetLocation(), WeaponDataRuntime->FXData.FireSoundVolumeMultiplier);
 	BroadcastWeaponShotFired(MuzzleTransform);
 }
 
@@ -260,7 +279,7 @@ void UWeaponComponentBase::FireHitscan()
 	Params.AddIgnoredActor(GetOwner());
 
 	SpawnFXAtLocation(WeaponDataRuntime->FXData.MuzzleFlashFX, MuzzleTransform.GetLocation());
-	PlaySoundAtLocation(WeaponDataRuntime->FXData.FireSound, MuzzleTransform.GetLocation());
+	PlaySoundAtLocation(WeaponDataRuntime->FXData.FireSound, MuzzleTransform.GetLocation(), WeaponDataRuntime->FXData.FireSoundVolumeMultiplier);
 
 	if (WeaponDataRuntime->bInfiniteAmmo == false)
 	{
@@ -344,7 +363,6 @@ bool UWeaponComponentBase::CanOwnerFireWeapon() const
 {
 	if (bCanFire == false)
 	{
-		UE_DNK_LOG(LogTemp, Warning, "bCanFire is false");
 		return false;
 	}
 
@@ -361,14 +379,12 @@ FTransform UWeaponComponentBase::GetShotMuzzleTransform() const
 {
 	if (IsValid(WeaponDataRuntime) == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Invalid WeaponData!");
 		return FTransform::Identity;
 	}
 
 	AActor* Owner = GetOwner();
 	if (IsValid(Owner) == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Invalid Owner!");
 		return FTransform::Identity;
 	}
 
@@ -393,9 +409,6 @@ void UWeaponComponentBase::FireBeam()
 {
 	if (WeaponDataRuntime->FireType != EFireType::Beam)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Wrong FireType [%s]!",
-		           *StaticEnum<EFireType>()->GetDisplayNameTextByValue(static_cast<int64>(WeaponDataRuntime->FireType)).
-		           ToString());
 		return;
 	}
 
@@ -439,7 +452,6 @@ void UWeaponComponentBase::Reload()
 	UWorld* const World = GetWorld();
 	if (!IsValid(World))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("World is not valid!"));
 		return;
 	}
 
@@ -540,7 +552,6 @@ void UWeaponComponentBase::SetProjectileClass(TSubclassOf<AProjectileBase> NewPr
 {
 	if (ProjectileClass == NewProjectileClass)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("ProjectileClass is the same!"));
 		return;
 	}
 
@@ -575,12 +586,21 @@ void UWeaponComponentBase::SetupSpawnedProjectile(AProjectileBase* SpawnedProjec
 	AActor* Owner = GetOwner();
 	if (IsValid(Owner) == false)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Invalid Owner!"));
 		return;
 	}
 
 	if (IsValid(SpawnedProjectile))
 	{
+		if (IsValid(WeaponDataRuntime) && IsValid(SpawnedProjectile->MeshComponent))
+		{
+			SpawnedProjectile->Config.Damage = WeaponDataRuntime->DamageData.BaseDamage;
+
+			if (UProjectileMovementComponent* Movement = SpawnedProjectile->FindComponentByClass<UProjectileMovementComponent>())
+			{
+				Movement->Velocity = SpawnedProjectile->GetActorForwardVector() * WeaponDataRuntime->ProjectileSpeed;
+			}
+		}
+
 		const float ProjectileLifeSpan = WeaponDataRuntime ? WeaponDataRuntime->ProjectileLifeSpan : FallbackProjectileLifeSpan;
 		SpawnedProjectile->SetOwner(Owner);
 		SpawnedProjectile->SetInstigator(Owner->GetInstigator());
@@ -606,7 +626,7 @@ void UWeaponComponentBase::SetupSpawnedProjectile(AProjectileBase* SpawnedProjec
 
 		SpawnedProjectile->OnProjectileSetupFinished.Broadcast();
 
-		SpawnedProjectile->Config.CollisionRuleConfig = WeaponDataAsset->ProjectileCollisionRuleConfig;
+		SpawnedProjectile->Config.CollisionRuleConfig = WeaponDataRuntime->ProjectileCollisionRuleConfig;
 
 		// TODO: Make Interface call to owner of the component to get it`s tag and set ProjectileFaction
 		// SpawnedProjectile->Config.CollisionRuleConfig.ProjectileFactionTag = ModularWeaponSystem::None;
@@ -617,14 +637,12 @@ FTransform UWeaponComponentBase::GetMuzzleTransform_Implementation() const
 {
 	if (IsValid(WeaponDataRuntime) == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Invalid WeaponData!");
 		return FTransform::Identity;
 	}
 
 	AActor* Owner = GetOwner();
 	if (IsValid(Owner) == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Invalid Owner!");
 		return FTransform::Identity;
 	}
 
@@ -657,8 +675,6 @@ FTransform UWeaponComponentBase::GetMuzzleTransform_Implementation() const
 	{
 		return SceneComponent->GetSocketTransform(MuzzleSocketName);
 	}
-
-	UE_DNK_LOG(LogTemp, Error, "Setup MuzzleSocketName for you Weapon Component!");
 
 	return FTransform::Identity;
 }

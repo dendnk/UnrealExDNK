@@ -35,6 +35,11 @@ protected:
     virtual void FireProjectile();
     virtual void FireHitscan();
     virtual void FireBeam();
+
+    // Hook for subclasses to constrain the projectile's spawn location/direction (e.g. a
+    // fixed-lane game where the muzzle socket can sit off the play plane) before the
+    // projectile actor is spawned in FireProjectile(). No-op by default.
+    virtual void AdjustProjectileSpawnTransform(FVector& InOutSpawnLocation, FVector& InOutShotDirection) const {}
     virtual bool HandleProjectileCollisionHit(const FHitResult& Hit);
     bool CanOwnerFireWeapon() const;
     FTransform GetShotMuzzleTransform() const;
@@ -152,7 +157,16 @@ protected:
 
     FTimerHandle FireLoopHandle;
     FTimerHandle BurstHandle;
+    FTimerHandle BurstPauseHandle;
     int32 CurrentBurstCount = 0;
+    bool bBurstPauseActive = false;
+
+    UFUNCTION()
+    void HandleBurstPauseFinished();
+
+    // Base spread direction helper shared by both FireProjectile() implementations
+    // (UWeaponComponentBase's own and RocketLauncherComponent's full override).
+    FVector ApplyProjectileSpread(const FVector& BaseDirection) const;
 
     UPROPERTY()
     int32 CurrentAmmo;

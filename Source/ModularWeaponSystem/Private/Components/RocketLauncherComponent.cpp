@@ -15,7 +15,7 @@ URocketLauncherComponent::URocketLauncherComponent()
 
 AActor* URocketLauncherComponent::GetNearestTarget_Implementation()
 {
-    return Super::GetNearestTarget();
+    return Super::GetNearestTarget_Implementation();
 }
 
 void URocketLauncherComponent::BeginPlay()
@@ -42,56 +42,50 @@ void URocketLauncherComponent::FireProjectile()
 	UWorld* World = GetWorld();
 	if (IsValid(World) == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Invalid World!");
 		return;
 	}
 
 	if (IsValid(WeaponDataRuntime) == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Invalid WeaponData!");
 		return;
 	}
 
 	if (WeaponDataRuntime->FireType != EFireType::Projectile)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Wrong FireType [%s]!",
-			*StaticEnum<EFireType>()->GetDisplayNameTextByValue(static_cast<int64>(WeaponDataRuntime->FireType)).ToString());
 		return;
 	}
 
 	if (ProjectileClass == nullptr)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Invalid ProjectileClass!");
 		return;
 	}
 
 	AActor* Owner = GetOwner();
 	if (IsValid(Owner) == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Invalid Owner!");
 		return;
 	}
 
 	ArrayUtils::CleanArray(Projectiles);
 
-	bool bAllowToSpawnProjectile = true;
-	if (GetWeaponDataRuntime()->ProjectileType == EProjectileType::HomingRocket)
-	{
-		if (Projectiles.Num() >= MaxActiveHomingProjectiles)
-		{
-			bAllowToSpawnProjectile = false;
-		}
-	}
-
-	if (bAllowToSpawnProjectile == false)
-	{
-		UE_DNK_LOG(LogTemp, Warning, "Reach the max active homing projectiles. Failed to spawn!");
-		return;
-	}
-
 	FTransform MuzzleTransform = GetShotMuzzleTransform();
-	const FVector ShotDirection = MuzzleTransform.GetRotation().Vector();
-	const FVector SpawnLocation = MuzzleTransform.GetLocation() + ShotDirection * ProjectileSpawnForwardOffset;
+
+	// HeliAce plays out on a fixed Y=0 lane, but the muzzle's aim yaw can drift off it
+	// (camera look input, backward-flight 180 flip). Flatten the spawn direction and
+	// location here, before the projectile is spawned/velocity is derived from its
+	// forward vector in SetupSpawnedProjectile, so dumbfire rockets fly along Y=0
+	// instead of drifting away from on-lane targets.
+	FVector ShotDirection = ApplyProjectileSpread(MuzzleTransform.GetRotation().Vector());
+	ShotDirection.Y = 0.0f;
+	if (!ShotDirection.IsNearlyZero())
+	{
+		ShotDirection = ShotDirection.GetSafeNormal();
+	}
+
+	FVector SpawnLocation = MuzzleTransform.GetLocation() + ShotDirection * ProjectileSpawnForwardOffset;
+	SpawnLocation.Y = 0.0f;
+
+	const FRotator SpawnRotation = ShotDirection.Rotation();
 
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = Owner;
@@ -102,7 +96,7 @@ void URocketLauncherComponent::FireProjectile()
 		AProjectileBase* Projectile = World->SpawnActor<AProjectileBase>(
 			ProjectileClass,
 			SpawnLocation,
-			MuzzleTransform.GetRotation().Rotator(), 
+			SpawnRotation,
 			SpawnParams
 		);
 
@@ -122,29 +116,34 @@ void URocketLauncherComponent::FireProjectile()
 
 void URocketLauncherComponent::SetupSpawnedProjectile(AProjectileBase* SpawnedProjectile)
 {
-    if (IsValid(SpawnedProjectile) && IsValid(SpawnedProjectile->MeshComponent))
+    Super::SetupSpawnedProjectile(SpawnedProjectile);
+
+    if (!IsValid(SpawnedProjectile))
     {
-    	if (IsValid(WeaponDataRuntime))
-    	{
-    		SpawnedProjectile->Config.Damage = WeaponDataRuntime->DamageData.BaseDamage;
-    	}
-    	
+        return;
+    }
+
+    AActor* Target = GetNearestTarget();
+    if (IsValid(Target))
+    {
+        // Generic hook: lets any projectile subclass react to its target (e.g. steer
+        // towards it) without needing the built-in ProjectileMovementComponent homing below.
+        SpawnedProjectile->SetProjectileTarget(Target);
+    }
+
+    if (IsValid(SpawnedProjectile->MeshComponent) &&
+        GetWeaponDataRuntime()->ProjectileType == EProjectileType::HomingRocket)
+    {
         if (UProjectileMovementComponent* Movement = SpawnedProjectile->FindComponentByClass<UProjectileMovementComponent>())
         {
-            Movement->Velocity = SpawnedProjectile->GetActorForwardVector() * WeaponDataRuntime->ProjectileSpeed;
-            if (GetWeaponDataRuntime()->ProjectileType == EProjectileType::HomingRocket)
+            if (IsValid(Target))
             {
-                if (AActor* Actor = GetNearestTarget())
-                {
-                    Movement->HomingTargetComponent = Actor->GetRootComponent();
+                Movement->HomingTargetComponent = Target->GetRootComponent();
 
-                    HomingTargets.Add({ SpawnedProjectile, Actor });
-                }
+                HomingTargets.Add({ SpawnedProjectile, Target });
             }
         }
     }
-
-    Super::SetupSpawnedProjectile(SpawnedProjectile);
 }
 
 void URocketLauncherComponent::ResetCachedRocketBounds()
