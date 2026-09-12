@@ -169,6 +169,10 @@ void UWeaponComponentBase::HandleBurstFire()
 		if (IsValid(WeaponDataRuntime) && WeaponDataRuntime->BurstPauseDuration > 0.f)
 		{
 			bBurstPauseActive = true;
+			// Lets an AI/component owner know this burst is done and a pause has started, so it can
+			// decide whether to call StartFire() again once BurstPauseDuration elapses. The component
+			// itself never loops bursts on its own - see specs/done-soldier-burst-fire-tuning REQ-5.
+			OnFireStopped.Broadcast();
 			GetWorld()->GetTimerManager().SetTimer(BurstPauseHandle, this, &ThisClass::HandleBurstPauseFinished,
 			                                       WeaponDataRuntime->BurstPauseDuration, false);
 		}
