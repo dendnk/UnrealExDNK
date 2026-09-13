@@ -4,6 +4,7 @@
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetTree.h"
 #include "GameFramework/ProjectileMovementComponent.h"
+#include "HAL/IConsoleManager.h"
 #include "Interfaces/IWeaponUserInterface.h"
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraFunctionLibrary.h"
@@ -156,6 +157,19 @@ void UWeaponComponentBase::Fire()
 	}
 }
 
+namespace
+{
+	// Dev testing only: forces every weapon's inter-burst pause to 0 so barrage cycles can be
+	// tested back-to-back without waiting out BurstPauseDuration. Shot spacing (CooldownTime) is
+	// untouched. Affects enemy weapons too if any have a burst pause configured - acceptable for a
+	// dev-only toggle, see specs/wip-rocket-reload-system plan.md Risks.
+	static TAutoConsoleVariable<bool> CVarIgnoreReloadTime(
+		TEXT("heli.IgnoreReloadTime"),
+		false,
+		TEXT("Dev testing: if true, BurstPauseDuration is treated as 0 for all weapons."),
+		ECVF_Default);
+}
+
 void UWeaponComponentBase::HandleBurstFire()
 {
 	if (++CurrentBurstCount <= WeaponDataRuntime->BurstCount)
@@ -166,7 +180,11 @@ void UWeaponComponentBase::HandleBurstFire()
 	{
 		GetWorld()->GetTimerManager().ClearTimer(BurstHandle);
 
-		if (IsValid(WeaponDataRuntime) && WeaponDataRuntime->BurstPauseDuration > 0.f)
+		const float EffectiveBurstPauseDuration = CVarIgnoreReloadTime.GetValueOnGameThread()
+			? 0.f
+			: (IsValid(WeaponDataRuntime) ? WeaponDataRuntime->BurstPauseDuration : 0.f);
+
+		if (EffectiveBurstPauseDuration > 0.f)
 		{
 			bBurstPauseActive = true;
 			// Lets an AI/component owner know this burst is done and a pause has started, so it can
@@ -174,7 +192,7 @@ void UWeaponComponentBase::HandleBurstFire()
 			// itself never loops bursts on its own - see specs/done-soldier-burst-fire-tuning REQ-5.
 			OnFireStopped.Broadcast();
 			GetWorld()->GetTimerManager().SetTimer(BurstPauseHandle, this, &ThisClass::HandleBurstPauseFinished,
-			                                       WeaponDataRuntime->BurstPauseDuration, false);
+			                                       EffectiveBurstPauseDuration, false);
 		}
 	}
 }
@@ -182,6 +200,22 @@ void UWeaponComponentBase::HandleBurstFire()
 void UWeaponComponentBase::HandleBurstPauseFinished()
 {
 	bBurstPauseActive = false;
+}
+
+float UWeaponComponentBase::GetBurstPauseDuration() const
+{
+	return IsValid(WeaponDataRuntime) ? WeaponDataRuntime->BurstPauseDuration : 0.f;
+}
+
+float UWeaponComponentBase::GetBurstPauseRemaining() const
+{
+	if (!bBurstPauseActive)
+	{
+		return 0.f;
+	}
+
+	UWorld* const World = GetWorld();
+	return IsValid(World) ? World->GetTimerManager().GetTimerRemaining(BurstPauseHandle) : 0.f;
 }
 
 FVector UWeaponComponentBase::ApplyProjectileSpread(const FVector& BaseDirection) const

@@ -35,6 +35,13 @@ UTrajectoryPredictionComponent::UTrajectoryPredictionComponent()
 
 void UTrajectoryPredictionComponent::BeginPlay()
 {
+    Super::BeginPlay();
+}
+
+void UTrajectoryPredictionComponent::EnsureInitialized()
+{
+    bInitializationAttempted = true;
+
     AActor* Owner = GetOwner();
     if (IsValid(Owner) == false ||
         IsValid(GetWorld()) == false)
@@ -46,7 +53,7 @@ void UTrajectoryPredictionComponent::BeginPlay()
         ActorComponents::GetComponentsByCondition<UWeaponComponentBase>(Owner,
             [](const UWeaponComponentBase* WeaponComponent)
             {
-                if (IsValid(WeaponComponent))
+                if (IsValid(WeaponComponent) && IsValid(WeaponComponent->GetWeaponDataRuntime()))
                 {
                     return WeaponComponent->GetWeaponDataRuntime()->FireType == EFireType::Projectile;
                 }
@@ -74,12 +81,15 @@ void UTrajectoryPredictionComponent::BeginPlay()
         DotInstances->RegisterComponent();
         DotInstances->AttachToComponent(WeaponParentComponent.Get(), FAttachmentTransformRules::KeepRelativeTransform);
     }
-
-    Super::BeginPlay();
 }
 
 void UTrajectoryPredictionComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
+    if (bInitializationAttempted == false)
+    {
+        EnsureInitialized();
+    }
+
     if (Weapon.IsValid())
     {
         const FVector StartLocation = Weapon->GetMuzzleTransform().GetLocation();
