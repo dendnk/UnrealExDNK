@@ -78,6 +78,19 @@ void UWeaponComponentBase::StartFire_Implementation()
 		return;
 	}
 
+	// Hard stop for Burst weapons: once a barrage is under way, a re-press (double-click,
+	// a held-then-re-pressed touch, etc.) must not restart it from shot 1 - only
+	// bBurstPauseActive (the post-barrage reload gap) was guarded before, so a click landing
+	// mid-burst would reset CurrentBurstCount and the BurstHandle timer, letting a barrage run
+	// forever. FullAuto/SemiAuto weapons never set BurstHandle, so this is a no-op for them.
+	if (UWorld* World = GetWorld())
+	{
+		if (World->GetTimerManager().IsTimerActive(BurstHandle))
+		{
+			return;
+		}
+	}
+
 	if (!CanOwnerFireWeapon())
 	{
 		return;
