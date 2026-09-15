@@ -74,7 +74,7 @@ void AProjectileBase::LifeSpanExpired()
     FHitResult Hit;
     Hit.Location = GetActorLocation();
     Hit.ImpactPoint = GetActorLocation();
-    ExplodeProjectile(Hit);
+    ExplodeProjectile(Hit, Config.bSuppressExplosionFxOnLifespanExpiry);
 }
 
 void AProjectileBase::Tick(float DeltaTime)
@@ -99,7 +99,7 @@ void AProjectileBase::OnProjectileHit(UPrimitiveComponent* HitComponent, AActor*
     HandleProjectileCollisionHit(OtherActor, Hit);
 }
 
-void AProjectileBase::ExplodeProjectile(const FHitResult& Hit)
+void AProjectileBase::ExplodeProjectile(const FHitResult& Hit, bool bSuppressFx)
 {
     if (bIsAlreadyExploded)
     {
@@ -111,7 +111,7 @@ void AProjectileBase::ExplodeProjectile(const FHitResult& Hit)
 
     ApplyAoEDamage(Hit);
 
-    if (ExplosionEffect != nullptr)
+    if (!bSuppressFx && ExplosionEffect != nullptr)
     {
         UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, ExplosionEffect, Hit.Location);
     }
@@ -121,7 +121,7 @@ void AProjectileBase::ExplodeProjectile(const FHitResult& Hit)
         IdleAudioComponent->Stop();
     }
 
-    if (ExplosionSound != nullptr)
+    if (!bSuppressFx && ExplosionSound != nullptr)
     {
         CustomPlaySoundAtLocation(this, ExplosionSound, GetActorLocation());
     }

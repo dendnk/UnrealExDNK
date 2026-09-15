@@ -3,6 +3,7 @@
 #include "Components/WeaponComponentBase.h"
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetTree.h"
+#include "GameFramework/ProjectileMovementComponent.h"
 #include "Interfaces/IWeaponUserInterface.h"
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraFunctionLibrary.h"
@@ -581,6 +582,16 @@ void UWeaponComponentBase::SetupSpawnedProjectile(AProjectileBase* SpawnedProjec
 
 	if (IsValid(SpawnedProjectile))
 	{
+		if (IsValid(WeaponDataRuntime) && IsValid(SpawnedProjectile->MeshComponent))
+		{
+			SpawnedProjectile->Config.Damage = WeaponDataRuntime->DamageData.BaseDamage;
+
+			if (UProjectileMovementComponent* Movement = SpawnedProjectile->FindComponentByClass<UProjectileMovementComponent>())
+			{
+				Movement->Velocity = SpawnedProjectile->GetActorForwardVector() * WeaponDataRuntime->ProjectileSpeed;
+			}
+		}
+
 		const float ProjectileLifeSpan = WeaponDataRuntime ? WeaponDataRuntime->ProjectileLifeSpan : FallbackProjectileLifeSpan;
 		SpawnedProjectile->SetOwner(Owner);
 		SpawnedProjectile->SetInstigator(Owner->GetInstigator());

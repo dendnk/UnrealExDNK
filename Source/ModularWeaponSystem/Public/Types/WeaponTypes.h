@@ -58,6 +58,8 @@ enum class EProjectileType : uint8
 	Grenade					UMETA(DisplayName = "Grenade"),
 	// Flies flat (no gravity), explodes at the target's position when fired, or on direct hit
 	FlackProjectile			UMETA(DisplayName = "Flack Projectile"),
+	// Flies flat (no gravity), single-target, explodes on direct hit; silently despawns with no FX/SFX if it reaches its lifespan without hitting anything
+	Bullet					UMETA(DisplayName = "Bullet"),
 };
 
 USTRUCT(BlueprintType)
@@ -165,6 +167,10 @@ struct FProjectileConfig
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
 	uint8 bShouldBounce : 1 = false;
+
+	/** When true, skip spawning ExplosionEffect/ExplosionSound specifically when this projectile's lifespan expires (a miss). A direct hit still explodes with FX/SFX regardless of this flag. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
+	uint8 bSuppressExplosionFxOnLifespanExpiry : 1 = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|Collision")
 	FProjectileCollisionRuleConfig CollisionRuleConfig;
