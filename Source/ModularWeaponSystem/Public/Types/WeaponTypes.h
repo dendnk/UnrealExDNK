@@ -99,6 +99,10 @@ struct FFXData
 	/** Optional fire sound */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TObjectPtr<USoundBase> FireSound = nullptr;
+
+	/** Volume multiplier applied when playing FireSound. Lets a weapon reuse another weapon's fire sound at a different loudness. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (ClampMin = "0.0"))
+	float FireSoundVolumeMultiplier = 1.f;
 };
 
 USTRUCT(BlueprintType)
@@ -180,4 +184,12 @@ struct FProjectileConfig
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|AoE", meta = (EditCondition = "bHasAoEOnExplode", ClampMin = "0.0", Units = "cm"))
 	float AoERadius = 0.f;
+
+	/** How long the AoE radius debug sphere stays visible after explosion. Match this to the ExplosionEffect's playback length. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|AoE", meta = (EditCondition = "bHasAoEOnExplode", ClampMin = "0.0", Units = "s"))
+	float AoEVisualizationDuration = 0.5f;
+
+	/** Safety net: if the projectile stops making progress for this long without exploding (e.g. it collided with something its collision rules ignored), it silently disappears instead of sitting frozen forever. 0 disables the check. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|Failsafe", meta = (ClampMin = "0.0", Units = "s"))
+	float StuckFailsafeSeconds = 0.35f;
 };

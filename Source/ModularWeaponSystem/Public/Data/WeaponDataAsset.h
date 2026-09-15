@@ -42,6 +42,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
 	int32 BurstCount = 1;
 
+	// Seconds to wait after a completed burst before the weapon can fire again.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon", meta = (ClampMin = "0.0"))
+	float BurstPauseDuration = 0.f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
 	float CooldownTime = 0.1f;
 
@@ -80,6 +84,14 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Projectile")
 	float ProjectileSpeed;
+
+	// Base spread half-angle (degrees) applied to Projectile-type fire, mirroring HitscanSpread.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Projectile", meta = (ClampMin = "0.0"))
+	float ProjectileSpread = 0.f;
+
+	// Additional spread (degrees) added per consecutive shot within the same burst (bloom growth rate).
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Projectile", meta = (ClampMin = "0.0"))
+	float ProjectileSpreadBloomPerShot = 0.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Projectile")
 	FProjectileCollisionRuleConfig ProjectileCollisionRuleConfig;
