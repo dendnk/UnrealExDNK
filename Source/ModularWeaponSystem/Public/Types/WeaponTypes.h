@@ -164,4 +164,10 @@ struct FProjectileConfig
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|Collision")
 	FProjectileCollisionRuleConfig CollisionRuleConfig;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|AoE")
+	uint8 bHasAoEOnExplode : 1 = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|AoE", meta = (EditCondition = "bHasAoEOnExplode", ClampMin = "0.0", Units = "cm"))
+	float AoERadius = 0.f;
 };
