@@ -5,10 +5,11 @@
 #include "Components/ActorComponent.h"
 #include "TrajectoryPredictionComponent.generated.h"
 
+DECLARE_LOG_CATEGORY_EXTERN(LogTrajectoryPrediction, Log, All);
+
 class IWeaponUserInterface;
+class UInstancedStaticMeshComponent;
 class UMaterialInterface;
-class USplineMeshComponent;
-class USplineComponent;
 class UStaticMesh;
 class UWeaponComponentBase;
 
@@ -31,7 +32,7 @@ public:
     int32 MaxSteps = 30;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trajectory")
-    float TrajectoryScale = 1.f;
+    float DotSize = 10.f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trajectory")
     float ProjectileRadius = 25.f;
@@ -40,10 +41,10 @@ public:
     bool bHasGravity = true;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trajectory")
-    TObjectPtr<UStaticMesh> ArcSegmentMesh;
+    TObjectPtr<UStaticMesh> DotMesh;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trajectory")
-    TObjectPtr<UMaterialInterface> ArcSegmentMaterial;
+    TObjectPtr<UMaterialInterface> DotMaterial;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trajectory | Debug")
     bool bDrawDebug = true;
@@ -64,12 +65,9 @@ public:
     float DebugThickness = 2.0f;
 
 private:
-    void ClearArcMeshSegments();
-
-    TObjectPtr<USplineComponent> TrajectorySpline;
-    TArray<TObjectPtr<USplineMeshComponent>> ArcMeshSegments;
+    TObjectPtr<UInstancedStaticMeshComponent> DotInstances;
     TWeakObjectPtr<UWeaponComponentBase> Weapon;
     TWeakObjectPtr<USceneComponent> WeaponParentComponent;
 
-    FName TrajectorySplineName = FName(TEXT("TrajectorySpline"));
+    FName DotInstancesName = FName(TEXT("TrajectoryDotInstances"));
 };

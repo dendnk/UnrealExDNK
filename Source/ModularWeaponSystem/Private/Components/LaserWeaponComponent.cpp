@@ -10,6 +10,5 @@ ULaserWeaponComponent::ULaserWeaponComponent()
 
 void ULaserWeaponComponent::Fire()
 {
-    UE_LOG(LogTemp, Log, TEXT("Laser weapon fired!"));
     // Trace beam and apply damage over time
 }

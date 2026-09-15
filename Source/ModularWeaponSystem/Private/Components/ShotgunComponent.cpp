@@ -10,6 +10,5 @@ UShotgunComponent::UShotgunComponent()
 
 void UShotgunComponent::Fire()
 {
-    UE_LOG(LogTemp, Log, TEXT("Shotgun fired with multiple pellets!"));
     // Spawn multiple projectiles with spread
 }
