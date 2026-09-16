@@ -175,7 +175,7 @@ namespace
 	// Dev testing only: forces every weapon's inter-burst pause to 0 so barrage cycles can be
 	// tested back-to-back without waiting out BurstPauseDuration. Shot spacing (CooldownTime) is
 	// untouched. Affects enemy weapons too if any have a burst pause configured - acceptable for a
-	// dev-only toggle, see specs/wip-rocket-reload-system plan.md Risks.
+	// dev-only toggle, see specs/done-rocket-reload-system plan.md Risks.
 	static TAutoConsoleVariable<bool> CVarIgnoreReloadTime(
 		TEXT("heli.IgnoreReloadTime"),
 		false,
@@ -192,6 +192,14 @@ void UWeaponComponentBase::HandleBurstFire()
 	else
 	{
 		GetWorld()->GetTimerManager().ClearTimer(BurstHandle);
+
+		// Marks "no barrage in progress" so a later StartFire_Implementation() (base or
+		// UPlayerRocketLauncherComponent's override) treats the next press as a fresh
+		// barrage rather than a resume - see specs/done-rocket-reload-system REQ-12.
+		// Harmless for every existing caller: a fresh Burst-mode StartFire already
+		// unconditionally sets CurrentBurstCount = 1, and nothing else reads this value
+		// while a burst isn't actively firing.
+		CurrentBurstCount = 0;
 
 		const float EffectiveBurstPauseDuration = CVarIgnoreReloadTime.GetValueOnGameThread()
 			? 0.f
