@@ -60,6 +60,13 @@ enum class EProjectileType : uint8
 	FlackProjectile			UMETA(DisplayName = "Flack Projectile"),
 	// Flies flat (no gravity), single-target, explodes on direct hit; silently despawns with no FX/SFX if it reaches its lifespan without hitting anything
 	Bullet					UMETA(DisplayName = "Bullet"),
+	// Normal rocket flight, no AoE blast on impact - instead scatters 6 lingering ground flame
+	// hazards around the impact point (falling from mid-air first if destroyed in flight)
+	FlameRocket				UMETA(DisplayName = "Flame Rocket"),
+	// Normal rocket flight with a larger AoE blast radius and distinct explosion VFX
+	HighExplosiveRocket		UMETA(DisplayName = "High Explosive Rocket"),
+	// Simple decoy: falls under gravity, no damage, brief fixed lifetime
+	Flare					UMETA(DisplayName = "Flare"),
 };
 
 USTRUCT(BlueprintType)

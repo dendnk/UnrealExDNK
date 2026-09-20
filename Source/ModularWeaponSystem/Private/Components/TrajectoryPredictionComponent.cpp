@@ -5,10 +5,14 @@
 #include "Components/TrajectoryPredictionComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/WeaponComponentBase.h"
+#include "Components/RocketLauncherComponent.h"
 #include "DrawDebugHelpers.h"
 #include "Engine/Engine.h"
 #include "Camera/PlayerCameraManager.h"
+#include "GameFramework/ProjectileMovementComponent.h"
+#include "Interfaces/ILaunchVelocityProvider.h"
 #include "Interfaces/IWeaponUserInterface.h"
+#include "Projectiles/ProjectileBase.h"
 #include "Kismet/GameplayStatics.h"
 #include "UnrealExDNKUtils.h"
 
@@ -61,7 +65,20 @@ void UTrajectoryPredictionComponent::EnsureInitialized()
                 return false;
             });
 
-    Weapon = WeaponWithProjectiles.Num() > 0 ? WeaponWithProjectiles[0] : nullptr;
+    // An owner can carry several projectile weapons (e.g. rockets + flares); previewing whichever
+    // happens to be first draws the wrong weapon's arc. Prefer a weapon that reports its own real
+    // launch velocity, then a rocket launcher, and only then fall back to the first one found.
+    Weapon = nullptr;
+    int32 BestPriority = -1;
+    for (UWeaponComponentBase* Candidate : WeaponWithProjectiles)
+    {
+        const int32 Priority = Cast<ILaunchVelocityProvider>(Candidate) ? 2 : (Cast<URocketLauncherComponent>(Candidate) ? 1 : 0);
+        if (Priority > BestPriority)
+        {
+            BestPriority = Priority;
+            Weapon = Candidate;
+        }
+    }
     if (Weapon.IsValid() == false)
     {
         ReportTrajectoryPredictionFailure(static_cast<uint64>(GetUniqueID()), FString::Printf(TEXT("No projectile weapon found on '%s'; trajectory prediction disabled."), *Owner->GetName()));
@@ -92,11 +109,49 @@ void UTrajectoryPredictionComponent::TickComponent(float DeltaTime, ELevelTick T
 
     if (Weapon.IsValid())
     {
-        const FVector StartLocation = Weapon->GetMuzzleTransform().GetLocation();
-        const FVector ProjectileForwardDirection = Weapon->GetMuzzleTransform().GetRotation().GetForwardVector();
-        const FVector ProjectileInitialVelocity = Weapon->GetWeaponDataAsset()->ProjectileSpeed * ProjectileForwardDirection;
+        // Mirror URocketLauncherComponent::FireProjectile(): the real shot resolves the muzzle with
+        // Shot usage (not Preview), flattens the direction onto the Y=0 lane, and spawns the rocket
+        // ProjectileSpawnForwardOffset ahead of the muzzle. Without this the dots diverge from the flight.
+        FTransform MuzzleTransform = Weapon->GetMuzzleTransform();
+        if (AActor* WeaponOwner = Weapon->GetOwner();
+            IsValid(WeaponOwner) && WeaponOwner->GetClass()->ImplementsInterface(UWeaponUserInterface::StaticClass()))
+        {
+            const FTransform ShotTransform = IWeaponUserInterface::Execute_GetMuzzleTransform(
+                WeaponOwner, Weapon.Get(), Weapon->GetWeaponDataRuntime()->MuzzleSocketName, EWeaponMuzzleTransformUsage::Shot);
+            if (!ShotTransform.Equals(FTransform::Identity))
+            {
+                MuzzleTransform = ShotTransform;
+            }
+        }
 
-        PredictAndDrawTrajectory(StartLocation, ProjectileInitialVelocity);
+        FVector ProjectileForwardDirection = MuzzleTransform.GetRotation().Vector();
+        FVector StartLocation = MuzzleTransform.GetLocation();
+        if (Cast<URocketLauncherComponent>(Weapon.Get()))
+        {
+            ProjectileForwardDirection.Y = 0.0f;
+            ProjectileForwardDirection = ProjectileForwardDirection.GetSafeNormal();
+            StartLocation += ProjectileForwardDirection * URocketLauncherComponent::ProjectileSpawnForwardOffset;
+            StartLocation.Y = 0.0f;
+        }
+        // Use the runtime copy: SetupSpawnedProjectile() launches rockets with WeaponDataRuntime's
+        // ProjectileSpeed, so runtime changes (upgrades, manual tweaks) must show up in the preview too.
+        const UWeaponDataAsset* SpeedSource = Weapon->GetWeaponDataRuntime();
+        if (IsValid(SpeedSource) == false)
+        {
+            SpeedSource = Weapon->GetWeaponDataAsset();
+        }
+
+        if (IsValid(SpeedSource))
+        {
+            // Weapons that know their real launch velocity (e.g. the player rocket launcher adds the
+            // helicopter's velocity) provide it so the dots match the flight; everything else keeps the
+            // plain speed * direction legacy behavior.
+            const ILaunchVelocityProvider* VelocityProvider = Cast<ILaunchVelocityProvider>(Weapon.Get());
+            const FVector ProjectileInitialVelocity = VelocityProvider
+                ? VelocityProvider->GetPredictedLaunchVelocity(ProjectileForwardDirection)
+                : SpeedSource->ProjectileSpeed * ProjectileForwardDirection;
+            PredictAndDrawTrajectory(StartLocation, ProjectileInitialVelocity);
+        }
     }
 
     Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
@@ -120,7 +175,21 @@ void UTrajectoryPredictionComponent::PredictAndDrawTrajectory(const FVector& Sta
     Params.ProjectileRadius = ProjectileRadius;
     Params.MaxSimTime = MaxSimTime;
     Params.SimFrequency = MaxSteps;
-    Params.OverrideGravityZ = bHasGravity ? GetWorld()->GetGravityZ() : 0;
+    // The rocket's real gravity comes from its movement component's ProjectileGravityScale, so read
+    // it from the projectile class defaults; otherwise the preview drops faster than a
+    // reduced-gravity rocket actually flies.
+    float GravityScale = 1.f;
+    if (const TSubclassOf<AProjectileBase> ProjectileClass = Weapon->GetProjectileClass())
+    {
+        if (const AProjectileBase* ProjectileCDO = ProjectileClass->GetDefaultObject<AProjectileBase>())
+        {
+            if (const UProjectileMovementComponent* Movement = ProjectileCDO->FindComponentByClass<UProjectileMovementComponent>())
+            {
+                GravityScale = Movement->ProjectileGravityScale;
+            }
+        }
+    }
+    Params.OverrideGravityZ = bHasGravity ? GetWorld()->GetGravityZ() * GravityScale : 0;
     Params.TraceChannel = ECC_Visibility;
     Params.ActorsToIgnore.Add(GetOwner());
 

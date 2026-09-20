@@ -26,6 +26,9 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     float TickInterval = 0.2f;
 
+    // Public so UTrajectoryPredictionComponent can start the aim preview where the rocket really spawns.
+    static constexpr float ProjectileSpawnForwardOffset = 100.f;
+
 protected:
     virtual void BeginPlay() override;
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -34,7 +37,6 @@ protected:
     virtual void SetupSpawnedProjectile(AProjectileBase* SpawnedProjectile) override;
 
 private:
-    static constexpr float ProjectileSpawnForwardOffset = 100.f;
 
     void ResetCachedRocketBounds();
     void UpdateHomingRocketData();

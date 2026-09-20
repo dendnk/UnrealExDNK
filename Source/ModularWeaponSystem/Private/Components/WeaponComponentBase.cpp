@@ -185,11 +185,19 @@ namespace
 
 void UWeaponComponentBase::HandleBurstFire()
 {
-	if (++CurrentBurstCount <= WeaponDataRuntime->BurstCount)
-	{
-		Fire();
-	}
-	else
+	++CurrentBurstCount;
+	Fire();
+
+	// Detect completion the instant the last shot of the barrage is fired, rather than on a
+	// follow-up "overshoot" tick (CurrentBurstCount > BurstCount). The old overshoot check relied
+	// on BurstHandle ticking one extra time after the last shot to notice the barrage was done,
+	// which only happens automatically while the button is held continuously. On a release/re-press
+	// cadence (UPlayerRocketLauncherComponent's resume path, REQ-12), the caller has no reason to
+	// re-arm BurstHandle once CurrentBurstCount reaches BurstCount, so that extra tick never
+	// happened, completion was never detected, bBurstPauseActive never got set, and the next press
+	// fell through to a fresh Burst-mode StartFire that silently reset CurrentBurstCount = 1 -
+	// letting the player keep clicking indefinitely without ever hitting a reload.
+	if (CurrentBurstCount >= WeaponDataRuntime->BurstCount)
 	{
 		GetWorld()->GetTimerManager().ClearTimer(BurstHandle);
 

@@ -42,7 +42,7 @@ protected:
     virtual void AdjustProjectileSpawnTransform(FVector& InOutSpawnLocation, FVector& InOutShotDirection) const {}
     virtual bool HandleProjectileCollisionHit(const FHitResult& Hit);
     bool CanOwnerFireWeapon() const;
-    FTransform GetShotMuzzleTransform() const;
+    virtual FTransform GetShotMuzzleTransform() const;
     void BroadcastWeaponShotFired(const FTransform& MuzzleTransform);
     void BroadcastWeaponHitscanHit(const FHitResult& Hit);
     void BroadcastWeaponHitscanMiss(const FVector& TraceStart, const FVector& TraceEnd);
