@@ -52,6 +52,10 @@ public:
     UFUNCTION(BlueprintCallable, Category = Projectiles)
     virtual void SetProjectileTarget(AActor* NewTarget) {}
 
+    // True when this projectile steers toward a target (built-in movement homing or a subclass's own
+    // steering). Weapons use it to apply homing-only tuning such as the launch speed multiplier.
+    virtual bool IsHomingProjectile() const;
+
 protected:
     virtual void BeginPlay() override;
 

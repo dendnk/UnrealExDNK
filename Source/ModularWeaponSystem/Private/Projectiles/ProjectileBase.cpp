@@ -76,6 +76,11 @@ void AProjectileBase::CustomPlaySoundAtLocation(const UObject* WorldContextObjec
     return UGameplayStatics::PlaySoundAtLocation(WorldContextObject, Sound, Location, VolumeMultiplier, PitchMultiplier, StartTime, AttenuationSettings, ConcurrencySettings, InitialParams);
 }
 
+bool AProjectileBase::IsHomingProjectile() const
+{
+    return IsValid(MovementComponent) && MovementComponent->bIsHomingProjectile;
+}
+
 void AProjectileBase::LifeSpanExpired()
 {
     FHitResult Hit;
