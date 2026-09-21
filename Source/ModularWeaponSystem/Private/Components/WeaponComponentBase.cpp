@@ -216,8 +216,6 @@ void UWeaponComponentBase::HandleBurstFire()
 		if (EffectiveBurstPauseDuration > 0.f)
 		{
 			bBurstPauseActive = true;
-			UE_LOG(LogTemp, Warning, TEXT("[ReloadDiag] Pause started: comp=%s owner=%s duration=%.2f"),
-				*GetName(), *GetNameSafe(GetOwner()), EffectiveBurstPauseDuration); // TEMP-DIAG
 			// Lets an AI/component owner know this burst is done and a pause has started, so it can
 			// decide whether to call StartFire() again once BurstPauseDuration elapses. The component
 			// itself never loops bursts on its own - see specs/done-soldier-burst-fire-tuning REQ-5.
@@ -240,17 +238,6 @@ float UWeaponComponentBase::GetBurstPauseDuration() const
 
 float UWeaponComponentBase::GetBurstPauseRemaining() const
 {
-	// TEMP-DIAG (reload shade investigation): remove after diagnosis.
-	{
-		static uint64 LastLoggedFrame = 0;
-		if (bBurstPauseActive && GFrameCounter - LastLoggedFrame > 20)
-		{
-			LastLoggedFrame = GFrameCounter;
-			UE_LOG(LogTemp, Warning, TEXT("[ReloadDiag] HUD queried GetBurstPauseRemaining: comp=%s owner=%s active=1"),
-				*GetName(), *GetNameSafe(GetOwner()));
-		}
-	}
-
 	if (!bBurstPauseActive)
 	{
 		return 0.f;
