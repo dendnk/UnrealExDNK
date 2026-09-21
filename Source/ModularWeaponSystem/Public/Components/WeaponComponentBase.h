@@ -149,6 +149,10 @@ public:
     UFUNCTION(BlueprintNativeEvent, Category = "Weapon|FX")
     void PlaySoundAtLocation(USoundBase* Sound, FVector Location, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, float StartTime = 0.f);
 
+    // Optional game-side hook: extra volume factor for a weapon sound played at Location by Owner (e.g. distance
+    // falloff). Unbound by default (factor 1). Bound/cleared by the game instance; game thread only.
+    static TFunction<float(const AActor* Owner, const FVector& Location)> SoundVolumeScaleProvider;
+
 protected:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon|Data", meta = (AllowPrivateAccess))
     TObjectPtr<UWeaponDataAsset> WeaponDataAsset;
