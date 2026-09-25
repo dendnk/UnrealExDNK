@@ -6,6 +6,7 @@
 #include "Types/WeaponTypes.h"
 #include "ProjectileBase.generated.h"
 
+class AProjectileBase;
 class UAudioComponent;
 class UInitialActiveSoundParams;
 class UNiagaraSystem;
@@ -16,6 +17,22 @@ class UStaticMeshComponent;
 DECLARE_LOG_CATEGORY_EXTERN(LogProjectile, Log, All);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnProjectileSetupFinishedDelegate);
+
+// Why a projectile ended. Reported only in non-shipping builds: lets tests (e.g. the HeliAce
+// collision matrix) tell a rule air-burst from an impact, a stop, a timeout or a silent removal.
+enum class EProjectileEndReason : uint8
+{
+    Other,
+    Impact,
+    RuleDestroyed,
+    MovementStopped,
+    StuckTimer,
+    LifeSpan,
+    HealthExhausted,
+    Disappeared,
+};
+
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnProjectileEndedNative, AProjectileBase* /*Projectile*/, EProjectileEndReason /*Reason*/, const FHitResult& /*Hit*/);
 
 /**
  * Base Projectile Class
@@ -64,6 +81,13 @@ protected:
     // without exploding it (e.g. a collision rule result that intentionally does nothing), so
     // it explodes instead of sitting frozen in place forever.
     void CheckForStuckProjectile();
+
+    // Immediate counterpart of the check above: the movement component stops the projectile on
+    // any blocking hit it doesn't bounce off, even when the hit handling chose not to explode
+    // (ignored collision rule, hit on the owner, invalid hit actor). Exploding here means the
+    // projectile never visibly hangs in the air. Shares the StuckFailsafeSeconds opt-out.
+    UFUNCTION()
+    void HandleMovementStopped(const FHitResult& ImpactResult);
     virtual UAudioComponent* CustomSpawnSoundAttached(USoundBase* Sound, USceneComponent* AttachToComponent, FName AttachPointName = NAME_None, FVector Location = FVector(ForceInit), FRotator Rotation = FRotator::ZeroRotator, EAttachLocation::Type LocationType = EAttachLocation::KeepRelativeOffset, bool bStopWhenAttachedToDestroyed = false, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, float StartTime = 0.f, USoundAttenuation* AttenuationSettings = nullptr, USoundConcurrency* ConcurrencySettings = nullptr, bool bAutoDestroy = true);
     virtual float CustomApplyDamage(float Damage, AActor* DamageCauser, AActor* OtherActor, TSubclassOf<UDamageType> DamageTypeClass = nullptr);
 
@@ -95,7 +119,18 @@ public:
     UPROPERTY(BlueprintAssignable)
     FOnProjectileSetupFinishedDelegate OnProjectileSetupFinished;
 
+    // Dev-only (no-op in shipping): broadcast once per projectile from ExplodeProjectile /
+    // DisappearProjectile with the cause and the hit it exploded with (empty for a disappearance).
+    static FOnProjectileEndedNative OnProjectileEndedNative;
+
+protected:
+    // Internal explode call sites set this right before ExplodeProjectile so the broadcast carries
+    // the cause; anything that calls ExplodeProjectile without setting it reports Other.
+    void SetPendingEndReason(EProjectileEndReason Reason) { PendingEndReason = Reason; }
+
 private:
+    EProjectileEndReason PendingEndReason = EProjectileEndReason::Other;
+
     UPROPERTY()
     TObjectPtr<UAudioComponent> IdleAudioComponent;
 

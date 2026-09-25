@@ -12,6 +12,8 @@
 
 DEFINE_LOG_CATEGORY(LogProjectile);
 
+FOnProjectileEndedNative AProjectileBase::OnProjectileEndedNative;
+
 
 AProjectileBase::AProjectileBase()
 {
@@ -55,6 +57,11 @@ void AProjectileBase::BeginPlay()
     {
         LastStuckCheckLocation = GetActorLocation();
         GetWorldTimerManager().SetTimer(StuckFailsafeTimerHandle, this, &AProjectileBase::CheckForStuckProjectile, Config.StuckFailsafeSeconds, true);
+
+        if (IsValid(MovementComponent))
+        {
+            MovementComponent->OnProjectileStop.AddDynamic(this, &AProjectileBase::HandleMovementStopped);
+        }
     }
 }
 
@@ -86,6 +93,7 @@ void AProjectileBase::LifeSpanExpired()
     FHitResult Hit;
     Hit.Location = GetActorLocation();
     Hit.ImpactPoint = GetActorLocation();
+    SetPendingEndReason(EProjectileEndReason::LifeSpan);
     ExplodeProjectile(Hit, Config.bSuppressExplosionFxOnLifespanExpiry);
 }
 
@@ -121,6 +129,10 @@ void AProjectileBase::ExplodeProjectile(const FHitResult& Hit, bool bSuppressFx,
     bIsAlreadyExploded = true;
     GetWorldTimerManager().ClearTimer(StuckFailsafeTimerHandle);
     SetActorEnableCollision(false);
+
+#if !UE_BUILD_SHIPPING
+    OnProjectileEndedNative.Broadcast(this, bDestroyedByOtherProjectile ? EProjectileEndReason::RuleDestroyed : PendingEndReason, Hit);
+#endif
 
     ApplyAoEDamage(Hit);
 
@@ -160,6 +172,7 @@ void AProjectileBase::HandleProjectileCollisionHit(AActor* HitActor, const FHitR
         {
             CustomApplyDamage(Config.Damage, this, HitActor);
         }
+        SetPendingEndReason(EProjectileEndReason::Impact);
         ExplodeProjectile(Hit);
         return;
 
@@ -191,12 +204,33 @@ void AProjectileBase::DisappearProjectile()
     GetWorldTimerManager().ClearTimer(StuckFailsafeTimerHandle);
     SetActorEnableCollision(false);
 
+#if !UE_BUILD_SHIPPING
+    OnProjectileEndedNative.Broadcast(this, EProjectileEndReason::Disappeared, FHitResult());
+#endif
+
     if (IdleAudioComponent != nullptr)
     {
         IdleAudioComponent->Stop();
     }
 
     Destroy();
+}
+
+void AProjectileBase::HandleMovementStopped(const FHitResult& ImpactResult)
+{
+    if (bIsAlreadyExploded)
+    {
+        return;
+    }
+
+    UE_LOG(LogProjectile, Log, TEXT("%s stopped without exploding after hitting %s (%s); exploding it."),
+        *GetName(), *GetNameSafe(ImpactResult.GetActor()), *GetNameSafe(ImpactResult.GetComponent()));
+
+    FHitResult Hit = ImpactResult;
+    Hit.Location = GetActorLocation();
+    Hit.ImpactPoint = GetActorLocation();
+    SetPendingEndReason(EProjectileEndReason::MovementStopped);
+    ExplodeProjectile(Hit);
 }
 
 void AProjectileBase::CheckForStuckProjectile()
@@ -215,6 +249,7 @@ void AProjectileBase::CheckForStuckProjectile()
         FHitResult Hit;
         Hit.Location = CurrentLocation;
         Hit.ImpactPoint = CurrentLocation;
+        SetPendingEndReason(EProjectileEndReason::StuckTimer);
         ExplodeProjectile(Hit);
         return;
     }
