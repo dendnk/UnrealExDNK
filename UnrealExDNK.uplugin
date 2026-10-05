@@ -1,47 +1,51 @@
 {
-	"FileVersion": 3,
-	"Version": 1,
-	"VersionName": "1.0",
-	"FriendlyName": "UnrealExDNK",
-	"Description": "",
-	"Category": "Other",
-	"CreatedBy": "Denis Kruchok",
-	"CreatedByURL": "https://github.com/dendnk",
-	"DocsURL": "",
-	"MarketplaceURL": "",
-	"SupportURL": "",
-	"CanContainContent": true,
-	"IsBetaVersion": false,
-	"IsExperimentalVersion": false,
-	"Installed": false,
-	"Modules": [
-		{
-			"Name": "UnrealExDNK",
-			"Type": "Runtime",
-			"LoadingPhase": "Default",
-			"AdditionalDependencies": [
-				"CoreUObject"
-			]
-		},
-		{
-			"Name": "IntersectionTools",
-			"Type": "Runtime",
-			"LoadingPhase": "PreDefault"
-		},
-		{
-			"Name": "ModularWeaponSystem",
-			"Type": "Runtime",
-			"LoadingPhase": "Default"
-		}
-	],
-	"Plugins": [
-		{
-			"Name": "Niagara",
-			"Enabled": true
-		},
-		{
-			"Name": "ModelViewViewModel",
-			"Enabled": true
-		}
-	]
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "1.0",
+  "Modules": [
+    {
+      "Name": "UnrealExDNK",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    },
+    {
+      "Name": "IntersectionTools",
+      "Type": "Runtime",
+      "LoadingPhase": "PreDefault"
+    },
+    {
+      "Name": "ModularWeaponSystem",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    },
+    {
+      "Name": "TerrainGenerator",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ],
+  "FriendlyName": "UnrealExDNK",
+  "Description": "",
+  "Category": "Other",
+  "CreatedBy": "Denis Kruchok",
+  "CreatedByURL": "https://github.com/dendnk",
+  "DocsURL": "",
+  "MarketplaceURL": "",
+  "SupportURL": "",
+  "CanContainContent": "true",
+  "Installed": false,
+  "IsBetaVersion": false,
+  "Plugins": [
+    {
+      "Name": "Niagara",
+      "Enabled": true,
+      "SupportedTargetPlatforms": null
+    },
+    {
+      "Name": "ModelViewViewModel",
+      "Enabled": true,
+      "SupportedTargetPlatforms": null
+    }
+  ],
+  "SupportedTargetPlatforms": null
 }
