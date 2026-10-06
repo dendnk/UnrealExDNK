@@ -1,11 +1,19 @@
 #include "TerrainGenerator.h"
 
 #include "AI/NavigationSystemBase.h"
+#include "Components/BoxComponent.h"
+#include "Components/HierarchicalInstancedStaticMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Materials/MaterialInterface.h"
 #include "ProceduralMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
+
+namespace
+{
+	// WaterFloor box thickness, cm. Its top face sits at WaterLevel.
+	constexpr float WaterFloorThickness = 100.f;
+}
 
 ATerrainGenerator::ATerrainGenerator()
 {
@@ -22,13 +30,12 @@ ATerrainGenerator::ATerrainGenerator()
 	RootComponent = Ground;
 
 	Water = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Water"));
-	if (!Ground)
+	if (!Water)
 	{
 		return;
 	}
 
 	Water->SetupAttachment(Ground);
-	// Switch to a query-only profile if projectiles should detect water hits (splashes).
 	Water->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 	Water->SetCanEverAffectNavigation(false);
 	Water->CastShadow = false;
@@ -38,12 +45,34 @@ ATerrainGenerator::ATerrainGenerator()
 	{
 		Water->SetStaticMesh(PlaneMesh.Object);
 	}
+
+	// Same profile as Ground, so water and land can't drift apart: anything that treats WorldStatic as ground
+	// (ram damage, ground traces, projectile impacts) treats the water surface the same way.
+	WaterFloor = CreateDefaultSubobject<UBoxComponent>(TEXT("WaterFloor"));
+	if (!WaterFloor)
+	{
+		return;
+	}
+
+	WaterFloor->SetupAttachment(Ground);
+	WaterFloor->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
+	WaterFloor->SetGenerateOverlapEvents(false);
+	WaterFloor->SetCanEverAffectNavigation(false);
+	WaterFloor->SetHiddenInGame(true);
 }
 
 void ATerrainGenerator::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
-	Generate();
+	if (!bGenerateOnConstruction)
+	{
+		return;
+	}
+
+	// Ground and water only: decoration components are created on demand (Generate / GenerateDecorations buttons),
+	// not from construction, which reruns on every drag.
+	BuildGroundMesh();
+	UpdateWater();
 }
 
 void ATerrainGenerator::BeginPlay()
@@ -55,73 +84,99 @@ void ATerrainGenerator::BeginPlay()
 		Seed = FMath::Rand();
 		Generate();
 	}
-	else if (Heights.Num() != NumX * NumY || NumX < 2)
+	else if (TerrainType != ETerrainType::WaterOnly && (Heights.Num() != NumX * NumY || NumX < 2))
 	{
 		Generate();
 	}
-	else
+	SpawnStream.Initialize(Seed);
+}
+
+#if WITH_EDITOR
+void ATerrainGenerator::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	if (PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(ATerrainGenerator, TerrainType))
 	{
-		SpawnStream.Initialize(Seed);
+		ApplyTypeDefaults();
+	}
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+}
+#endif
+
+void ATerrainGenerator::ApplyTypeDefaults()
+{
+	switch (TerrainType)
+	{
+	case ETerrainType::Island:
+		MinLandHeight = -20.f;
+		bWater = true;
+		break;
+	case ETerrainType::Continent:
+		MinLandHeight = -1000.f;
+		bWater = false;
+		break;
+	case ETerrainType::WaterOnly:
+		bWater = true;
+		break;
 	}
 }
 
-float ATerrainGenerator::SampleHeight(float X, float Y) const
+FTerrainHeightParams ATerrainGenerator::MakeHeightParams() const
 {
-	// Fractal Brownian motion: sum of Perlin octaves -> smooth rolling hills.
-	float Amplitude = 1.f;
-	float Frequency = NoiseScale;
-	float Sum = 0.f;
-	float Norm = 0.f;
-	for (int32 Octave = 0; Octave < Octaves; ++Octave)
-	{
-		Sum += Amplitude * FMath::PerlinNoise2D(FVector2D(X, Y) * Frequency + NoiseOffset);
-		Norm += Amplitude;
-		Amplitude *= Persistence;
-		Frequency *= Lacunarity;
-	}
-	// Perlin output rarely reaches +-1, so stretch it a bit before mapping to [0,1].
-	float H = FMath::Clamp((Sum / Norm) * 0.7f + 0.5f, 0.f, 1.f);
-	H = FMath::Pow(H, Flatness);
+	FTerrainHeightParams Params;
+	Params.Type = TerrainType;
+	Params.SizeX = SizeX;
+	Params.SizeY = SizeY;
+	Params.MaxHeight = MaxHeight;
+	Params.MinLandHeight = MinLandHeight;
+	Params.Seed = Seed;
+	Params.NoiseScale = NoiseScale;
+	Params.Octaves = Octaves;
+	Params.Persistence = Persistence;
+	Params.Lacunarity = Lacunarity;
+	Params.Flatness = Flatness;
+	Params.ShoreWidth = ShoreWidth;
+	Params.SeaDepth = SeaDepth;
+	Params.CoastlineNoise = CoastlineNoise;
+	Params.WaterLevel = WaterLevel;
+	Params.Corridors = Corridors;
+	return Params;
+}
 
-	const float LandZ = WaterLevel + MinLandHeight + H * (MaxHeight - MinLandHeight);
-
-	// Island mask: 0 at the border (under water), 1 in the interior.
-	const float HalfX = SizeX * 0.5f;
-	const float HalfY = SizeY * 0.5f;
-	const float EdgeX = (HalfX - FMath::Abs(X)) / (HalfX * ShoreWidth);
-	const float EdgeY = (HalfY - FMath::Abs(Y)) / (HalfY * ShoreWidth);
-	float Edge = FMath::Min(EdgeX, EdgeY);
-
-	// Only ever pushes the shore inward, so the mesh border always stays under water.
-	const float Coast = FMath::PerlinNoise2D(FVector2D(X, Y) * (NoiseScale * 3.f) - NoiseOffset);
-	Edge -= CoastlineNoise * (Coast * 0.5f + 0.5f);
-
-	const float Mask = FMath::SmoothStep(0.f, 1.f, Edge);
-	return FMath::Lerp(WaterLevel - SeaDepth, LandZ, Mask);
+FTerrainGrid ATerrainGenerator::MakeGrid() const
+{
+	return FTerrainGrid::Make(SizeX, SizeY, CellSizeX > 0.f ? CellSizeX : CellSize, CellSizeY > 0.f ? CellSizeY : CellSize);
 }
 
 void ATerrainGenerator::Generate()
 {
-	NumX = FMath::Max(2, FMath::CeilToInt(SizeX / CellSize) + 1);
-	NumY = FMath::Max(2, FMath::CeilToInt(SizeY / CellSize) + 1);
-	StepX = SizeX / (NumX - 1);
-	StepY = SizeY / (NumY - 1);
+	BuildGroundMesh();
+	UpdateWater();
+	GenerateDecorations();
+}
 
-	FRandomStream Stream(Seed);
-	NoiseOffset = FVector2D(Stream.FRandRange(-1000.f, 1000.f), Stream.FRandRange(-1000.f, 1000.f));
+void ATerrainGenerator::BuildGroundMesh()
+{
 	SpawnStream.Initialize(Seed);
+	Ground->bUseAsyncCooking = bAsyncCollisionCooking;
+	Ground->ClearAllMeshSections();
+
+	if (TerrainType == ETerrainType::WaterOnly)
+	{
+		Heights.Reset();
+		NumX = NumY = 0;
+		StepX = StepY = 0.f;
+		return;
+	}
+
+	const FTerrainGrid Grid = MakeGrid();
+	NumX = Grid.NumX;
+	NumY = Grid.NumY;
+	StepX = Grid.StepX;
+	StepY = Grid.StepY;
+	FTerrainHeightField::Build(MakeHeightParams(), Grid, Heights);
 
 	const float HalfX = SizeX * 0.5f;
 	const float HalfY = SizeY * 0.5f;
-
-	Heights.SetNumUninitialized(NumX * NumY);
-	for (int32 Y = 0; Y < NumY; ++Y)
-	{
-		for (int32 X = 0; X < NumX; ++X)
-		{
-			Heights[Y * NumX + X] = SampleHeight(-HalfX + X * StepX, -HalfY + Y * StepY);
-		}
-	}
 
 	const int32 NumVerts = NumX * NumY;
 	TArray<FVector> Vertices;
@@ -164,7 +219,7 @@ void ATerrainGenerator::Generate()
 		}
 	}
 
-	// Two triangles per cell, wound so faces point up (+Z). Diagonal runs V1 -> V2.
+	// Two triangles per cell, wound so faces point up (+Z). Diagonal runs V1 -> V2 (FTerrainHeightField::SampleGrid matches).
 	for (int32 Y = 0; Y < NumY - 1; ++Y)
 	{
 		for (int32 X = 0; X < NumX - 1; ++X)
@@ -178,57 +233,174 @@ void ATerrainGenerator::Generate()
 		}
 	}
 
-	Ground->ClearAllMeshSections();
 	Ground->CreateMeshSection_LinearColor(0, Vertices, Triangles, Normals, UV0, Colors, Tangents, /*bCreateCollision*/ true);
 	if (GroundMaterial)
 	{
 		Ground->SetMaterial(0, GroundMaterial);
 	}
 
+	// Lets a dynamic navmesh rebuild over the new ground.
+	FNavigationSystem::UpdateComponentData(*Ground);
+}
+
+void ATerrainGenerator::UpdateWater()
+{
 	// Engine plane mesh is 100x100 cm.
 	const float WaterSize = FMath::Max(SizeX, SizeY) * WaterExtent;
 	Water->SetRelativeLocation(FVector(0.f, 0.f, WaterLevel));
 	Water->SetRelativeScale3D(FVector(WaterSize / 100.f, WaterSize / 100.f, 1.f));
+	Water->SetVisibility(bWater);
 	if (WaterMaterial)
 	{
 		Water->SetMaterial(0, WaterMaterial);
 	}
 
-	// Lets a dynamic navmesh rebuild over the new ground.
-	FNavigationSystem::UpdateComponentData(*Ground);
+	WaterFloor->SetRelativeLocation(FVector(0.f, 0.f, WaterLevel - WaterFloorThickness * 0.5f));
+	WaterFloor->SetBoxExtent(FVector(WaterSize * 0.5f, WaterSize * 0.5f, WaterFloorThickness * 0.5f));
+	WaterFloor->SetCollisionEnabled(bWater ? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::NoCollision);
+}
+
+void ATerrainGenerator::ClearDecorations()
+{
+	for (UHierarchicalInstancedStaticMeshComponent* Component : DecorationComponents)
+	{
+		if (IsValid(Component))
+		{
+			RemoveInstanceComponent(Component);
+			Component->DestroyComponent();
+		}
+	}
+	DecorationComponents.Reset();
+}
+
+void ATerrainGenerator::GenerateDecorations()
+{
+	ClearDecorations();
+	if (TerrainType == ETerrainType::WaterOnly || DecorationSet == nullptr || NumX < 2 || NumY < 2 || Heights.Num() != NumX * NumY)
+	{
+		return;
+	}
+
+	const TArray<FTerrainDecorationEntry>& Entries = DecorationSet->Entries;
+	TArray<FTerrainDecorationMeshInfo> MeshInfo;
+	MeshInfo.SetNum(Entries.Num());
+	for (int32 Index = 0; Index < Entries.Num(); ++Index)
+	{
+		if (const UStaticMesh* Mesh = Entries[Index].Mesh)
+		{
+			const FBoxSphereBounds Bounds = Mesh->GetBounds();
+			const FBox Box = Bounds.GetBox();
+			// Reach from the pivot, not from the bounds centre: an off-centre pivot still can't sneak toward the lane.
+			MeshInfo[Index].RadiusXY = FMath::Max(
+				FVector2D(Box.Min.X, Box.Min.Y).Size(), FMath::Max(
+				FVector2D(Box.Max.X, Box.Min.Y).Size(), FMath::Max(
+				FVector2D(Box.Min.X, Box.Max.Y).Size(),
+				FVector2D(Box.Max.X, Box.Max.Y).Size())));
+			MeshInfo[Index].Height = FMath::Max(0.f, Box.Max.Z);
+		}
+	}
+
+	FTerrainCorridor Lane;
+	if (Corridors.IsValidIndex(DecorationCorridorIndex))
+	{
+		Lane = Corridors[DecorationCorridorIndex];
+	}
+	else
+	{
+		Lane.CenterY = 0.f;
+		Lane.StartX = -SizeX * 0.5f;
+		Lane.EndX = SizeX * 0.5f;
+	}
+
+	FTerrainDecorationGround GroundQuery;
+	GroundQuery.HeightAboveWater = [this](const FVector2D& P) { return LocalHeightAboveWater(P); };
+	GroundQuery.Normal = [this](const FVector2D& P) { return LocalNormal(P); };
+	GroundQuery.WaterZ = WaterLevel;
+	GroundQuery.bHasWater = bWater;
+
+	FRandomStream Stream(HashCombine(GetTypeHash(Seed), GetTypeHash(DecorationSeedSalt)));
+	TArray<TArray<FTransform>> PerEntry;
+	FTerrainDecorationScatter::Scatter(*DecorationSet, MeshInfo, Lane, GroundQuery, Stream, PerEntry);
+
+	// One HISM per mesh, shared by entries that use the same mesh.
+	TMap<UStaticMesh*, UHierarchicalInstancedStaticMeshComponent*> ByMesh;
+	for (int32 Index = 0; Index < Entries.Num(); ++Index)
+	{
+		UStaticMesh* Mesh = Entries[Index].Mesh;
+		if (Mesh == nullptr || PerEntry[Index].IsEmpty())
+		{
+			continue;
+		}
+
+		UHierarchicalInstancedStaticMeshComponent*& Component = ByMesh.FindOrAdd(Mesh);
+		if (Component == nullptr)
+		{
+			const FName Name = MakeUniqueObjectName(this, UHierarchicalInstancedStaticMeshComponent::StaticClass(),
+				*FString::Printf(TEXT("Decor_%s"), *Mesh->GetName()));
+			Component = NewObject<UHierarchicalInstancedStaticMeshComponent>(this, Name, RF_Transactional);
+			Component->CreationMethod = EComponentCreationMethod::Instance;
+			Component->SetStaticMesh(Mesh);
+			// Purely visual (REQ-16 in HeliAce): nothing hits, blocks or navigates on decorations.
+			Component->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
+			Component->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			Component->SetGenerateOverlapEvents(false);
+			Component->SetCanEverAffectNavigation(false);
+			Component->SetCastShadow(Entries[Index].bCastShadow);
+			Component->SetCullDistances(0, FMath::RoundToInt(Entries[Index].CullDistance));
+			Component->SetupAttachment(Ground);
+			Component->RegisterComponent();
+			AddInstanceComponent(Component);
+			DecorationComponents.Add(Component);
+		}
+		Component->AddInstances(PerEntry[Index], /*bShouldReturnIndices*/ false, /*bWorldSpace*/ false);
+	}
+}
+
+float ATerrainGenerator::LocalHeightAboveWater(const FVector2D& LocalXY) const
+{
+	const FTerrainGrid Grid{ NumX, NumY, StepX, StepY };
+	return FTerrainHeightField::SampleGrid(Heights, Grid, SizeX, SizeY, LocalXY.X, LocalXY.Y) - WaterLevel;
+}
+
+FVector ATerrainGenerator::LocalNormal(const FVector2D& LocalXY) const
+{
+	const float DX = FMath::Max(StepX, 1.f) * 0.5f;
+	const float DY = FMath::Max(StepY, 1.f) * 0.5f;
+	const float DHdX = (LocalHeightAboveWater(LocalXY + FVector2D(DX, 0.f)) - LocalHeightAboveWater(LocalXY - FVector2D(DX, 0.f))) / (2.f * DX);
+	const float DHdY = (LocalHeightAboveWater(LocalXY + FVector2D(0.f, DY)) - LocalHeightAboveWater(LocalXY - FVector2D(0.f, DY))) / (2.f * DY);
+	return FVector(-DHdX, -DHdY, 1.f).GetSafeNormal();
+}
+
+float ATerrainGenerator::GetWaterZ() const
+{
+	return GetActorLocation().Z + WaterLevel;
 }
 
 float ATerrainGenerator::GetHeightAt(FVector2D WorldXY) const
 {
 	const FVector Origin = GetActorLocation();
-	if (NumX < 2 || NumY < 2 || Heights.Num() != NumX * NumY)
+	if (TerrainType == ETerrainType::WaterOnly || NumX < 2 || NumY < 2 || Heights.Num() != NumX * NumY)
 	{
 		return Origin.Z + WaterLevel;
 	}
 
-	const float FX = FMath::Clamp((WorldXY.X - Origin.X + SizeX * 0.5f) / StepX, 0.f, float(NumX - 1));
-	const float FY = FMath::Clamp((WorldXY.Y - Origin.Y + SizeY * 0.5f) / StepY, 0.f, float(NumY - 1));
-	const int32 X0 = FMath::Min(FMath::FloorToInt(FX), NumX - 2);
-	const int32 Y0 = FMath::Min(FMath::FloorToInt(FY), NumY - 2);
-	const float TX = FX - X0;
-	const float TY = FY - Y0;
+	const FTerrainGrid Grid{ NumX, NumY, StepX, StepY };
+	return Origin.Z + FTerrainHeightField::SampleGrid(Heights, Grid, SizeX, SizeY, WorldXY.X - Origin.X, WorldXY.Y - Origin.Y);
+}
 
-	const float H00 = Heights[Y0 * NumX + X0];
-	const float H10 = Heights[Y0 * NumX + X0 + 1];
-	const float H01 = Heights[(Y0 + 1) * NumX + X0];
-	const float H11 = Heights[(Y0 + 1) * NumX + X0 + 1];
-
-	// Interpolate on the same triangle the mesh uses, so actors sit exactly on the surface.
-	const float Z = (TX + TY <= 1.f)
-		? H00 + TX * (H10 - H00) + TY * (H01 - H00)
-		: H11 + (1.f - TX) * (H01 - H11) + (1.f - TY) * (H10 - H11);
-
-	return Origin.Z + Z;
+float ATerrainGenerator::GetSurfaceHeightAt(FVector2D WorldXY) const
+{
+	const float GroundZ = GetHeightAt(WorldXY);
+	return bWater ? FMath::Max(GroundZ, GetWaterZ()) : GroundZ;
 }
 
 bool ATerrainGenerator::IsLand(FVector2D WorldXY, float MinHeightAboveWater) const
 {
-	return GetHeightAt(WorldXY) - (GetActorLocation().Z + WaterLevel) >= MinHeightAboveWater;
+	if (TerrainType == ETerrainType::WaterOnly)
+	{
+		return false;
+	}
+	return GetHeightAt(WorldXY) - GetWaterZ() >= MinHeightAboveWater;
 }
 
 bool ATerrainGenerator::FindSpawnPoint(FVector& OutLocation, float MinHeightAboveWater, float MaxSlopeDegrees, int32 MaxAttempts)

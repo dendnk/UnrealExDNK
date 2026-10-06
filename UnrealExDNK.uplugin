@@ -45,6 +45,11 @@
       "Name": "ModelViewViewModel",
       "Enabled": true,
       "SupportedTargetPlatforms": null
+    },
+    {
+      "Name": "ProceduralMeshComponent",
+      "Enabled": true,
+      "SupportedTargetPlatforms": null
     }
   ],
   "SupportedTargetPlatforms": null
