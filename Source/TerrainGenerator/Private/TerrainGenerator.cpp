@@ -288,14 +288,18 @@ void ATerrainGenerator::GenerateDecorations()
 	{
 		if (const UStaticMesh* Mesh = Entries[Index].Mesh)
 		{
-			const FBoxSphereBounds Bounds = Mesh->GetBounds();
-			const FBox Box = Bounds.GetBox();
-			// Reach from the pivot, not from the bounds centre: an off-centre pivot still can't sneak toward the lane.
-			MeshInfo[Index].RadiusXY = FMath::Max(
-				FVector2D(Box.Min.X, Box.Min.Y).Size(), FMath::Max(
-				FVector2D(Box.Max.X, Box.Min.Y).Size(), FMath::Max(
-				FVector2D(Box.Min.X, Box.Max.Y).Size(),
-				FVector2D(Box.Max.X, Box.Max.Y).Size())));
+			const FBox Box = Mesh->GetBounds().GetBox();
+			// Some imports report empty or garbage bounds (non-finite, kilometres wide): treat them as a point and say so.
+			constexpr double MaxSaneExtent = 1.0e6;
+			if (!Box.IsValid || Box.ContainsNaN() || Box.GetExtent().GetMax() > MaxSaneExtent || Box.GetExtent().IsNearlyZero())
+			{
+				UE_LOG(LogTemp, Warning, TEXT("TerrainGenerator %s: decoration mesh %s has unusable bounds (%s); placed as a point."),
+					*GetName(), *Mesh->GetName(), *Box.ToString());
+				continue;
+			}
+			// Measured from the bounds centre, which the scatter puts on the sample (see FTerrainDecorationMeshInfo).
+			MeshInfo[Index].CenterXY = FVector2D(Box.GetCenter());
+			MeshInfo[Index].RadiusXY = FVector2D(Box.GetExtent()).Size();
 			MeshInfo[Index].Height = FMath::Max(0.f, Box.Max.Z);
 		}
 	}

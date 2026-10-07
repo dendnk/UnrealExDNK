@@ -79,7 +79,6 @@ void FTerrainDecorationScatter::Scatter(const UTerrainDecorationSet& Set, TConst
 		return;
 	}
 
-	const float Side = Set.BandSideSign >= 0 ? 1.f : -1.f;
 	const float StartX = FMath::Min(Lane.StartX, Lane.EndX);
 	const float EndX = FMath::Max(Lane.StartX, Lane.EndX);
 
@@ -93,6 +92,7 @@ void FTerrainDecorationScatter::Scatter(const UTerrainDecorationSet& Set, TConst
 
 	for (const FTerrainDecorationBand& Band : Set.Bands)
 	{
+		const float Side = (Band.Side != 0 ? Band.Side : Set.BandSideSign) >= 0 ? 1.f : -1.f;
 		const float MinDistance = FMath::Max(Band.MinDistance, Set.MinLaneDistance);
 		const float MaxDistance = Band.MaxDistance;
 		if (MaxDistance <= MinDistance || EndX <= StartX)
@@ -173,7 +173,12 @@ void FTerrainDecorationScatter::Scatter(const UTerrainDecorationSet& Set, TConst
 				const float Scale = FMath::Lerp(Entry.ScaleRange.X, Entry.ScaleRange.Y, ScaleAlpha);
 
 				// Bounds, not pivot: a wide canopy must not reach toward the lane.
-				if (Distance - Info.RadiusXY * Scale < Set.MinLaneDistance)
+				const float Radius = Info.RadiusXY * Scale;
+				if (Distance - Radius < Set.MinLaneDistance)
+				{
+					continue;
+				}
+				if ((Band.bContainInnerEdge && Distance - Radius < MinDistance) || (Band.bContainOuterEdge && Distance + Radius > MaxDistance))
 				{
 					continue;
 				}
@@ -204,7 +209,9 @@ void FTerrainDecorationScatter::Scatter(const UTerrainDecorationSet& Set, TConst
 
 				const FQuat Tilt = FQuat::Slerp(FQuat::Identity, FQuat::FindBetweenNormals(Up, Normal), Entry.AlignToNormal);
 				const FQuat Yaw(Up, Entry.bRandomYaw ? FMath::DegreesToRadians(YawAlpha * 360.f) : 0.f);
-				const FVector Location = FVector(P, Ground.WaterZ + Height) - Tilt.RotateVector(Up) * Entry.SinkDepth;
+				// The mesh's bounds centre lands on the sample; the pivot goes wherever that puts it.
+				const FVector CenterOffset = (Tilt * Yaw).RotateVector(FVector(Info.CenterXY * Scale, 0.f));
+				const FVector Location = FVector(P, Ground.WaterZ + Height) - CenterOffset - Tilt.RotateVector(Up) * Entry.SinkDepth;
 
 				OutPerEntry[EntryIndex].Add(FTransform(Tilt * Yaw, Location, FVector(Scale)));
 			}

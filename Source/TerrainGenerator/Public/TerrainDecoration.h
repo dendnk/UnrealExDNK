@@ -80,9 +80,21 @@ struct TERRAINGENERATOR_API FTerrainDecorationBand
 	/** Tallest scaled mesh allowed in this band, cm. 0 = no cap (e.g. keep near bands low). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Band", meta = (ClampMin = "0"))
 	float MaxMeshHeight = 0.f;
+
+	/** Which side of the corridor this band is on: -1 = -Y, +1 = +Y, 0 = the set's BandSideSign. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Band", meta = (ClampMin = "-1", ClampMax = "1"))
+	int32 Side = 0;
+
+	/** Reject instances whose bounds reach past MinDistance (toward the corridor). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Band")
+	bool bContainInnerEdge = false;
+
+	/** Reject instances whose bounds reach past MaxDistance (away from the corridor). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Band")
+	bool bContainOuterEdge = false;
 };
 
-/** Seeded decoration layout along a terrain corridor. Placed on one side only. */
+/** Seeded decoration layout along a terrain corridor, in bands on either side of it. */
 UCLASS(BlueprintType)
 class TERRAINGENERATOR_API UTerrainDecorationSet : public UPrimaryDataAsset
 {
@@ -99,7 +111,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Decoration", meta = (ClampMin = "0"))
 	float MinLaneDistance = 5000.f;
 
-	/** Which side of the corridor the bands are on: -1 = -Y, +1 = +Y. Never both. */
+	/** Default side for bands that don't set their own Side: -1 = -Y, +1 = +Y. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Decoration", meta = (ClampMin = "-1", ClampMax = "1"))
 	int32 BandSideSign = -1;
 };
@@ -107,10 +119,15 @@ public:
 /** Mesh measurements the scatter needs, one per entry. */
 struct FTerrainDecorationMeshInfo
 {
-	/** Horizontal reach of the unscaled mesh from its pivot, cm. */
+	/** Horizontal reach of the unscaled mesh from its bounds centre (CenterXY), cm. */
 	float RadiusXY = 0.f;
 	/** Top of the unscaled mesh above its pivot, cm. */
 	float Height = 0.f;
+	/**
+	 * Bounds centre of the unscaled mesh in its own XY, cm. The scatter puts this point, not the pivot, on the sample,
+	 * so meshes imported with a far-off pivot (e.g. a pack's scene position) still land where they were placed.
+	 */
+	FVector2D CenterXY = FVector2D::ZeroVector;
 };
 
 /** Ground queries in actor-local space. */

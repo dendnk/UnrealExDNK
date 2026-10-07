@@ -18,11 +18,81 @@ namespace
 		return 1.f - FMath::SmoothStep(0.f, 1.f, (Dist - Inner) / Falloff);
 	}
 
+	/** Rescales Profile so its min..max over the corridor's X range spans [Low, High]. */
+	void RemapProfile(const FTerrainGrid& Grid, float HalfX, float StartX, float EndX, float Low, float High, TArray<float>& Profile)
+	{
+		float BaseMin = TNumericLimits<float>::Max();
+		float BaseMax = TNumericLimits<float>::Lowest();
+		for (int32 X = 0; X < Grid.NumX; ++X)
+		{
+			const float PX = -HalfX + X * Grid.StepX;
+			if (PX >= StartX && PX <= EndX)
+			{
+				BaseMin = FMath::Min(BaseMin, Profile[X]);
+				BaseMax = FMath::Max(BaseMax, Profile[X]);
+			}
+		}
+		const float BaseRange = BaseMax - BaseMin;
+		for (float& H : Profile)
+		{
+			// Columns outside StartX..EndX (falloff only) extrapolate and are then clamped like the rest.
+			H = BaseRange > UE_KINDA_SMALL_NUMBER ? Low + (H - BaseMin) / BaseRange * (High - Low) : (Low + High) * 0.5f;
+		}
+	}
+
 	/**
-	 * Corridor profile per grid column: base height on the centre line, clamped (or with bRemapToRange, rescaled from
-	 * its own min..max over StartX..EndX) to the corridor's range, then
-	 * lowered so neighbouring columns never differ by more than tan(MaxSlope) * StepX. Lowering only (a forward and
-	 * a backward pass) keeps every value inside [Min, Max] and gives min_j(P[j] + d * |i - j|), which is slope-limited.
+	 * Scales Profile toward Low until the given share of its steps over StartX..EndX is at most MaxStep (never up).
+	 * Uniform vertical scaling keeps the profile's shape: hills stay rounded and of different heights.
+	 */
+	void FitProfileSlope(const FTerrainGrid& Grid, float HalfX, float StartX, float EndX, float Low, float MaxStep, float Share, TArray<float>& Profile)
+	{
+		TArray<float> Steps;
+		for (int32 X = 1; X < Grid.NumX; ++X)
+		{
+			const float PX = -HalfX + X * Grid.StepX;
+			if (PX - Grid.StepX >= StartX && PX <= EndX)
+			{
+				Steps.Add(FMath::Abs(Profile[X] - Profile[X - 1]));
+			}
+		}
+		if (Steps.IsEmpty())
+		{
+			return;
+		}
+		Steps.Sort();
+		const float Step = Steps[FMath::Clamp(FMath::FloorToInt(Steps.Num() * Share), 0, Steps.Num() - 1)];
+		if (Step <= MaxStep)
+		{
+			return;
+		}
+		const float Scale = MaxStep / Step;
+		for (float& H : Profile)
+		{
+			H = Low + (H - Low) * Scale;
+		}
+	}
+
+	/**
+	 * Lowers Profile so neighbouring columns never differ by more than MaxStep. Lowering only (a forward and a backward
+	 * pass) keeps every value inside its range and gives min_j(P[j] + d * |i - j|), which is slope-limited.
+	 */
+	void LimitProfileSlope(float MaxStep, TArray<float>& Profile)
+	{
+		for (int32 X = 1; X < Profile.Num(); ++X)
+		{
+			Profile[X] = FMath::Min(Profile[X], Profile[X - 1] + MaxStep);
+		}
+		for (int32 X = Profile.Num() - 2; X >= 0; --X)
+		{
+			Profile[X] = FMath::Min(Profile[X], Profile[X + 1] + MaxStep);
+		}
+	}
+
+	/**
+	 * Corridor profile per grid column: base height on the centre line (with the corridor's own noise frequency, if
+	 * set), clamped (or with bRemapToRange, rescaled from its own min..max over StartX..EndX) to the corridor's range,
+	 * then slope-limited. With RemapPasses > 1, rescale and limit again to win back the span the limit took. With
+	 * SlopeFitShare, each rescale is followed by a uniform lowering that keeps the hills' shape (FitProfileSlope).
 	 */
 	void BuildCorridorProfile(const FTerrainHeightParams& Params, const FVector2D& NoiseOffset, const FTerrainGrid& Grid,
 		const FTerrainCorridor& Corridor, TArray<float>& OutProfile)
@@ -31,49 +101,120 @@ namespace
 		const bool bApplyMask = Params.Type == ETerrainType::Island && !Corridor.bOverrideShoreMask;
 		const float Low = Params.WaterLevel + FMath::Min(Corridor.MinHeight, Corridor.MaxHeight);
 		const float High = Params.WaterLevel + FMath::Max(Corridor.MinHeight, Corridor.MaxHeight);
+		const float StartX = FMath::Min(Corridor.StartX, Corridor.EndX);
+		const float EndX = FMath::Max(Corridor.StartX, Corridor.EndX);
+
+		FTerrainHeightParams ProfileParams = Params;
+		if (Corridor.ProfileNoiseScale > 0.f)
+		{
+			ProfileParams.NoiseScale = Corridor.ProfileNoiseScale;
+		}
+		if (Corridor.ProfileOctaves > 0)
+		{
+			ProfileParams.Octaves = Corridor.ProfileOctaves;
+		}
 
 		OutProfile.SetNumUninitialized(Grid.NumX);
 		for (int32 X = 0; X < Grid.NumX; ++X)
 		{
-			OutProfile[X] = FTerrainHeightField::SampleBase(Params, NoiseOffset, -HalfX + X * Grid.StepX, Corridor.CenterY, bApplyMask);
-		}
-
-		if (Corridor.bRemapToRange)
-		{
-			const float StartX = FMath::Min(Corridor.StartX, Corridor.EndX);
-			const float EndX = FMath::Max(Corridor.StartX, Corridor.EndX);
-			float BaseMin = TNumericLimits<float>::Max();
-			float BaseMax = TNumericLimits<float>::Lowest();
-			for (int32 X = 0; X < Grid.NumX; ++X)
-			{
-				const float PX = -HalfX + X * Grid.StepX;
-				if (PX >= StartX && PX <= EndX)
-				{
-					BaseMin = FMath::Min(BaseMin, OutProfile[X]);
-					BaseMax = FMath::Max(BaseMax, OutProfile[X]);
-				}
-			}
-			const float BaseRange = BaseMax - BaseMin;
-			for (float& H : OutProfile)
-			{
-				// Columns outside StartX..EndX (falloff only) extrapolate and are then clamped like the rest.
-				H = BaseRange > UE_KINDA_SMALL_NUMBER ? Low + (H - BaseMin) / BaseRange * (High - Low) : (Low + High) * 0.5f;
-			}
-		}
-		for (float& H : OutProfile)
-		{
-			H = FMath::Clamp(H, Low, High);
+			OutProfile[X] = FTerrainHeightField::SampleBase(ProfileParams, NoiseOffset, -HalfX + X * Grid.StepX, Corridor.CenterY, bApplyMask);
 		}
 
 		const float MaxStep = FMath::Tan(FMath::DegreesToRadians(FMath::Clamp(Corridor.MaxSlopeDeg, 0.f, 89.f))) * Grid.StepX;
-		for (int32 X = 1; X < Grid.NumX; ++X)
+		const int32 Passes = Corridor.bRemapToRange ? FMath::Clamp(Corridor.RemapPasses, 1, 8) : 1;
+		for (int32 Pass = 0; Pass < Passes; ++Pass)
 		{
-			OutProfile[X] = FMath::Min(OutProfile[X], OutProfile[X - 1] + MaxStep);
+			if (Corridor.bRemapToRange)
+			{
+				RemapProfile(Grid, HalfX, StartX, EndX, Low, High, OutProfile);
+				if (Corridor.SlopeFitShare > 0.f)
+				{
+					FitProfileSlope(Grid, HalfX, StartX, EndX, Low, MaxStep, Corridor.SlopeFitShare, OutProfile);
+				}
+			}
+			for (float& H : OutProfile)
+			{
+				H = FMath::Clamp(H, Low, High);
+			}
+			LimitProfileSlope(MaxStep, OutProfile);
 		}
-		for (int32 X = Grid.NumX - 2; X >= 0; --X)
+	}
+
+	/**
+	 * FollowProfile banks, one grid column across Y: walking outward from each strip edge, each row may differ from the
+	 * previous one by at most the cross slope, which grows from BankEdgeSlopeDeg at the edge to BankMaxSlopeDeg at
+	 * BankRamp. Keeps the edge free of creases while the relief further out stays rough.
+	 */
+	void LimitBankSlope(const FTerrainCorridor& Corridor, const FTerrainGrid& Grid, float HalfY, TArray<float>& Column)
+	{
+		const float EdgeDeg = FMath::Clamp(Corridor.BankEdgeSlopeDeg, 0.f, 89.f);
+		const float MaxDeg = FMath::Clamp(FMath::Max(Corridor.BankMaxSlopeDeg, EdgeDeg), 0.f, 89.f);
+		auto MaxStepAt = [&](float Past)
 		{
-			OutProfile[X] = FMath::Min(OutProfile[X], OutProfile[X + 1] + MaxStep);
+			const float T = Corridor.BankRamp > 0.f ? FMath::Clamp(Past / Corridor.BankRamp, 0.f, 1.f) : 1.f;
+			return FMath::Tan(FMath::DegreesToRadians(FMath::Lerp(EdgeDeg, MaxDeg, T))) * Grid.StepY;
+		};
+		auto PastAt = [&](int32 Y) { return FMath::Abs(-HalfY + Y * Grid.StepY - Corridor.CenterY) - Corridor.HalfWidth; };
+		auto Limit = [&](int32 Y, int32 Prev)
+		{
+			// The step's inner end sets its slope, so the first row past the edge gets exactly BankEdgeSlopeDeg.
+			const float Step = MaxStepAt(PastAt(Prev));
+			Column[Y] = FMath::Clamp(Column[Y], Column[Prev] - Step, Column[Prev] + Step);
+		};
+		for (int32 Y = 1; Y < Grid.NumY; ++Y)
+		{
+			if (-HalfY + Y * Grid.StepY > Corridor.CenterY && PastAt(Y) > 0.f)
+			{
+				Limit(Y, Y - 1);
+			}
 		}
+		for (int32 Y = Grid.NumY - 2; Y >= 0; --Y)
+		{
+			if (-HalfY + Y * Grid.StepY < Corridor.CenterY && PastAt(Y) > 0.f)
+			{
+				Limit(Y, Y + 1);
+			}
+		}
+	}
+
+	/** Shore beyond the corridor's land edges: 0 on land, 1 at the seabed (bDefineLandWidth). */
+	float ShoreWeight(const FTerrainHeightParams& Params, const FVector2D& NoiseOffset, const FTerrainCorridor& Corridor, float PX, float PY, float Offset)
+	{
+		const float Land = Offset >= 0.f ? Corridor.LandPlusY : Corridor.LandMinusY;
+		const float Shore = FMath::Max(Offset >= 0.f ? Corridor.ShorePlusY : Corridor.ShoreMinusY, 1.f);
+		const float Past = FMath::Abs(Offset) - Land;
+		if (Past <= 0.f)
+		{
+			return 0.f;
+		}
+		// Coastline noise only moves the drop within the shore, never into the land.
+		const float Coast = FMath::PerlinNoise2D(FVector2D(PX, PY) * (Params.NoiseScale * 3.f) - NoiseOffset) * 0.5f + 0.5f;
+		const float T = FMath::Clamp(Past / Shore * (1.f + Params.CoastlineNoise * Coast), 0.f, 1.f);
+		return FMath::SmoothStep(0.f, 1.f, T);
+	}
+
+	/** One-sided height cap: at or below Profile + CapClearance on the capped side, blended in by Weight. */
+	void ApplySideCap(const FTerrainCorridor& Corridor, float ProfileH, float Offset, float CapDir, float CapLength, float Weight, float& H)
+	{
+		if (!Corridor.bUseSideCap)
+		{
+			return;
+		}
+		const float Along = (Offset - Corridor.CapFromY) * CapDir;
+		if (Along > 0.f)
+		{
+			const float CapWeight = Weight * FalloffWeight(Along, CapLength, Corridor.CapFalloff);
+			H = FMath::Lerp(H, FMath::Min(H, ProfileH + Corridor.CapClearance), CapWeight);
+		}
+	}
+
+	/** bDefineLandWidth: dry land never below the corridor's lowest height; past the edges, down to the seabed. */
+	void ApplyLandWidth(const FTerrainHeightParams& Params, const FVector2D& NoiseOffset, const FTerrainCorridor& Corridor, float Low,
+		float PX, float PY, float Offset, float Weight, float& H)
+	{
+		float Shaped = FMath::Max(H, Low);
+		Shaped = FMath::Lerp(Shaped, Params.WaterLevel - Params.SeaDepth, ShoreWeight(Params, NoiseOffset, Corridor, PX, PY, Offset));
+		H = FMath::Lerp(H, Shaped, Weight);
 	}
 
 	void ApplyCorridor(const FTerrainHeightParams& Params, const FVector2D& NoiseOffset, const FTerrainGrid& Grid,
@@ -86,9 +227,13 @@ namespace
 		const float HalfY = Params.SizeY * 0.5f;
 		const float StartX = FMath::Min(Corridor.StartX, Corridor.EndX);
 		const float EndX = FMath::Max(Corridor.StartX, Corridor.EndX);
+		const float Low = Params.WaterLevel + FMath::Min(Corridor.MinHeight, Corridor.MaxHeight);
 
 		const float CapDir = Corridor.CapToY >= Corridor.CapFromY ? 1.f : -1.f;
 		const float CapLength = FMath::Abs(Corridor.CapToY - Corridor.CapFromY);
+		const bool bFollow = Corridor.BankMode == ETerrainCorridorBankMode::FollowProfile;
+		const bool bLandWidth = Corridor.bDefineLandWidth && Params.Type == ETerrainType::Island;
+		TArray<float> Column;
 
 		for (int32 X = 0; X < Grid.NumX; ++X)
 		{
@@ -100,23 +245,57 @@ namespace
 				continue;
 			}
 
-			for (int32 Y = 0; Y < Grid.NumY; ++Y)
+			if (bFollow)
 			{
-				const float Offset = -HalfY + Y * Grid.StepY - Corridor.CenterY;
-				float& H = Heights[Y * Grid.NumX + X];
-
-				const float Weight = WeightX * FalloffWeight(FMath::Abs(Offset), Corridor.HalfWidth, Corridor.Falloff);
-				H = FMath::Lerp(H, Profile[X], Weight);
-
-				if (Corridor.bUseSideCap)
+				// FollowProfile: the strip's profile plus the terrain's relief (against its own centre line, unmasked),
+				// eased in from the strip edge.
+				const float RawCentre = FTerrainHeightField::SampleBase(Params, NoiseOffset, PX, Corridor.CenterY, false);
+				Column.SetNumUninitialized(Grid.NumY);
+				for (int32 Y = 0; Y < Grid.NumY; ++Y)
 				{
-					const float Along = (Offset - Corridor.CapFromY) * CapDir;
-					if (Along > 0.f)
+					const float PY = -HalfY + Y * Grid.StepY;
+					const float Offset = PY - Corridor.CenterY;
+					const float Past = FMath::Abs(Offset) - Corridor.HalfWidth;
+					Column[Y] = Profile[X];
+					if (Past > 0.f)
 					{
-						const float CapWeight = WeightX * FalloffWeight(Along, CapLength, Corridor.CapFalloff);
-						H = FMath::Lerp(H, FMath::Min(H, Profile[X] + Corridor.CapClearance), CapWeight);
+						const float Ramp = Corridor.BankRamp > 0.f ? FMath::SmoothStep(0.f, 1.f, Past / Corridor.BankRamp) : 1.f;
+						const float Scale = Offset >= 0.f ? Corridor.BankScalePlus : Corridor.BankScaleMinus;
+						Column[Y] += Ramp * Scale * (FTerrainHeightField::SampleBase(Params, NoiseOffset, PX, PY, false) - RawCentre);
 					}
 				}
+				if (Corridor.BankEdgeSlopeDeg > 0.f)
+				{
+					LimitBankSlope(Corridor, Grid, HalfY, Column);
+				}
+			}
+
+			for (int32 Y = 0; Y < Grid.NumY; ++Y)
+			{
+				const float PY = -HalfY + Y * Grid.StepY;
+				const float Offset = PY - Corridor.CenterY;
+				float& H = Heights[Y * Grid.NumX + X];
+
+				if (!bFollow)
+				{
+					// BlendToRaw: unchanged from before banks existed, so existing presets keep their heights.
+					const float Weight = WeightX * FalloffWeight(FMath::Abs(Offset), Corridor.HalfWidth, Corridor.Falloff);
+					H = FMath::Lerp(H, Profile[X], Weight);
+					ApplySideCap(Corridor, Profile[X], Offset, CapDir, CapLength, WeightX, H);
+					if (bLandWidth)
+					{
+						ApplyLandWidth(Params, NoiseOffset, Corridor, Low, PX, PY, Offset, WeightX, H);
+					}
+					continue;
+				}
+
+				float Shaped = Column[Y];
+				ApplySideCap(Corridor, Profile[X], Offset, CapDir, CapLength, 1.f, Shaped);
+				if (bLandWidth)
+				{
+					ApplyLandWidth(Params, NoiseOffset, Corridor, Low, PX, PY, Offset, 1.f, Shaped);
+				}
+				H = FMath::Lerp(H, Shaped, WeightX);
 			}
 		}
 	}
