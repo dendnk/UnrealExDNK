@@ -34,8 +34,12 @@ public:
     UFUNCTION(BlueprintCallable, Category = Projectiles)
     virtual void OnProjectileHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 
+    // bDestroyedByOtherProjectile: true when this explosion was caused by another projectile
+    // destroying this one in flight (projectile-vs-projectile collision rules), as opposed to a
+    // ground/target hit, lifespan expiry, or the stuck failsafe. Lets a subclass (e.g. a rocket
+    // that scatters hazards on landing) tell an air-burst apart from a normal landing.
     UFUNCTION(BlueprintCallable, Category="Projectile")
-    virtual void ExplodeProjectile(const FHitResult& Hit, bool bSuppressFx = false);
+    virtual void ExplodeProjectile(const FHitResult& Hit, bool bSuppressFx = false, bool bDestroyedByOtherProjectile = false);
 
     // Silently removes the projectile with no explosion FX/sound/AoE damage. Used when a hit
     // shouldn't cause a reaction at all (e.g. the stuck failsafe below).
@@ -61,7 +65,7 @@ protected:
 
     virtual void ApplyAoEDamage(const FHitResult& Hit) {}
     virtual void CustomPlaySoundAtLocation(const UObject* WorldContextObject, USoundBase* Sound, FVector Location, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, float StartTime = 0.f, class USoundAttenuation* AttenuationSettings = nullptr, USoundConcurrency* ConcurrencySettings = nullptr, const UInitialActiveSoundParams* InitialParams = nullptr);
-    void HandleProjectileCollisionHit(AActor* HitActor, const FHitResult& Hit);
+    virtual void HandleProjectileCollisionHit(AActor* HitActor, const FHitResult& Hit);
 
 public:
     virtual void Tick(float DeltaTime) override;

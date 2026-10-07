@@ -4,6 +4,7 @@
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetTree.h"
 #include "GameFramework/ProjectileMovementComponent.h"
+#include "HAL/IConsoleManager.h"
 #include "Interfaces/IWeaponUserInterface.h"
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraFunctionLibrary.h"
@@ -75,6 +76,19 @@ void UWeaponComponentBase::StartFire_Implementation()
 	if (bBurstPauseActive)
 	{
 		return;
+	}
+
+	// Hard stop for Burst weapons: once a barrage is under way, a re-press (double-click,
+	// a held-then-re-pressed touch, etc.) must not restart it from shot 1 - only
+	// bBurstPauseActive (the post-barrage reload gap) was guarded before, so a click landing
+	// mid-burst would reset CurrentBurstCount and the BurstHandle timer, letting a barrage run
+	// forever. FullAuto/SemiAuto weapons never set BurstHandle, so this is a no-op for them.
+	if (UWorld* World = GetWorld())
+	{
+		if (World->GetTimerManager().IsTimerActive(BurstHandle))
+		{
+			return;
+		}
 	}
 
 	if (!CanOwnerFireWeapon())
@@ -156,21 +170,58 @@ void UWeaponComponentBase::Fire()
 	}
 }
 
+namespace
+{
+	// Dev testing only: forces every weapon's inter-burst pause to 0 so barrage cycles can be
+	// tested back-to-back without waiting out BurstPauseDuration. Shot spacing (CooldownTime) is
+	// untouched. Affects enemy weapons too if any have a burst pause configured - acceptable for a
+	// dev-only toggle, see specs/done-rocket-reload-system plan.md Risks.
+	static TAutoConsoleVariable<bool> CVarIgnoreReloadTime(
+		TEXT("heli.IgnoreReloadTime"),
+		false,
+		TEXT("Dev testing: if true, BurstPauseDuration is treated as 0 for all weapons."),
+		ECVF_Default);
+}
+
 void UWeaponComponentBase::HandleBurstFire()
 {
-	if (++CurrentBurstCount <= WeaponDataRuntime->BurstCount)
-	{
-		Fire();
-	}
-	else
+	++CurrentBurstCount;
+	Fire();
+
+	// Detect completion the instant the last shot of the barrage is fired, rather than on a
+	// follow-up "overshoot" tick (CurrentBurstCount > BurstCount). The old overshoot check relied
+	// on BurstHandle ticking one extra time after the last shot to notice the barrage was done,
+	// which only happens automatically while the button is held continuously. On a release/re-press
+	// cadence (UPlayerRocketLauncherComponent's resume path, REQ-12), the caller has no reason to
+	// re-arm BurstHandle once CurrentBurstCount reaches BurstCount, so that extra tick never
+	// happened, completion was never detected, bBurstPauseActive never got set, and the next press
+	// fell through to a fresh Burst-mode StartFire that silently reset CurrentBurstCount = 1 -
+	// letting the player keep clicking indefinitely without ever hitting a reload.
+	if (CurrentBurstCount >= WeaponDataRuntime->BurstCount)
 	{
 		GetWorld()->GetTimerManager().ClearTimer(BurstHandle);
 
-		if (IsValid(WeaponDataRuntime) && WeaponDataRuntime->BurstPauseDuration > 0.f)
+		// Marks "no barrage in progress" so a later StartFire_Implementation() (base or
+		// UPlayerRocketLauncherComponent's override) treats the next press as a fresh
+		// barrage rather than a resume - see specs/done-rocket-reload-system REQ-12.
+		// Harmless for every existing caller: a fresh Burst-mode StartFire already
+		// unconditionally sets CurrentBurstCount = 1, and nothing else reads this value
+		// while a burst isn't actively firing.
+		CurrentBurstCount = 0;
+
+		const float EffectiveBurstPauseDuration = CVarIgnoreReloadTime.GetValueOnGameThread()
+			? 0.f
+			: (IsValid(WeaponDataRuntime) ? WeaponDataRuntime->BurstPauseDuration : 0.f);
+
+		if (EffectiveBurstPauseDuration > 0.f)
 		{
 			bBurstPauseActive = true;
+			// Lets an AI/component owner know this burst is done and a pause has started, so it can
+			// decide whether to call StartFire() again once BurstPauseDuration elapses. The component
+			// itself never loops bursts on its own - see specs/done-soldier-burst-fire-tuning REQ-5.
+			OnFireStopped.Broadcast();
 			GetWorld()->GetTimerManager().SetTimer(BurstPauseHandle, this, &ThisClass::HandleBurstPauseFinished,
-			                                       WeaponDataRuntime->BurstPauseDuration, false);
+			                                       EffectiveBurstPauseDuration, false);
 		}
 	}
 }
@@ -178,6 +229,22 @@ void UWeaponComponentBase::HandleBurstFire()
 void UWeaponComponentBase::HandleBurstPauseFinished()
 {
 	bBurstPauseActive = false;
+}
+
+float UWeaponComponentBase::GetBurstPauseDuration() const
+{
+	return IsValid(WeaponDataRuntime) ? WeaponDataRuntime->BurstPauseDuration : 0.f;
+}
+
+float UWeaponComponentBase::GetBurstPauseRemaining() const
+{
+	if (!bBurstPauseActive)
+	{
+		return 0.f;
+	}
+
+	UWorld* const World = GetWorld();
+	return IsValid(World) ? World->GetTimerManager().GetTimerRemaining(BurstPauseHandle) : 0.f;
 }
 
 FVector UWeaponComponentBase::ApplyProjectileSpread(const FVector& BaseDirection) const

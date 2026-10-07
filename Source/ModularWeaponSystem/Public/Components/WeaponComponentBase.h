@@ -42,7 +42,7 @@ protected:
     virtual void AdjustProjectileSpawnTransform(FVector& InOutSpawnLocation, FVector& InOutShotDirection) const {}
     virtual bool HandleProjectileCollisionHit(const FHitResult& Hit);
     bool CanOwnerFireWeapon() const;
-    FTransform GetShotMuzzleTransform() const;
+    virtual FTransform GetShotMuzzleTransform() const;
     void BroadcastWeaponShotFired(const FTransform& MuzzleTransform);
     void BroadcastWeaponHitscanHit(const FHitResult& Hit);
     void BroadcastWeaponHitscanMiss(const FVector& TraceStart, const FVector& TraceEnd);
@@ -91,6 +91,17 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "Weapon|Data")
     void SetCurrentMagazineAmmo(const int32 NewCurrentMagazineAmmo);
+
+    // Reload-progress state for UI (e.g. a shade/countdown on the fire button), driven by the
+    // inter-burst pause (BurstPauseDuration), not the separate Reload()/bIsReloading system.
+    UFUNCTION(BlueprintPure, Category = "Weapon|Fire")
+    bool IsBurstPauseActive() const { return bBurstPauseActive; }
+
+    UFUNCTION(BlueprintPure, Category = "Weapon|Fire")
+    float GetBurstPauseDuration() const;
+
+    UFUNCTION(BlueprintPure, Category = "Weapon|Fire")
+    float GetBurstPauseRemaining() const;
 
     UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Weapon|Data")
     FTransform GetMuzzleTransform() const;
@@ -162,7 +173,7 @@ protected:
     bool bBurstPauseActive = false;
 
     UFUNCTION()
-    void HandleBurstPauseFinished();
+    virtual void HandleBurstPauseFinished();
 
     // Base spread direction helper shared by both FireProjectile() implementations
     // (UWeaponComponentBase's own and RocketLauncherComponent's full override).

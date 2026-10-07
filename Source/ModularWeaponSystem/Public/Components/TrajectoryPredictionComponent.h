@@ -22,6 +22,13 @@ class MODULARWEAPONSYSTEM_API UTrajectoryPredictionComponent
     UTrajectoryPredictionComponent();
     virtual void BeginPlay() override;
     virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+
+    // Finds the sibling projectile weapon and sets up DotInstances. Deferred to the first tick
+    // (rather than run from BeginPlay) because sibling UActorComponent::BeginPlay() order on the
+    // same actor is unspecified - WeaponComponentBase's WeaponDataRuntime is only populated in its
+    // own BeginPlay, so looking it up from here in BeginPlay can race. By the first tick every
+    // component's BeginPlay has already run. Runs at most once - see bInitializationAttempted.
+    void EnsureInitialized();
     void PredictAndDrawTrajectory(const FVector& StartLocation, const FVector& LaunchVelocity);
 
 public:
@@ -68,6 +75,7 @@ private:
     TObjectPtr<UInstancedStaticMeshComponent> DotInstances;
     TWeakObjectPtr<UWeaponComponentBase> Weapon;
     TWeakObjectPtr<USceneComponent> WeaponParentComponent;
+    bool bInitializationAttempted = false;
 
     FName DotInstancesName = FName(TEXT("TrajectoryDotInstances"));
 };

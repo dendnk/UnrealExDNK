@@ -106,7 +106,7 @@ void AProjectileBase::OnProjectileHit(UPrimitiveComponent* HitComponent, AActor*
     HandleProjectileCollisionHit(OtherActor, Hit);
 }
 
-void AProjectileBase::ExplodeProjectile(const FHitResult& Hit, bool bSuppressFx)
+void AProjectileBase::ExplodeProjectile(const FHitResult& Hit, bool bSuppressFx, bool bDestroyedByOtherProjectile)
 {
     if (bIsAlreadyExploded)
     {
@@ -164,12 +164,12 @@ void AProjectileBase::HandleProjectileCollisionHit(AActor* HitActor, const FHitR
     case EProjectileCollisionRuleResult::DestroyProjectile:
         if (AProjectileBase* HitProjectile = Evaluation.HitProjectile.Get())
         {
-            HitProjectile->ExplodeProjectile(Hit);
+            HitProjectile->ExplodeProjectile(Hit, /*bSuppressFx=*/false, /*bDestroyedByOtherProjectile=*/true);
         }
 
         if (Config.CollisionRuleConfig.bConsumeSelfOnProjectileCollision)
         {
-            ExplodeProjectile(Hit);
+            ExplodeProjectile(Hit, /*bSuppressFx=*/false, /*bDestroyedByOtherProjectile=*/true);
         }
         return;
     }
