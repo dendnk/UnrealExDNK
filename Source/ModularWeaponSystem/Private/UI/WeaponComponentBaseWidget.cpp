@@ -35,7 +35,6 @@ void UWeaponComponentBaseWidget::SetViewModel(UWeaponViewModel* InViewModel)
 {
 	if (IsValid(InViewModel) == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "InViewModel is invalid!");
 		return;
 	}
 
@@ -49,7 +48,6 @@ void UWeaponComponentBaseWidget::UpdateUIFromViewModel()
 {
 	if (ViewModel.IsValid() == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "ViewModel is invalid!");
 		return;
 	}
 
@@ -89,10 +87,6 @@ void UWeaponComponentBaseWidget::UpdateUIFromViewModel()
 					InputWidget = BoundCheckBox;
 				}
 			}
-			else
-			{
-				UE_DNK_LOG(LogTemp, Error, "BoundCheckBoxClass is INVALID!");
-			}
 		}
 		else if (FIntProperty* IntProperty = CastField<FIntProperty>(Property))
 		{
@@ -109,10 +103,6 @@ void UWeaponComponentBaseWidget::UpdateUIFromViewModel()
 					BoundTextBox->TextBox->SetText(FText::AsNumber(Value));
 					InputWidget = BoundTextBox;
 				}
-			}
-			else
-			{
-				UE_DNK_LOG(LogTemp, Error, "BoundEditableTextBoxClass is INVALID!");
 			}
 		}
 		else if (FFloatProperty* FloatProperty = CastField<FFloatProperty>(Property))
@@ -168,10 +158,6 @@ void UWeaponComponentBaseWidget::UpdateUIFromViewModel()
 					InputWidget = BoundComboBoxWidget;
 				}
 			}
-			else
-			{
-				UE_DNK_LOG(LogTemp, Error, "BoundComboBoxClass is INVALID!");
-			}
 		}
 		else if (FClassProperty* ClassProperty = CastField<FClassProperty>(Property))
 		{
@@ -202,15 +188,7 @@ void UWeaponComponentBaseWidget::UpdateUIFromViewModel()
 
 						InputWidget = BoundComboBoxWidget;
 					}
-					else
-					{
-						UE_DNK_LOG(LogTemp, Error, "Can't convert property [%s] value to UClass", *PropertyName.ToString());
-					}
 				}
-			}
-			else
-			{
-				UE_DNK_LOG(LogTemp, Error, "BoundComboBoxClass is INVALID!");
 			}
 		}
 
@@ -232,7 +210,6 @@ void UWeaponComponentBaseWidget::UpdateViewModelFromUI()
 {
 	if (ViewModel.IsValid() == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "ViewModel is invalid!");
 		return;
 	}
 
@@ -251,8 +228,6 @@ void UWeaponComponentBaseWidget::UpdateViewModelFromUI()
 				{
 					bool bIsChecked = CheckBox->CheckBox->IsChecked();
 
-					UE_DNK_LOG(LogTemp, Log, "Set [%s] value to [%s]", *PropertyName.ToString(), bIsChecked ? TEXT("True") : TEXT("False"));
-
 					BoolProperty->SetPropertyValue(ValuePtr, bIsChecked);
 				}
 			}
@@ -263,8 +238,6 @@ void UWeaponComponentBaseWidget::UpdateViewModelFromUI()
 					FString SelectedItem = ComboBox->ComboBox->GetSelectedOption();
 					UEnum* Enum = EnumProperty->GetEnum();
 					int64 EnumValue = Enum->GetValueByNameString(SelectedItem);
-
-					UE_DNK_LOG(LogTemp, Log, "Set [%s] value to [%s]", *PropertyName.ToString(), *SelectedItem);
 
 					if (Enum->IsValidEnumValue(EnumValue))
 					{
@@ -283,8 +256,6 @@ void UWeaponComponentBaseWidget::UpdateViewModelFromUI()
 
 					int32 Value = FCString::Atoi(*TextStr);
 
-					UE_DNK_LOG(LogTemp, Log, "Set [%s] value to [%d]", *PropertyName.ToString(), Value);
-
 					IntProperty->SetPropertyValue(ValuePtr, Value);
 				}
 			}
@@ -298,8 +269,6 @@ void UWeaponComponentBaseWidget::UpdateViewModelFromUI()
 					TextStr.ReplaceInline(TEXT(" "), TEXT(""));
 
 					const float Value = FCString::Atof(*TextStr);
-
-					UE_DNK_LOG(LogTemp, Log, "Set [%s] value to [%f]", *PropertyName.ToString(), Value);
 
 					FloatProperty->SetPropertyValue(ValuePtr, Value);
 				}
@@ -319,14 +288,12 @@ void UWeaponComponentBaseWidget::OnEnumSelectionChanged(FName PropertyName, cons
 {
 	if (ViewModel.IsValid() == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "ViewModel is invalid!");
 		return;
 	}
 
 	FProperty* Property = ViewModel->GetClass()->FindPropertyByName(PropertyName);
 	if (!Property)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Property %s not found on ViewModel!", *PropertyName.ToString());
 		return;
 	}
 
@@ -349,14 +316,12 @@ void UWeaponComponentBaseWidget::OnCheckStateChanged(FName PropertyName, bool bI
 {
 	if (ViewModel.IsValid() == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "ViewModel is invalid!");
 		return;
 	}
 
 	FProperty* Property = ViewModel->GetClass()->FindPropertyByName(PropertyName);
 	if (!Property)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Property %s not found on ViewModel!", *PropertyName.ToString());
 		return;
 	}
 
@@ -374,14 +339,12 @@ void UWeaponComponentBaseWidget::OnTextCommitted(FName PropertyName, const FText
 {
 	if (!ViewModel.IsValid())
 	{
-		UE_DNK_LOG(LogTemp, Error, "ViewModel is invalid!");
 		return;
 	}
 
 	FProperty* Property = ViewModel->GetClass()->FindPropertyByName(PropertyName);
 	if (!Property)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Property %s not found on ViewModel!", *PropertyName.ToString());
 		return;
 	}
 
@@ -400,7 +363,6 @@ void UWeaponComponentBaseWidget::OnTextCommitted(FName PropertyName, const FText
 	}
 	else
 	{
-		UE_DNK_LOG(LogTemp, Warning, "Property %s is not int or float", *PropertyName.ToString());
 		return;
 	}
 

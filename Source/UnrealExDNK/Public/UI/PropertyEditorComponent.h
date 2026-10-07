@@ -23,7 +23,6 @@ struct FPropertyInfo
 
     void Log() const
     {
-        UE_LOG(LogTemp, Log, TEXT("%s (%s): %s"), *Name, *Type, *Value);
     }
 };
 

@@ -207,9 +207,6 @@ void AProjectileBase::CheckForStuckProjectile()
 
     if (FVector::DistSquared(CurrentLocation, LastStuckCheckLocation) <= FMath::Square(StationaryDistanceThreshold))
     {
-        UE_LOG(LogProjectile, Warning, TEXT("%s stuck at %s with no explosion reaction after %.2fs; forcing explosion via stuck failsafe."),
-            *GetName(), *CurrentLocation.ToString(), Config.StuckFailsafeSeconds);
-
         FHitResult Hit;
         Hit.Location = CurrentLocation;
         Hit.ImpactPoint = CurrentLocation;

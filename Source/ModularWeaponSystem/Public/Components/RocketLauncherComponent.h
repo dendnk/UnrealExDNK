@@ -20,9 +20,6 @@ public:
     URocketLauncherComponent();
     virtual AActor* GetNearestTarget_Implementation() override;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Homing Projectiles")
-    int32 MaxActiveHomingProjectiles = 1;
-
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Homing Projectiles")
     TArray<FVector> HomingTargetsLocation;
 

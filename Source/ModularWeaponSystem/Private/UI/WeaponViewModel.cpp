@@ -10,7 +10,6 @@ void UWeaponViewModel::InitializeFromWeapon(UWeaponComponentBase* InWeapon)
 {
 	if (IsValid(InWeapon) == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Invalid Weapon!");
 		return;
 	}
 
@@ -23,7 +22,6 @@ void UWeaponViewModel::ApplyToCurrentWeapon()
 {
 	if (Weapon.IsValid() == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Invalid Weapon!");
 		return;
 	}
 
@@ -39,7 +37,6 @@ void UWeaponViewModel::InitializeFromWeaponDataAsset(UWeaponDataAsset* DataAsset
 {
 	if (IsValid(DataAsset) == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Invalid DataAsset!");
 		return;
 	}
 
@@ -66,7 +63,6 @@ void UWeaponViewModel::ApplyToWeaponDataAsset(UWeaponDataAsset* DataAsset)
 {
 	if (IsValid(DataAsset) == false)
 	{
-		UE_DNK_LOG(LogTemp, Error, "Invalid DataAsset!");
 		return;
 	}
 
