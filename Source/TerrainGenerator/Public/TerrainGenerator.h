@@ -86,6 +86,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Shape", meta = (ClampMin = "0.1"))
 	float Flatness = 1.6f;
 
+	/** Share of ridged noise on the high ground: ridges and peaks instead of round hills (0 = off). Corridor profiles ignore it. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Shape", meta = (ClampMin = "0", ClampMax = "1"))
+	float RidgeWeight = 0.f;
+
+	/** Normalised noise height (0..1) where the ridges start to blend in. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Shape", meta = (ClampMin = "0", ClampMax = "1"))
+	float RidgeStart = 0.35f;
+
 	/** Shaped strips (e.g. the gameplay lane), applied in order after the island mask. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Shape")
 	TArray<FTerrainCorridor> Corridors;
@@ -126,6 +134,36 @@ public:
 	/** World size of one ground texture tile, cm. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Rendering", meta = (ClampMin = "1"))
 	float UVTileSize = 2000.f;
+
+	/**
+	 * Baked occlusion into vertex colour B (0 open .. 1 dark), for the ground material to darken valleys and slope bottoms:
+	 * each vertex is compared with the mean ground on rings at this radius and half of it, cm. 0 = off.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Rendering", meta = (ClampMin = "0"))
+	float OcclusionRadius = 3000.f;
+
+	/** How far below that mean the ground must lie for full occlusion, cm. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Rendering", meta = (ClampMin = "1"))
+	float OcclusionDepth = 600.f;
+
+	/** Strength of the soft dark patch decorations leave on the ground (vertex colour B), 0..1. 0 = off. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Rendering", meta = (ClampMin = "0", ClampMax = "1"))
+	float ContactDarkening = 0.6f;
+
+	/** Contact patch radius as a multiple of the decoration's scaled horizontal reach. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Rendering", meta = (ClampMin = "0"))
+	float ContactRadiusScale = 1.3f;
+
+	/**
+	 * Index into Corridors whose centre line is painted as a path (a track or road) into vertex colour A, as 1 - mask:
+	 * A = 1 is no path. -1 = off.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Rendering", meta = (ClampMin = "-1"))
+	int32 PathCorridorIndex = -1;
+
+	/** Half-width of the painted path, cm: the mask falls linearly from 1 on the centre line to 0 here. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Rendering", meta = (ClampMin = "1"))
+	float PathHalfWidth = 600.f;
 
 
 	/** Decorations to scatter beside the decoration corridor. None = no decorations. */
@@ -208,6 +246,9 @@ private:
 	void BuildGroundMesh();
 	void UpdateWater();
 	void ClearDecorations();
+
+	/** Vertex colour B of the ground: baked occlusion plus a contact patch under every current decoration instance. */
+	void UpdateGroundDarkness();
 
 	/** Ground height above water and normal at a local XY point, from the saved heights. */
 	float LocalHeightAboveWater(const FVector2D& LocalXY) const;

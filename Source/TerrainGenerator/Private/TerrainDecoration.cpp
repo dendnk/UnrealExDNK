@@ -60,6 +60,25 @@ namespace
 
 	// A band this dense would hang the editor; it's a data mistake, not a layout.
 	constexpr int64 MaxSamplesPerBand = 1000000;
+
+	/** Lowest and highest ground under a footprint circle: its centre plus rings at a quarter, half, three quarters and the rim. */
+	void FootprintHeights(const FTerrainDecorationGround& Ground, const FVector2D& Centre, float Radius, float& OutLow, float& OutHigh)
+	{
+		constexpr int32 Rings = 4;
+		constexpr int32 PointsPerRing = 16;
+		OutLow = OutHigh = Ground.HeightAboveWater(Centre);
+		for (int32 Ring = 1; Ring <= Rings; ++Ring)
+		{
+			const float R = Radius * Ring / Rings;
+			for (int32 Point = 0; Point < PointsPerRing; ++Point)
+			{
+				const float Angle = 2.f * PI * (Point + 0.5f * (Ring & 1)) / PointsPerRing;
+				const float H = Ground.HeightAboveWater(Centre + R * FVector2D(FMath::Cos(Angle), FMath::Sin(Angle)));
+				OutLow = FMath::Min(OutLow, H);
+				OutHigh = FMath::Max(OutHigh, H);
+			}
+		}
+	}
 }
 
 float FTerrainDecorationScatter::CellSizeForDensity(float DensityPerHectare)
@@ -174,11 +193,13 @@ void FTerrainDecorationScatter::Scatter(const UTerrainDecorationSet& Set, TConst
 
 				// Bounds, not pivot: a wide canopy must not reach toward the lane.
 				const float Radius = Info.RadiusXY * Scale;
-				if (Distance - Radius < Set.MinLaneDistance)
+				// The sampled distance is the bounds' centre, or with bPlaceByInnerEdge their edge toward the corridor.
+				const float CentreDistance = Band.bPlaceByInnerEdge ? Distance + Radius : Distance;
+				if (CentreDistance - Radius < Set.MinLaneDistance)
 				{
 					continue;
 				}
-				if ((Band.bContainInnerEdge && Distance - Radius < MinDistance) || (Band.bContainOuterEdge && Distance + Radius > MaxDistance))
+				if ((Band.bContainInnerEdge && CentreDistance - Radius < MinDistance) || (Band.bContainOuterEdge && CentreDistance + Radius > MaxDistance))
 				{
 					continue;
 				}
@@ -187,8 +208,16 @@ void FTerrainDecorationScatter::Scatter(const UTerrainDecorationSet& Set, TConst
 					continue;
 				}
 
-				const FVector2D P(X, Lane.CenterY + Side * Distance);
-				const float Height = Ground.HeightAboveWater(P);
+				const FVector2D P(X, Lane.CenterY + Side * CentreDistance);
+				// Grounded footprints are checked by their highest ground (some of it on land) and stand on their lowest.
+				float Height = Ground.HeightAboveWater(P);
+				float BaseHeight = Height;
+				if (Entry.bGroundFootprint)
+				{
+					float Low = 0.f;
+					FootprintHeights(Ground, P, Radius, Low, Height);
+					BaseHeight = Ground.bHasWater ? FMath::Max(Low, 0.f) : Low;
+				}
 				const float MinHeight = Ground.bHasWater ? FMath::Max(0.f, Entry.HeightAboveWater.X) : Entry.HeightAboveWater.X;
 				if (Height < MinHeight || Height > Entry.HeightAboveWater.Y)
 				{
@@ -196,7 +225,7 @@ void FTerrainDecorationScatter::Scatter(const UTerrainDecorationSet& Set, TConst
 				}
 
 				const FVector Normal = Ground.Normal(P);
-				if (Normal.Z < FMath::Cos(FMath::DegreesToRadians(Entry.MaxSlopeDeg)))
+				if (!Entry.bGroundFootprint && Normal.Z < FMath::Cos(FMath::DegreesToRadians(Entry.MaxSlopeDeg)))
 				{
 					continue;
 				}
@@ -211,7 +240,7 @@ void FTerrainDecorationScatter::Scatter(const UTerrainDecorationSet& Set, TConst
 				const FQuat Yaw(Up, Entry.bRandomYaw ? FMath::DegreesToRadians(YawAlpha * 360.f) : 0.f);
 				// The mesh's bounds centre lands on the sample; the pivot goes wherever that puts it.
 				const FVector CenterOffset = (Tilt * Yaw).RotateVector(FVector(Info.CenterXY * Scale, 0.f));
-				const FVector Location = FVector(P, Ground.WaterZ + Height) - CenterOffset - Tilt.RotateVector(Up) * Entry.SinkDepth;
+				const FVector Location = FVector(P, Ground.WaterZ + BaseHeight) - CenterOffset - Tilt.RotateVector(Up) * Entry.SinkDepth;
 
 				OutPerEntry[EntryIndex].Add(FTransform(Tilt * Yaw, Location, FVector(Scale)));
 			}

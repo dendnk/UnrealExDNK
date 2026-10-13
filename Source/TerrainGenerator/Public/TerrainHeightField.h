@@ -20,6 +20,11 @@ struct TERRAINGENERATOR_API FTerrainHeightParams
 	float Lacunarity = 2.f;
 	float Flatness = 1.6f;
 
+	/** Share of ridged noise mixed into the high ground, 0..1 (0 = plain fBm). Corridor profiles ignore it. */
+	float RidgeWeight = 0.f;
+	/** Normalised height (0..1, before Flatness) where the ridges start to blend in. */
+	float RidgeStart = 0.35f;
+
 	float ShoreWidth = 0.2f;
 	float SeaDepth = 1000.f;
 	float CoastlineNoise = 0.6f;
@@ -58,4 +63,22 @@ struct TERRAINGENERATOR_API FTerrainHeightField
 
 	/** Height before corridors. bApplyMask = false skips the island mask (Continent, or corridors overriding the shore). */
 	static float SampleBase(const FTerrainHeightParams& Params, const FVector2D& NoiseOffset, float X, float Y, bool bApplyMask);
+
+	/**
+	 * Baked ambient occlusion per vertex (same layout as Heights), 0 = open .. 1 = enclosed: how far each vertex lies below
+	 * the mean ground on two rings around it (Radius and Radius / 2, 8 samples each), relative to Depth.
+	 * Valleys and slope bottoms get > 0; flat ground, slopes and ridges 0. Radius or Depth <= 0 gives all zeros.
+	 */
+	static void ComputeOcclusion(const TArray<float>& Heights, const FTerrainGrid& Grid, float SizeX, float SizeY, float Radius, float Depth,
+		TArray<float>& OutOcclusion);
+
+	/**
+	 * Path mask of a corridor at a local XY point, 0..1: a linear tent across Y (1 on the centre line, 0 at HalfWidth),
+	 * faded out over the corridor's Falloff beyond StartX..EndX.
+	 */
+	static float PathWeight(const FTerrainCorridor& Corridor, float HalfWidth, float LocalX, float LocalY);
+
+	/** Darkens a soft round patch: InOutDarkness[v] = max(itself, Strength * (1 - d / Radius)^2) for vertices within Radius of Center. */
+	static void AddContactDarkening(const FTerrainGrid& Grid, float SizeX, float SizeY, const FVector2D& Center, float Radius, float Strength,
+		TArray<float>& InOutDarkness);
 };

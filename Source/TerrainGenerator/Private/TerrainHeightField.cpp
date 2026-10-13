@@ -105,6 +105,8 @@ namespace
 		const float EndX = FMath::Max(Corridor.StartX, Corridor.EndX);
 
 		FTerrainHeightParams ProfileParams = Params;
+		// The lane keeps its rolling profile (and its tested rules); ridges only shape the ground beside it.
+		ProfileParams.RidgeWeight = 0.f;
 		if (Corridor.ProfileNoiseScale > 0.f)
 		{
 			ProfileParams.NoiseScale = Corridor.ProfileNoiseScale;
@@ -177,8 +179,8 @@ namespace
 		}
 	}
 
-	/** Shore beyond the corridor's land edges: 0 on land, 1 at the seabed (bDefineLandWidth). */
-	float ShoreWeight(const FTerrainHeightParams& Params, const FVector2D& NoiseOffset, const FTerrainCorridor& Corridor, float PX, float PY, float Offset)
+	/** Position across the shore beyond the corridor's land edges: 0 on land, 1 at the seabed (bDefineLandWidth). */
+	float ShoreT(const FTerrainHeightParams& Params, const FVector2D& NoiseOffset, const FTerrainCorridor& Corridor, float PX, float PY, float Offset)
 	{
 		const float Land = Offset >= 0.f ? Corridor.LandPlusY : Corridor.LandMinusY;
 		const float Shore = FMath::Max(Offset >= 0.f ? Corridor.ShorePlusY : Corridor.ShoreMinusY, 1.f);
@@ -189,8 +191,31 @@ namespace
 		}
 		// Coastline noise only moves the drop within the shore, never into the land.
 		const float Coast = FMath::PerlinNoise2D(FVector2D(PX, PY) * (Params.NoiseScale * 3.f) - NoiseOffset) * 0.5f + 0.5f;
-		const float T = FMath::Clamp(Past / Shore * (1.f + Params.CoastlineNoise * Coast), 0.f, 1.f);
-		return FMath::SmoothStep(0.f, 1.f, T);
+		return FMath::Clamp(Past / Shore * (1.f + Params.CoastlineNoise * Coast), 0.f, 1.f);
+	}
+
+	/** Shore height at ShoreT T, from the land height Land: a smooth drop to the seabed, or descent + beach shelf + drop. */
+	float ShoreHeight(const FTerrainHeightParams& Params, const FTerrainCorridor& Corridor, float Offset, float T, float Land)
+	{
+		const float Seabed = Params.WaterLevel - Params.SeaDepth;
+		const float Shore = FMath::Max(Offset >= 0.f ? Corridor.ShorePlusY : Corridor.ShoreMinusY, 1.f);
+		const float Beach = FMath::Clamp((Offset >= 0.f ? Corridor.BeachWidthPlusY : Corridor.BeachWidthMinusY) / Shore, 0.f, 0.9f);
+		if (Beach <= 0.f)
+		{
+			return FMath::Lerp(Land, Seabed, FMath::SmoothStep(0.f, 1.f, T));
+		}
+		const float BeachZ = Params.WaterLevel + Corridor.BeachHeight;
+		const float DescentEnd = 1.f - Beach;
+		if (T < DescentEnd)
+		{
+			return FMath::Lerp(Land, BeachZ, FMath::SmoothStep(0.f, 1.f, T / DescentEnd));
+		}
+		// The shelf: 70 % a gentle slope down to the waterline, then the drop to the seabed.
+		constexpr float ShelfShare = 0.7f;
+		const float U = (T - DescentEnd) / Beach;
+		return U < ShelfShare
+			? FMath::Lerp(BeachZ, Params.WaterLevel, U / ShelfShare)
+			: FMath::Lerp(Params.WaterLevel, Seabed, FMath::SmoothStep(0.f, 1.f, (U - ShelfShare) / (1.f - ShelfShare)));
 	}
 
 	/** One-sided height cap: at or below Profile + CapClearance on the capped side, blended in by Weight. */
@@ -212,8 +237,7 @@ namespace
 	void ApplyLandWidth(const FTerrainHeightParams& Params, const FVector2D& NoiseOffset, const FTerrainCorridor& Corridor, float Low,
 		float PX, float PY, float Offset, float Weight, float& H)
 	{
-		float Shaped = FMath::Max(H, Low);
-		Shaped = FMath::Lerp(Shaped, Params.WaterLevel - Params.SeaDepth, ShoreWeight(Params, NoiseOffset, Corridor, PX, PY, Offset));
+		const float Shaped = ShoreHeight(Params, Corridor, Offset, ShoreT(Params, NoiseOffset, Corridor, PX, PY, Offset), FMath::Max(H, Low));
 		H = FMath::Lerp(H, Shaped, Weight);
 	}
 
@@ -329,15 +353,32 @@ float FTerrainHeightField::SampleBase(const FTerrainHeightParams& Params, const 
 	float Frequency = Params.NoiseScale;
 	float Sum = 0.f;
 	float Norm = 0.f;
+	// Ridged fBm from the same octaves: (1 - |noise|)^2, each octave weighted by the one before, so detail gathers on ridges.
+	float RidgeSum = 0.f;
+	float RidgePrev = 1.f;
+	const bool bRidges = Params.RidgeWeight > 0.f;
 	for (int32 Octave = 0; Octave < Params.Octaves; ++Octave)
 	{
-		Sum += Amplitude * FMath::PerlinNoise2D(FVector2D(X, Y) * Frequency + NoiseOffset);
+		const float Noise = FMath::PerlinNoise2D(FVector2D(X, Y) * Frequency + NoiseOffset);
+		Sum += Amplitude * Noise;
+		if (bRidges)
+		{
+			const float Ridge = FMath::Square(1.f - FMath::Abs(Noise)) * RidgePrev;
+			RidgeSum += Amplitude * Ridge;
+			RidgePrev = FMath::Clamp(Ridge * 2.f, 0.f, 1.f);
+		}
 		Norm += Amplitude;
 		Amplitude *= Params.Persistence;
 		Frequency *= Params.Lacunarity;
 	}
 	// Perlin output rarely reaches +-1, so stretch it a bit before mapping to [0,1].
 	float H = FMath::Clamp((Sum / Norm) * 0.7f + 0.5f, 0.f, 1.f);
+	if (bRidges)
+	{
+		// Ridges and peaks on the high ground only; the low ground stays rolling.
+		const float Blend = FMath::Clamp(Params.RidgeWeight, 0.f, 1.f) * FMath::SmoothStep(Params.RidgeStart, 1.f, H);
+		H = FMath::Lerp(H, FMath::Clamp(RidgeSum / Norm, 0.f, 1.f), Blend);
+	}
 	H = FMath::Pow(H, Params.Flatness);
 
 	// Inland ground never goes below WaterLevel + MinLandHeight (negative = shallow ponds / dry valleys).
@@ -387,6 +428,84 @@ void FTerrainHeightField::Build(const FTerrainHeightParams& Params, const FTerra
 	for (const FTerrainCorridor& Corridor : Params.Corridors)
 	{
 		ApplyCorridor(Params, NoiseOffset, Grid, Corridor, OutHeights);
+	}
+}
+
+void FTerrainHeightField::ComputeOcclusion(const TArray<float>& Heights, const FTerrainGrid& Grid, float SizeX, float SizeY, float Radius, float Depth,
+	TArray<float>& OutOcclusion)
+{
+	OutOcclusion.Init(0.f, Heights.Num());
+	if (Radius <= 0.f || Depth <= 0.f || Grid.NumX < 2 || Grid.NumY < 2 || Heights.Num() != Grid.NumX * Grid.NumY)
+	{
+		return;
+	}
+
+	constexpr int32 NumDirections = 8;
+	FVector2D Offsets[NumDirections * 2];
+	for (int32 Dir = 0; Dir < NumDirections; ++Dir)
+	{
+		const float Angle = 2.f * PI * Dir / NumDirections;
+		const FVector2D Unit(FMath::Cos(Angle), FMath::Sin(Angle));
+		Offsets[Dir * 2] = Unit * Radius;
+		Offsets[Dir * 2 + 1] = Unit * (Radius * 0.5f);
+	}
+
+	const float HalfX = SizeX * 0.5f;
+	const float HalfY = SizeY * 0.5f;
+	for (int32 Y = 0; Y < Grid.NumY; ++Y)
+	{
+		for (int32 X = 0; X < Grid.NumX; ++X)
+		{
+			const FVector2D P(-HalfX + X * Grid.StepX, -HalfY + Y * Grid.StepY);
+			float Sum = 0.f;
+			// Samples past the edge clamp to it (SampleGrid), so borders read as open, never as enclosed.
+			for (const FVector2D& Offset : Offsets)
+			{
+				Sum += SampleGrid(Heights, Grid, SizeX, SizeY, P.X + Offset.X, P.Y + Offset.Y);
+			}
+			const int32 Index = Y * Grid.NumX + X;
+			OutOcclusion[Index] = FMath::Clamp((Sum / UE_ARRAY_COUNT(Offsets) - Heights[Index]) / Depth, 0.f, 1.f);
+		}
+	}
+}
+
+float FTerrainHeightField::PathWeight(const FTerrainCorridor& Corridor, float HalfWidth, float LocalX, float LocalY)
+{
+	if (HalfWidth <= 0.f)
+	{
+		return 0.f;
+	}
+	const float StartX = FMath::Min(Corridor.StartX, Corridor.EndX);
+	const float EndX = FMath::Max(Corridor.StartX, Corridor.EndX);
+	const float WeightX = FalloffWeight(FMath::Max3(StartX - LocalX, LocalX - EndX, 0.f), 0.f, Corridor.Falloff);
+	return WeightX * FMath::Clamp(1.f - FMath::Abs(LocalY - Corridor.CenterY) / HalfWidth, 0.f, 1.f);
+}
+
+void FTerrainHeightField::AddContactDarkening(const FTerrainGrid& Grid, float SizeX, float SizeY, const FVector2D& Center, float Radius, float Strength,
+	TArray<float>& InOutDarkness)
+{
+	if (Radius <= 0.f || Strength <= 0.f || Grid.NumX < 2 || Grid.NumY < 2 || InOutDarkness.Num() != Grid.NumX * Grid.NumY)
+	{
+		return;
+	}
+
+	const float HalfX = SizeX * 0.5f;
+	const float HalfY = SizeY * 0.5f;
+	const int32 X0 = FMath::Clamp(FMath::FloorToInt((Center.X - Radius + HalfX) / Grid.StepX), 0, Grid.NumX - 1);
+	const int32 X1 = FMath::Clamp(FMath::CeilToInt((Center.X + Radius + HalfX) / Grid.StepX), 0, Grid.NumX - 1);
+	const int32 Y0 = FMath::Clamp(FMath::FloorToInt((Center.Y - Radius + HalfY) / Grid.StepY), 0, Grid.NumY - 1);
+	const int32 Y1 = FMath::Clamp(FMath::CeilToInt((Center.Y + Radius + HalfY) / Grid.StepY), 0, Grid.NumY - 1);
+	for (int32 Y = Y0; Y <= Y1; ++Y)
+	{
+		for (int32 X = X0; X <= X1; ++X)
+		{
+			const float Dist = FVector2D::Distance(Center, FVector2D(-HalfX + X * Grid.StepX, -HalfY + Y * Grid.StepY));
+			if (Dist < Radius)
+			{
+				float& Darkness = InOutDarkness[Y * Grid.NumX + X];
+				Darkness = FMath::Max(Darkness, Strength * FMath::Square(1.f - Dist / Radius));
+			}
+		}
 	}
 }
 

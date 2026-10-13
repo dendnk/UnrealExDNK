@@ -134,6 +134,8 @@ FTerrainHeightParams ATerrainGenerator::MakeHeightParams() const
 	Params.Persistence = Persistence;
 	Params.Lacunarity = Lacunarity;
 	Params.Flatness = Flatness;
+	Params.RidgeWeight = RidgeWeight;
+	Params.RidgeStart = RidgeStart;
 	Params.ShoreWidth = ShoreWidth;
 	Params.SeaDepth = SeaDepth;
 	Params.CoastlineNoise = CoastlineNoise;
@@ -193,6 +195,7 @@ void ATerrainGenerator::BuildGroundMesh()
 	Triangles.Reserve((NumX - 1) * (NumY - 1) * 6);
 
 	auto H = [this](int32 X, int32 Y) { return Heights[Y * NumX + X]; };
+	const FTerrainCorridor* PathCorridor = Corridors.IsValidIndex(PathCorridorIndex) ? &Corridors[PathCorridorIndex] : nullptr;
 
 	for (int32 Y = 0; Y < NumY; ++Y)
 	{
@@ -213,8 +216,10 @@ void ATerrainGenerator::BuildGroundMesh()
 			Normals.Add(Normal);
 			UV0.Add(FVector2D(PX, PY) / UVTileSize);
 			// R = height above water [0..1], G = steepness [0..1]: blend sand/grass/rock in the material.
+			// B = darkness [0..1], filled in by UpdateGroundDarkness below. A = 1 - path mask (1 = no path).
 			const float HeightAlpha = MaxHeight > 0.f ? FMath::Clamp((PZ - WaterLevel) / MaxHeight, 0.f, 1.f) : 0.f;
-			Colors.Add(FLinearColor(HeightAlpha, 1.f - Normal.Z, 0.f, 1.f));
+			const float Path = PathCorridor ? FTerrainHeightField::PathWeight(*PathCorridor, PathHalfWidth, PX, PY) : 0.f;
+			Colors.Add(FLinearColor(HeightAlpha, 1.f - Normal.Z, 0.f, 1.f - Path));
 			Tangents.Add(FProcMeshTangent(FVector(1.f, 0.f, DHdX).GetSafeNormal(), false));
 		}
 	}
@@ -234,6 +239,8 @@ void ATerrainGenerator::BuildGroundMesh()
 	}
 
 	Ground->CreateMeshSection_LinearColor(0, Vertices, Triangles, Normals, UV0, Colors, Tangents, /*bCreateCollision*/ true);
+	// Keeps the contact patches of decorations that survive a ground rebuild (construction reruns).
+	UpdateGroundDarkness();
 	if (GroundMaterial)
 	{
 		Ground->SetMaterial(0, GroundMaterial);
@@ -273,11 +280,61 @@ void ATerrainGenerator::ClearDecorations()
 	DecorationComponents.Reset();
 }
 
+void ATerrainGenerator::UpdateGroundDarkness()
+{
+	FProcMeshSection* Section = Ground->GetProcMeshSection(0);
+	if (Section == nullptr || NumX < 2 || NumY < 2 || Heights.Num() != NumX * NumY || Section->ProcVertexBuffer.Num() != Heights.Num())
+	{
+		return;
+	}
+
+	const FTerrainGrid Grid{ NumX, NumY, StepX, StepY };
+	TArray<float> Darkness;
+	FTerrainHeightField::ComputeOcclusion(Heights, Grid, SizeX, SizeY, OcclusionRadius, OcclusionDepth, Darkness);
+	if (ContactDarkening > 0.f)
+	{
+		for (const UHierarchicalInstancedStaticMeshComponent* Component : DecorationComponents)
+		{
+			const UStaticMesh* Mesh = IsValid(Component) ? Component->GetStaticMesh() : nullptr;
+			if (Mesh == nullptr)
+			{
+				continue;
+			}
+			// Centred on the bounds centre, where the scatter put the sample. Unusable bounds get a 1 m reach.
+			const FBox Box = Mesh->GetBounds().GetBox();
+			const bool bUsable = Box.IsValid && !Box.ContainsNaN() && Box.GetExtent().GetMax() < 1.0e6 && !Box.GetExtent().IsNearlyZero();
+			const FVector CenterXY = bUsable ? FVector(Box.GetCenter().X, Box.GetCenter().Y, 0.f) : FVector::ZeroVector;
+			const float Reach = bUsable ? FVector2D(Box.GetExtent()).Size() : 100.f;
+			for (int32 Instance = 0; Instance < Component->GetInstanceCount(); ++Instance)
+			{
+				FTransform Transform;
+				Component->GetInstanceTransform(Instance, Transform, /*bWorldSpace*/ false);
+				FTerrainHeightField::AddContactDarkening(Grid, SizeX, SizeY, FVector2D(Transform.TransformPosition(CenterXY)),
+					Reach * Transform.GetScale3D().X * ContactRadiusScale, ContactDarkening, Darkness);
+			}
+		}
+	}
+
+	// Only B changes: positions, normals and collision stay as built.
+	for (int32 Index = 0; Index < Darkness.Num(); ++Index)
+	{
+		Section->ProcVertexBuffer[Index].Color.B = (uint8)FMath::RoundToInt(FMath::Clamp(Darkness[Index], 0.f, 1.f) * 255.f);
+	}
+	Ground->MarkRenderStateDirty();
+}
+
 void ATerrainGenerator::GenerateDecorations()
 {
 	ClearDecorations();
-	if (TerrainType == ETerrainType::WaterOnly || DecorationSet == nullptr || NumX < 2 || NumY < 2 || Heights.Num() != NumX * NumY)
+	if (TerrainType == ETerrainType::WaterOnly || NumX < 2 || NumY < 2 || Heights.Num() != NumX * NumY)
 	{
+		return;
+	}
+
+	if (DecorationSet == nullptr)
+	{
+		// The old decorations are gone, and so are their contact patches.
+		UpdateGroundDarkness();
 		return;
 	}
 
@@ -326,8 +383,8 @@ void ATerrainGenerator::GenerateDecorations()
 	TArray<TArray<FTransform>> PerEntry;
 	FTerrainDecorationScatter::Scatter(*DecorationSet, MeshInfo, Lane, GroundQuery, Stream, PerEntry);
 
-	// One HISM per mesh, shared by entries that use the same mesh.
-	TMap<UStaticMesh*, UHierarchicalInstancedStaticMeshComponent*> ByMesh;
+	// One HISM per mesh and material override, shared by entries that use the same pair.
+	TMap<TPair<UStaticMesh*, UMaterialInterface*>, UHierarchicalInstancedStaticMeshComponent*> ByMesh;
 	for (int32 Index = 0; Index < Entries.Num(); ++Index)
 	{
 		UStaticMesh* Mesh = Entries[Index].Mesh;
@@ -336,7 +393,8 @@ void ATerrainGenerator::GenerateDecorations()
 			continue;
 		}
 
-		UHierarchicalInstancedStaticMeshComponent*& Component = ByMesh.FindOrAdd(Mesh);
+		UMaterialInterface* Material = Entries[Index].Material;
+		UHierarchicalInstancedStaticMeshComponent*& Component = ByMesh.FindOrAdd(MakeTuple(Mesh, Material));
 		if (Component == nullptr)
 		{
 			const FName Name = MakeUniqueObjectName(this, UHierarchicalInstancedStaticMeshComponent::StaticClass(),
@@ -344,6 +402,13 @@ void ATerrainGenerator::GenerateDecorations()
 			Component = NewObject<UHierarchicalInstancedStaticMeshComponent>(this, Name, RF_Transactional);
 			Component->CreationMethod = EComponentCreationMethod::Instance;
 			Component->SetStaticMesh(Mesh);
+			if (Material != nullptr)
+			{
+				for (int32 Slot = 0; Slot < Mesh->GetStaticMaterials().Num(); ++Slot)
+				{
+					Component->SetMaterial(Slot, Material);
+				}
+			}
 			// Purely visual (REQ-16 in HeliAce): nothing hits, blocks or navigates on decorations.
 			Component->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 			Component->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -358,6 +423,8 @@ void ATerrainGenerator::GenerateDecorations()
 		}
 		Component->AddInstances(PerEntry[Index], /*bShouldReturnIndices*/ false, /*bWorldSpace*/ false);
 	}
+
+	UpdateGroundDarkness();
 }
 
 float ATerrainGenerator::LocalHeightAboveWater(const FVector2D& LocalXY) const

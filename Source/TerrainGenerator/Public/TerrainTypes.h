@@ -148,6 +148,21 @@ struct TERRAINGENERATOR_API FTerrainCorridor
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Corridor|Land Width", meta = (ClampMin = "1", EditCondition = "bDefineLandWidth"))
 	float ShoreMinusY = 4000.f;
 
+	/**
+	 * Beach at the outer end of the +Y shore, cm (0 = none): the shore first descends to BeachHeight, then a gentle shelf
+	 * runs down to the waterline before the drop to the seabed. Taken out of ShorePlusY, so the land edge doesn't move.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Corridor|Land Width", meta = (ClampMin = "0", EditCondition = "bDefineLandWidth"))
+	float BeachWidthPlusY = 0.f;
+
+	/** Beach at the outer end of the -Y shore, cm (0 = none). See BeachWidthPlusY. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Corridor|Land Width", meta = (ClampMin = "0", EditCondition = "bDefineLandWidth"))
+	float BeachWidthMinusY = 0.f;
+
+	/** Height of the beach's inner edge above the water level, cm. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Corridor|Land Width", meta = (ClampMin = "0", EditCondition = "bDefineLandWidth"))
+	float BeachHeight = 80.f;
+
 	/** The corridor profile ignores the island mask, so it stays dry through the shore band. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Corridor")
 	bool bOverrideShoreMask = true;

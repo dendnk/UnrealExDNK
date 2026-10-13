@@ -6,6 +6,7 @@
 #include "TerrainTypes.h"
 #include "TerrainDecoration.generated.h"
 
+class UMaterialInterface;
 class UStaticMesh;
 
 /** One kind of decoration. Always visual only: there is deliberately no collision option. */
@@ -47,6 +48,14 @@ struct TERRAINGENERATOR_API FTerrainDecorationEntry
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Decoration")
 	float SinkDepth = 20.f;
 
+	/**
+	 * Ground the whole footprint (e.g. mountains): the base goes to the lowest ground under the mesh's bounds, or to the
+	 * water level where they overhang the sea, so a wide mesh never hangs in the air. The height range then only needs
+	 * some of the footprint on land, and the slope limit is not checked.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Decoration")
+	bool bGroundFootprint = false;
+
 	/** Off by default for mobile. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Decoration|Rendering")
 	bool bCastShadow = false;
@@ -54,6 +63,10 @@ struct TERRAINGENERATOR_API FTerrainDecorationEntry
 	/** Instances fade out at this distance, cm. 0 = never culled. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Decoration|Rendering", meta = (ClampMin = "0"))
 	float CullDistance = 0.f;
+
+	/** Replaces every material slot of the mesh for this entry (e.g. a recoloured palette). None = the mesh's own materials. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Decoration|Rendering")
+	TObjectPtr<UMaterialInterface> Material;
 };
 
 /** A strip parallel to the lane, on the band side, MinDistance..MaxDistance from the lane centre line. */
@@ -92,6 +105,13 @@ struct TERRAINGENERATOR_API FTerrainDecorationBand
 	/** Reject instances whose bounds reach past MaxDistance (away from the corridor). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Band")
 	bool bContainOuterEdge = false;
+
+	/**
+	 * Place each instance by the edge of its bounds toward the corridor instead of by its centre: that edge lands
+	 * MinDistance..MaxDistance out and the rest of the mesh extends away from the corridor, however wide it is.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Band")
+	bool bPlaceByInnerEdge = false;
 };
 
 /** Seeded decoration layout along a terrain corridor, in bands on either side of it. */
