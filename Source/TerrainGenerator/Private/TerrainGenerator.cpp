@@ -5,6 +5,8 @@
 #include "Components/HierarchicalInstancedStaticMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/Texture2D.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
 #include "ProceduralMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
@@ -17,6 +19,47 @@ namespace
 	// Fine end of the grid (MakeGrid): column spacing, and the longest stretch past a land-width corridor's end it covers, cm.
 	constexpr float EndDetailCellSizeX = 250.f;
 	constexpr float MaxEndDetailLength = 20000.f;
+
+	// Shore mask (specs/*-water-surface-and-splash REQ-3): texels along the longer ground side, and the water depth, cm,
+	// that maps to mask 0. The water material reads it through the ShoreMask / ShoreMaskBounds / ShoreMaskDepthRange parameters.
+	constexpr int32 ShoreMaskMaxTexels = 512;
+	constexpr float ShoreMaskDepthRange = 1000.f;
+
+	/**
+	 * G8 mask over the ground rectangle: 1 - depth / ShoreMaskDepthRange, where depth is the water above the ground
+	 * (1 at the waterline and on land, 0 in deep water). The ground slopes into the sea, so depth stands in for the
+	 * distance to the shore. The outer texel ring is 0 so the clamped sampler reads deep water past the ground.
+	 */
+	UTexture2D* BakeShoreMask(const TArray<float>& Heights, const FTerrainGrid& Grid, float SizeX, float SizeY, float WaterLevel)
+	{
+		const float Texel = FMath::Max(SizeX, SizeY) / ShoreMaskMaxTexels;
+		const int32 Width = FMath::Clamp(FMath::CeilToInt(SizeX / Texel), 4, ShoreMaskMaxTexels);
+		const int32 Height = FMath::Clamp(FMath::CeilToInt(SizeY / Texel), 4, ShoreMaskMaxTexels);
+
+		TArray<uint8> Pixels;
+		Pixels.SetNumZeroed(Width * Height);
+		for (int32 Y = 1; Y < Height - 1; ++Y)
+		{
+			const float LocalY = -SizeY * 0.5f + (Y + 0.5f) * SizeY / Height;
+			for (int32 X = 1; X < Width - 1; ++X)
+			{
+				const float LocalX = -SizeX * 0.5f + (X + 0.5f) * SizeX / Width;
+				const float Depth = WaterLevel - FTerrainHeightField::SampleGrid(Heights, Grid, SizeX, SizeY, LocalX, LocalY);
+				Pixels[Y * Width + X] = static_cast<uint8>(FMath::RoundToInt(255.f * (1.f - FMath::Clamp(Depth / ShoreMaskDepthRange, 0.f, 1.f))));
+			}
+		}
+
+		UTexture2D* Mask = UTexture2D::CreateTransient(Width, Height, PF_G8, NAME_None, Pixels);
+		if (Mask)
+		{
+			Mask->SRGB = false;
+			Mask->Filter = TF_Bilinear;
+			Mask->AddressX = TA_Clamp;
+			Mask->AddressY = TA_Clamp;
+			Mask->UpdateResource();
+		}
+		return Mask;
+	}
 }
 
 ATerrainGenerator::ATerrainGenerator()
@@ -91,6 +134,11 @@ void ATerrainGenerator::BeginPlay()
 	else if (TerrainType != ETerrainType::WaterOnly && (Heights.Num() != NumX * NumY || NumX < 2))
 	{
 		Generate();
+	}
+	else
+	{
+		// Saved terrains: the water's shore mask is transient, so build it from the saved heights.
+		UpdateWater();
 	}
 	SpawnStream.Initialize(Seed);
 }
@@ -279,9 +327,27 @@ void ATerrainGenerator::UpdateWater()
 	Water->SetRelativeLocation(FVector(0.f, 0.f, WaterLevel));
 	Water->SetRelativeScale3D(FVector(WaterSize / 100.f, WaterSize / 100.f, 1.f));
 	Water->SetVisibility(bWater);
-	if (WaterMaterial)
+
+	// Shallows and shore foam: a transient instance carries the mask baked from the current heights (not saved; rebuilt
+	// on construction, Generate and BeginPlay). Without ground the plain material reads as open sea.
+	UMaterialInterface* Material = WaterMaterial;
+	if (WaterMaterial && bWater && TerrainType != ETerrainType::WaterOnly && NumX >= 2 && NumY >= 2 && Heights.Num() == NumX * NumY)
 	{
-		Water->SetMaterial(0, WaterMaterial);
+		if (UTexture2D* Mask = BakeShoreMask(Heights, GetGrid(), SizeX, SizeY, WaterLevel))
+		{
+			UMaterialInstanceDynamic* Instance = UMaterialInstanceDynamic::Create(WaterMaterial, this);
+			Instance->SetFlags(RF_Transient);
+			const FVector Origin = GetActorLocation();
+			Instance->SetTextureParameterValue(TEXT("ShoreMask"), Mask);
+			Instance->SetVectorParameterValue(TEXT("ShoreMaskBounds"),
+				FLinearColor(Origin.X - SizeX * 0.5f, Origin.Y - SizeY * 0.5f, 1.f / SizeX, 1.f / SizeY));
+			Instance->SetScalarParameterValue(TEXT("ShoreMaskDepthRange"), ShoreMaskDepthRange);
+			Material = Instance;
+		}
+	}
+	if (Material)
+	{
+		Water->SetMaterial(0, Material);
 	}
 
 	WaterFloor->SetRelativeLocation(FVector(0.f, 0.f, WaterLevel - WaterFloorThickness * 0.5f));
