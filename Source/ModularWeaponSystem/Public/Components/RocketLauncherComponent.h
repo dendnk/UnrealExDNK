@@ -36,10 +36,6 @@ protected:
     virtual void FireProjectile() override;
     virtual void SetupSpawnedProjectile(AProjectileBase* SpawnedProjectile) override;
 
-    // Speed multiplier applied to spawned projectiles whose movement is homing
-    // (bIsHomingProjectile). Enemy launchers use this; the player launcher overrides it to 1.
-    virtual float GetHomingSpeedMultiplier() const { return 1.25f; }
-
 private:
 
     void ResetCachedRocketBounds();

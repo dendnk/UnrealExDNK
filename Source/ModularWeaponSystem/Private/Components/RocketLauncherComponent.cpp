@@ -123,19 +123,6 @@ void URocketLauncherComponent::SetupSpawnedProjectile(AProjectileBase* SpawnedPr
         return;
     }
 
-    if (UProjectileMovementComponent* HomingMovement = SpawnedProjectile->FindComponentByClass<UProjectileMovementComponent>())
-    {
-        const float SpeedMultiplier = GetHomingSpeedMultiplier();
-        if (SpawnedProjectile->IsHomingProjectile() && !FMath::IsNearlyEqual(SpeedMultiplier, 1.f))
-        {
-            HomingMovement->Velocity *= SpeedMultiplier;
-            if (HomingMovement->MaxSpeed > 0.f)
-            {
-                HomingMovement->MaxSpeed *= SpeedMultiplier;
-            }
-        }
-    }
-
     AActor* Target = GetNearestTarget();
     if (IsValid(Target))
     {
