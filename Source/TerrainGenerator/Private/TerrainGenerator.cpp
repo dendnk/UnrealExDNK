@@ -13,6 +13,10 @@ namespace
 {
 	// WaterFloor box thickness, cm. Its top face sits at WaterLevel.
 	constexpr float WaterFloorThickness = 100.f;
+
+	// Fine end of the grid (MakeGrid): column spacing, and the longest stretch past a land-width corridor's end it covers, cm.
+	constexpr float EndDetailCellSizeX = 250.f;
+	constexpr float MaxEndDetailLength = 20000.f;
 }
 
 ATerrainGenerator::ATerrainGenerator()
@@ -146,7 +150,26 @@ FTerrainHeightParams ATerrainGenerator::MakeHeightParams() const
 
 FTerrainGrid ATerrainGenerator::MakeGrid() const
 {
-	return FTerrainGrid::Make(SizeX, SizeY, CellSizeX > 0.f ? CellSizeX : CellSize, CellSizeY > 0.f ? CellSizeY : CellSize);
+	float EndDetailLength = 0.f;
+	if (TerrainType == ETerrainType::Island)
+	{
+		for (const FTerrainCorridor& Corridor : Corridors)
+		{
+			const float Length = SizeX * 0.5f - FMath::Max(Corridor.StartX, Corridor.EndX);
+			if (Corridor.bDefineLandWidth && Length > 0.f && Length <= MaxEndDetailLength)
+			{
+				EndDetailLength = FMath::Max(EndDetailLength, Length);
+			}
+		}
+	}
+	return FTerrainGrid::Make(SizeX, SizeY, CellSizeX > 0.f ? CellSizeX : CellSize, CellSizeY > 0.f ? CellSizeY : CellSize,
+		EndDetailLength, EndDetailCellSizeX);
+}
+
+FTerrainGrid ATerrainGenerator::GetGrid() const
+{
+	const FTerrainGrid Grid = MakeGrid();
+	return Grid.NumX == NumX && Grid.NumY == NumY ? Grid : FTerrainGrid{ NumX, NumY, StepX, StepY };
 }
 
 void ATerrainGenerator::Generate()
@@ -177,7 +200,6 @@ void ATerrainGenerator::BuildGroundMesh()
 	StepY = Grid.StepY;
 	FTerrainHeightField::Build(MakeHeightParams(), Grid, Heights);
 
-	const float HalfX = SizeX * 0.5f;
 	const float HalfY = SizeY * 0.5f;
 
 	const int32 NumVerts = NumX * NumY;
@@ -201,14 +223,14 @@ void ATerrainGenerator::BuildGroundMesh()
 	{
 		for (int32 X = 0; X < NumX; ++X)
 		{
-			const float PX = -HalfX + X * StepX;
+			const float PX = Grid.ColumnX(X, SizeX);
 			const float PY = -HalfY + Y * StepY;
 			const float PZ = H(X, Y);
 
 			// Central differences for smooth shading.
 			const int32 X0 = FMath::Max(X - 1, 0), X1 = FMath::Min(X + 1, NumX - 1);
 			const int32 Y0 = FMath::Max(Y - 1, 0), Y1 = FMath::Min(Y + 1, NumY - 1);
-			const float DHdX = (H(X1, Y) - H(X0, Y)) / ((X1 - X0) * StepX);
+			const float DHdX = (H(X1, Y) - H(X0, Y)) / (Grid.ColumnX(X1, SizeX) - Grid.ColumnX(X0, SizeX));
 			const float DHdY = (H(X, Y1) - H(X, Y0)) / ((Y1 - Y0) * StepY);
 			const FVector Normal = FVector(-DHdX, -DHdY, 1.f).GetSafeNormal();
 
@@ -288,7 +310,7 @@ void ATerrainGenerator::UpdateGroundDarkness()
 		return;
 	}
 
-	const FTerrainGrid Grid{ NumX, NumY, StepX, StepY };
+	const FTerrainGrid Grid = GetGrid();
 	TArray<float> Darkness;
 	FTerrainHeightField::ComputeOcclusion(Heights, Grid, SizeX, SizeY, OcclusionRadius, OcclusionDepth, Darkness);
 	if (ContactDarkening > 0.f)
@@ -429,8 +451,7 @@ void ATerrainGenerator::GenerateDecorations()
 
 float ATerrainGenerator::LocalHeightAboveWater(const FVector2D& LocalXY) const
 {
-	const FTerrainGrid Grid{ NumX, NumY, StepX, StepY };
-	return FTerrainHeightField::SampleGrid(Heights, Grid, SizeX, SizeY, LocalXY.X, LocalXY.Y) - WaterLevel;
+	return FTerrainHeightField::SampleGrid(Heights, GetGrid(), SizeX, SizeY, LocalXY.X, LocalXY.Y) - WaterLevel;
 }
 
 FVector ATerrainGenerator::LocalNormal(const FVector2D& LocalXY) const
@@ -455,8 +476,7 @@ float ATerrainGenerator::GetHeightAt(FVector2D WorldXY) const
 		return Origin.Z + WaterLevel;
 	}
 
-	const FTerrainGrid Grid{ NumX, NumY, StepX, StepY };
-	return Origin.Z + FTerrainHeightField::SampleGrid(Heights, Grid, SizeX, SizeY, WorldXY.X - Origin.X, WorldXY.Y - Origin.Y);
+	return Origin.Z + FTerrainHeightField::SampleGrid(Heights, GetGrid(), SizeX, SizeY, WorldXY.X - Origin.X, WorldXY.Y - Origin.Y);
 }
 
 float ATerrainGenerator::GetSurfaceHeightAt(FVector2D WorldXY) const

@@ -34,15 +34,37 @@ struct TERRAINGENERATOR_API FTerrainHeightParams
 	TArray<FTerrainCorridor> Corridors;
 };
 
-/** Grid layout of a height field: NumX * NumY vertices, centred on the actor. */
+/**
+ * Grid layout of a height field: NumX * NumY vertices, centred on the actor. Columns are StepX apart, except that
+ * from column FineFrom on they are FineStepX apart: finer ground toward the +X end (an island's rounded end).
+ */
 struct TERRAINGENERATOR_API FTerrainGrid
 {
 	int32 NumX = 0;
 	int32 NumY = 0;
 	float StepX = 0.f;
 	float StepY = 0.f;
+	/** First column of the fine end; INDEX_NONE = every column StepX apart. */
+	int32 FineFrom = INDEX_NONE;
+	float FineStepX = 0.f;
 
-	static FTerrainGrid Make(float SizeX, float SizeY, float CellSizeX, float CellSizeY);
+	/**
+	 * FineLength > 0 with FineCellSizeX > 0: the columns over the last FineLength of the grid (starting at the first
+	 * regular column inside it, so the columns before it sit exactly where a regular grid has them) are about
+	 * FineCellSizeX apart.
+	 */
+	static FTerrainGrid Make(float SizeX, float SizeY, float CellSizeX, float CellSizeY, float FineLength = 0.f, float FineCellSizeX = 0.f);
+
+	bool HasFineEnd() const { return FineFrom != INDEX_NONE && FineFrom < NumX - 1; }
+
+	/** Local X of column X. */
+	float ColumnX(int32 X, float SizeX) const;
+
+	/** Distance from column X to column X + 1. */
+	float StepAfter(int32 X) const { return HasFineEnd() && X >= FineFrom ? FineStepX : StepX; }
+
+	/** Fractional column at local X, clamped to [0, NumX - 1]. */
+	float ColumnAt(float LocalX, float SizeX) const;
 };
 
 /** Pure height maths: no world, no components, so it can be tested headless. */

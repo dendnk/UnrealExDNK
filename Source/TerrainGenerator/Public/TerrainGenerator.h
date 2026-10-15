@@ -226,8 +226,14 @@ public:
 	/** The parameters Generate() feeds the height field with. */
 	FTerrainHeightParams MakeHeightParams() const;
 
-	/** The grid Generate() uses for the current size and cell settings. */
+	/**
+	 * The grid Generate() uses for the current size and cell settings. An Island whose land-width corridor ends near the +X
+	 * edge gets finer columns from that end on (FTerrainGrid fine end), where its outline curves across the grid.
+	 */
 	FTerrainGrid MakeGrid() const;
+
+	/** The grid the saved heights were built on: MakeGrid(), or a regular one for heights saved before the fine end. */
+	FTerrainGrid GetGrid() const;
 
 	/** Saved heights, row-major, relative to the actor. Empty for WaterOnly. */
 	const TArray<float>& GetHeights() const { return Heights; }
