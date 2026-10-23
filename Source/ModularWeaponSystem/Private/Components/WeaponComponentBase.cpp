@@ -682,6 +682,14 @@ void UWeaponComponentBase::SetupSpawnedProjectile(AProjectileBase* SpawnedProjec
 		IgnoredActors.Add(Owner);
 		Owner->GetAttachedActors(IgnoredActors, false, true);
 
+		// A weapon on a child actor (e.g. a soldier standing in a nest) also ignores the parent actor and its
+		// attachments, so the shot doesn't hit the cover it's fired from.
+		if (AActor* const ParentActor = Owner->GetParentActor())
+		{
+			IgnoredActors.AddUnique(ParentActor);
+			ParentActor->GetAttachedActors(IgnoredActors, false, true);
+		}
+
 		if (IsValid(SpawnedProjectile->MeshComponent))
 		{
 			for (AActor* IgnoredActor : IgnoredActors)
