@@ -195,6 +195,10 @@ void UTrajectoryPredictionComponent::PredictAndDrawTrajectory(const FVector& Sta
 
     FPredictProjectilePathResult Result;
     UGameplayStatics::PredictProjectilePath(this, Params, Result);
+    LastPath = Result;
+    LastStartLocation = StartLocation;
+    LastLaunchVelocity = LaunchVelocity;
+    LastPathFrame = GFrameCounter;
     {
         DotInstances->ClearInstances();
 
