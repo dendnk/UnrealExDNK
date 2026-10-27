@@ -9,7 +9,6 @@
 class AProjectileBase;
 class UNiagaraSystem;
 class USoundBase;
-class UWeaponViewModel;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnProjectileClassChangedDelegate, TSubclassOf<AProjectileBase>, NewProjectileClass);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnWeaponFireStateChangedDelegate);
@@ -28,7 +27,6 @@ class MODULARWEAPONSYSTEM_API UWeaponComponentBase : public UUserWidgetSpawnerCo
 
 protected:
     virtual void BeginPlay() override;
-    virtual void EndPlay(const EEndPlayReason::Type EndPlayReason);
 
     virtual void InitWeaponData();
     virtual void Fire();
@@ -137,9 +135,6 @@ public:
     UPROPERTY(BlueprintAssignable, Category = "Weapon|Hitscan")
     FOnWeaponHitscanMissDelegate OnHitscanMiss;
 
-    UFUNCTION(BlueprintPure, Category = "Weapon|UI")
-    UWeaponViewModel* GetViewModel() const { return WeaponViewModel; }
-
     UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Weapon|Targets")
     AActor* GetNearestTarget();
 
@@ -166,9 +161,6 @@ protected:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Fire")
     bool bIsReloading = false;
-
-    UPROPERTY(Transient)
-    TObjectPtr<UWeaponViewModel> WeaponViewModel;
 
     FTimerHandle FireLoopHandle;
     FTimerHandle BurstHandle;

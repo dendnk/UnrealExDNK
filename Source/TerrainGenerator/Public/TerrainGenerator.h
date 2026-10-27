@@ -216,13 +216,6 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Terrain")
 	float GetWaterZ() const;
 
-	/**
-	 * Random point on dry, not-too-steep ground for spawning enemies.
-	 * Returns false if nothing suitable was found within MaxAttempts.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "Terrain")
-	bool FindSpawnPoint(FVector& OutLocation, float MinHeightAboveWater = 100.f, float MaxSlopeDegrees = 25.f, int32 MaxAttempts = 64);
-
 	/** The parameters Generate() feeds the height field with. */
 	FTerrainHeightParams MakeHeightParams() const;
 

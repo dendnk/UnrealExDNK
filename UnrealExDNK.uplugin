@@ -9,11 +9,6 @@
       "LoadingPhase": "Default"
     },
     {
-      "Name": "IntersectionTools",
-      "Type": "Runtime",
-      "LoadingPhase": "PreDefault"
-    },
-    {
       "Name": "ModularWeaponSystem",
       "Type": "Runtime",
       "LoadingPhase": "Default"

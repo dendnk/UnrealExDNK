@@ -2,7 +2,6 @@
 
 #include "Components/WeaponComponentBase.h"
 #include "Blueprint/UserWidget.h"
-#include "Blueprint/WidgetTree.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "HAL/IConsoleManager.h"
 #include "Interfaces/IWeaponUserInterface.h"
@@ -10,8 +9,6 @@
 #include "NiagaraFunctionLibrary.h"
 #include "Projectiles/ProjectileBase.h"
 #include "Projectiles/ProjectileCollisionRuleUtils.h"
-#include "UI/WeaponComponentBaseWidget.h"
-#include "UI/WeaponViewModel.h"
 #include "UnrealExDNKUtils.h"
 
 
@@ -20,41 +17,6 @@ void UWeaponComponentBase::BeginPlay()
 	Super::BeginPlay();
 
 	InitWeaponData();
-
-	WeaponViewModel = NewObject<UWeaponViewModel>(this);
-	WeaponViewModel->InitializeFromWeapon(this);
-
-	if (bShouldHaveUIWidget == false)
-	{
-		return;
-	}
-
-	if (UWeaponComponentBaseWidget* WeaponWidget = Cast<UWeaponComponentBaseWidget>(WidgetInstance))
-	{
-		WeaponWidget->SetViewModel(WeaponViewModel);
-		return;
-	}
-	else if (IsValid(WidgetInstance))
-	{
-		TArray<UWidget*> AllWidgets;
-		WidgetInstance->WidgetTree->GetAllWidgets(AllWidgets);
-		for (UWidget* Widget : AllWidgets)
-		{
-			if (UWeaponComponentBaseWidget* WeaponChildWidget = Cast<UWeaponComponentBaseWidget>(Widget))
-			{
-				WeaponChildWidget->SetViewModel(WeaponViewModel);
-				return; //	assuming we have only one UWeaponComponentBaseWidget as a child
-			}
-		}
-	}
-}
-
-void UWeaponComponentBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
-{
-	WeaponViewModel->Deinit();
-	WeaponViewModel = nullptr;
-
-	Super::EndPlay(EndPlayReason);
 }
 
 void UWeaponComponentBase::InitWeaponData()
@@ -583,10 +545,6 @@ void UWeaponComponentBase::SetCurrentAmmo(const int32 NewCurrentAmmo)
 	if (CurrentAmmo != NewCurrentAmmo)
 	{
 		CurrentAmmo = NewCurrentAmmo;
-		if (WeaponViewModel)
-		{
-			WeaponViewModel->SetCurrentAmmo(CurrentAmmo);
-		}
 	}
 }
 

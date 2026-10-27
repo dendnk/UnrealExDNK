@@ -560,31 +560,3 @@ bool ATerrainGenerator::IsLand(FVector2D WorldXY, float MinHeightAboveWater) con
 	return GetHeightAt(WorldXY) - GetWaterZ() >= MinHeightAboveWater;
 }
 
-bool ATerrainGenerator::FindSpawnPoint(FVector& OutLocation, float MinHeightAboveWater, float MaxSlopeDegrees, int32 MaxAttempts)
-{
-	const FVector Origin = GetActorLocation();
-	const float MinNormalZ = FMath::Cos(FMath::DegreesToRadians(MaxSlopeDegrees));
-	const float HalfX = SizeX * 0.5f;
-	const float HalfY = SizeY * 0.5f;
-	const float D = FMath::Max(StepX, 1.f) * 0.5f;
-
-	for (int32 Attempt = 0; Attempt < MaxAttempts; ++Attempt)
-	{
-		const FVector2D P(Origin.X + SpawnStream.FRandRange(-HalfX, HalfX), Origin.Y + SpawnStream.FRandRange(-HalfY, HalfY));
-		if (!IsLand(P, MinHeightAboveWater))
-		{
-			continue;
-		}
-
-		const float DHdX = (GetHeightAt(P + FVector2D(D, 0.f)) - GetHeightAt(P - FVector2D(D, 0.f))) / (2.f * D);
-		const float DHdY = (GetHeightAt(P + FVector2D(0.f, D)) - GetHeightAt(P - FVector2D(0.f, D))) / (2.f * D);
-		if (FVector(-DHdX, -DHdY, 1.f).GetSafeNormal().Z < MinNormalZ)
-		{
-			continue;
-		}
-
-		OutLocation = FVector(P, GetHeightAt(P));
-		return true;
-	}
-	return false;
-}

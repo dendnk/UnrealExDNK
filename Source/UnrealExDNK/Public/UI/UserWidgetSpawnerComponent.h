@@ -19,12 +19,6 @@ public:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = UserWidgetSpawnerComponent)
     bool bShouldHaveUIWidget = true;
 
-    UFUNCTION(BlueprintCallable)
-    TSubclassOf<UUserWidget> GetUIClass() const { return UIClass; };
-
-    UFUNCTION(BlueprintCallable)
-    void SetUIClass(TSubclassOf<UUserWidget> NewUIClass) { UIClass = NewUIClass; };
-
 protected:
 	virtual void BeginPlay() override;
     virtual void CreateAndAttachWidget();
