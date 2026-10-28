@@ -56,6 +56,14 @@ struct TERRAINGENERATOR_API FTerrainDecorationEntry
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Decoration")
 	bool bGroundFootprint = false;
 
+	/**
+	 * Part of the scaled footprint radius the mesh stands on (0..1): the base sinks until the mesh's base plane, tilted
+	 * with it, is at or below the ground across that disc, so no side floats on a slope. 0 = the centre point only.
+	 * Ignored with bGroundFootprint.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Decoration", meta = (ClampMin = "0", ClampMax = "1"))
+	float ContactRadiusFraction = 0.f;
+
 	/** Off by default for mobile. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Decoration|Rendering")
 	bool bCastShadow = false;

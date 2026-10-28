@@ -61,6 +61,30 @@ namespace
 	// A band this dense would hang the editor; it's a data mistake, not a layout.
 	constexpr int64 MaxSamplesPerBand = 1000000;
 
+	/**
+	 * How far a base at CentreHeight must drop (<= 0) so the plane through it with normal PlaneUp is at or below the
+	 * ground everywhere on a disc of Radius: two rings, the rim and half way.
+	 */
+	float ContactDrop(const FTerrainDecorationGround& Ground, const FVector2D& Centre, float CentreHeight, float Radius, const FVector& PlaneUp)
+	{
+		constexpr int32 Rings = 2;
+		constexpr int32 PointsPerRing = 12;
+		const float InvZ = 1.f / FMath::Max(PlaneUp.Z, 0.1f);
+		float Drop = 0.f;
+		for (int32 Ring = 1; Ring <= Rings; ++Ring)
+		{
+			const float R = Radius * Ring / Rings;
+			for (int32 Point = 0; Point < PointsPerRing; ++Point)
+			{
+				const float Angle = 2.f * PI * (Point + 0.5f * (Ring & 1)) / PointsPerRing;
+				const FVector2D Offset = R * FVector2D(FMath::Cos(Angle), FMath::Sin(Angle));
+				const float PlaneHeight = CentreHeight - (PlaneUp.X * Offset.X + PlaneUp.Y * Offset.Y) * InvZ;
+				Drop = FMath::Min(Drop, Ground.HeightAboveWater(Centre + Offset) - PlaneHeight);
+			}
+		}
+		return Drop;
+	}
+
 	/** Lowest and highest ground under a footprint circle: its centre plus rings at a quarter, half, three quarters and the rim. */
 	void FootprintHeights(const FTerrainDecorationGround& Ground, const FVector2D& Centre, float Radius, float& OutLow, float& OutHigh)
 	{
@@ -237,6 +261,11 @@ void FTerrainDecorationScatter::Scatter(const UTerrainDecorationSet& Set, TConst
 				Spacing.Add(P, Entry.MinSpacing, EntryIndex);
 
 				const FQuat Tilt = FQuat::Slerp(FQuat::Identity, FQuat::FindBetweenNormals(Up, Normal), Entry.AlignToNormal);
+				// Stand on the contact disc, not just its centre: the downhill side of a wide rock or a trunk never floats.
+				if (!Entry.bGroundFootprint && Entry.ContactRadiusFraction > 0.f)
+				{
+					BaseHeight += ContactDrop(Ground, P, BaseHeight, Radius * Entry.ContactRadiusFraction, Tilt.RotateVector(Up));
+				}
 				const FQuat Yaw(Up, Entry.bRandomYaw ? FMath::DegreesToRadians(YawAlpha * 360.f) : 0.f);
 				// The mesh's bounds centre lands on the sample; the pivot goes wherever that puts it.
 				const FVector CenterOffset = (Tilt * Yaw).RotateVector(FVector(Info.CenterXY * Scale, 0.f));
