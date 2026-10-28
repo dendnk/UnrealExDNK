@@ -210,14 +210,46 @@ FTerrainGrid ATerrainGenerator::MakeGrid() const
 			}
 		}
 	}
-	return FTerrainGrid::Make(SizeX, SizeY, CellSizeX > 0.f ? CellSizeX : CellSize, CellSizeY > 0.f ? CellSizeY : CellSize,
+	FTerrainGrid Grid = FTerrainGrid::Make(SizeX, SizeY, CellSizeX > 0.f ? CellSizeX : CellSize, CellSizeY > 0.f ? CellSizeY : CellSize,
 		EndDetailLength, EndDetailCellSizeX);
+	// A cliff face is exactly one cell, with columns on both edges.
+	Grid.InsertColumns(FTerrainHeightField::CliffColumnXs(Corridors), SizeX);
+	return Grid;
 }
 
-FTerrainGrid ATerrainGenerator::GetGrid() const
+uint32 ATerrainGenerator::MakeGridKey() const
 {
+	uint32 Key = HashCombine(GetTypeHash(SizeX), GetTypeHash(SizeY));
+	for (const float Value : { CellSize, CellSizeX, CellSizeY, StepX, StepY })
+	{
+		Key = HashCombine(Key, GetTypeHash(Value));
+	}
+	Key = HashCombine(Key, HashCombine(GetTypeHash(NumX), GetTypeHash(NumY)));
+	Key = HashCombine(Key, GetTypeHash(static_cast<uint8>(TerrainType)));
+	for (const FTerrainCorridor& Corridor : Corridors)
+	{
+		Key = HashCombine(Key, HashCombine(GetTypeHash(Corridor.StartX), GetTypeHash(Corridor.EndX)));
+		Key = HashCombine(Key, GetTypeHash(Corridor.bDefineLandWidth));
+		for (const FTerrainCliff& Cliff : Corridor.Cliffs)
+		{
+			Key = HashCombine(Key, HashCombine(GetTypeHash(Cliff.StartX), GetTypeHash(Cliff.Run)));
+		}
+	}
+	return Key;
+}
+
+const FTerrainGrid& ATerrainGenerator::GetGrid() const
+{
+	const uint32 Key = MakeGridKey();
+	if (bHasCachedGrid && CachedGridKey == Key)
+	{
+		return CachedGrid;
+	}
 	const FTerrainGrid Grid = MakeGrid();
-	return Grid.NumX == NumX && Grid.NumY == NumY ? Grid : FTerrainGrid{ NumX, NumY, StepX, StepY };
+	CachedGrid = Grid.NumX == NumX && Grid.NumY == NumY ? Grid : FTerrainGrid{ NumX, NumY, StepX, StepY };
+	CachedGridKey = Key;
+	bHasCachedGrid = true;
+	return CachedGrid;
 }
 
 void ATerrainGenerator::Generate()
@@ -267,6 +299,28 @@ void ATerrainGenerator::BuildGroundMesh()
 	auto H = [this](int32 X, int32 Y) { return Heights[Y * NumX + X]; };
 	const FTerrainCorridor* PathCorridor = Corridors.IsValidIndex(PathCorridorIndex) ? &Corridors[PathCorridorIndex] : nullptr;
 
+	// Columns on a cliff face's edge and the side of their flat neighbour (-1 / +1, 0 = not a cliff column). Their
+	// steepness (vertex colour G) comes from that flat side, so the rock layer doesn't bleed a cell into the flat ground;
+	// the face itself gets its rock from the material (geometric normal).
+	TArray<int8> CliffSide;
+	CliffSide.Init(0, NumX);
+	for (const FTerrainCorridor& Corridor : Corridors)
+	{
+		for (const FTerrainCliff& Cliff : Corridor.Cliffs)
+		{
+			const int32 Top = Grid.FindColumn(Cliff.StartX, SizeX);
+			const int32 Bottom = Grid.FindColumn(Cliff.EndX(), SizeX);
+			if (Top != INDEX_NONE && Top > 0)
+			{
+				CliffSide[Top] = -1;
+			}
+			if (Bottom != INDEX_NONE && Bottom < NumX - 1)
+			{
+				CliffSide[Bottom] = 1;
+			}
+		}
+	}
+
 	for (int32 Y = 0; Y < NumY; ++Y)
 	{
 		for (int32 X = 0; X < NumX; ++X)
@@ -289,7 +343,14 @@ void ATerrainGenerator::BuildGroundMesh()
 			// B = darkness [0..1], filled in by UpdateGroundDarkness below. A = 1 - path mask (1 = no path).
 			const float HeightAlpha = MaxHeight > 0.f ? FMath::Clamp((PZ - WaterLevel) / MaxHeight, 0.f, 1.f) : 0.f;
 			const float Path = PathCorridor ? FTerrainHeightField::PathWeight(*PathCorridor, PathHalfWidth, PX, PY) : 0.f;
-			Colors.Add(FLinearColor(HeightAlpha, 1.f - Normal.Z, 0.f, 1.f - Path));
+			float SteepZ = Normal.Z;
+			if (CliffSide[X] != 0)
+			{
+				const int32 Flat = X + CliffSide[X];
+				const float FlatDHdX = (H(Flat, Y) - H(X, Y)) / (Grid.ColumnX(Flat, SizeX) - PX);
+				SteepZ = FVector(-FlatDHdX, -DHdY, 1.f).GetSafeNormal().Z;
+			}
+			Colors.Add(FLinearColor(HeightAlpha, 1.f - SteepZ, 0.f, 1.f - Path));
 			Tangents.Add(FProcMeshTangent(FVector(1.f, 0.f, DHdX).GetSafeNormal(), false));
 		}
 	}

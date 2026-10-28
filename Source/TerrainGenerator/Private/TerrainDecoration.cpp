@@ -231,6 +231,14 @@ void FTerrainDecorationScatter::Scatter(const UTerrainDecorationSet& Set, TConst
 				{
 					continue;
 				}
+				// Nothing stands on a cliff face, which runs across the whole terrain (specs/<status>-terrain-cliff-drops).
+				if (Lane.Cliffs.ContainsByPredicate([X, Radius](const FTerrainCliff& Cliff)
+					{
+						return X - Radius < Cliff.EndX() && X + Radius > Cliff.StartX;
+					}))
+				{
+					continue;
+				}
 
 				const FVector2D P(X, Lane.CenterY + Side * CentreDistance);
 				// Grounded footprints are checked by their highest ground (some of it on land) and stand on their lowest.

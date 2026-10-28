@@ -225,8 +225,11 @@ public:
 	 */
 	FTerrainGrid MakeGrid() const;
 
-	/** The grid the saved heights were built on: MakeGrid(), or a regular one for heights saved before the fine end. */
-	FTerrainGrid GetGrid() const;
+	/**
+	 * The grid the saved heights were built on: MakeGrid(), or a regular one for heights saved before the fine end.
+	 * Cached: every height query goes through it, and a grid with cliff columns is an array to build.
+	 */
+	const FTerrainGrid& GetGrid() const;
 
 	/** Saved heights, row-major, relative to the actor. Empty for WaterOnly. */
 	const TArray<float>& GetHeights() const { return Heights; }
@@ -284,4 +287,11 @@ private:
 	float StepY = 0.f;
 
 	FRandomStream SpawnStream;
+
+	/** GetGrid's cache and the hash of everything that grid depends on. */
+	mutable FTerrainGrid CachedGrid;
+	mutable uint32 CachedGridKey = 0;
+	mutable bool bHasCachedGrid = false;
+
+	uint32 MakeGridKey() const;
 };

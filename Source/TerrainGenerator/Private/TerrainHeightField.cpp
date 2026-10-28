@@ -1,5 +1,6 @@
 #include "TerrainHeightField.h"
 
+#include "Algo/BinarySearch.h"
 #include "Math/RandomStream.h"
 
 namespace
@@ -44,15 +45,17 @@ namespace
 	 * Scales Profile toward Low until the given share of its steps over StartX..EndX is at most MaxStep (never up).
 	 * Uniform vertical scaling keeps the profile's shape: hills stay rounded and of different heights.
 	 */
-	void FitProfileSlope(const FTerrainGrid& Grid, float HalfX, float StartX, float EndX, float Low, float MaxStep, float Share, TArray<float>& Profile)
+	void FitProfileSlope(const FTerrainGrid& Grid, float HalfX, float StartX, float EndX, float Low, float MaxStep, float Share,
+		const TBitArray<>& Faces, TArray<float>& Profile)
 	{
 		TArray<float> Steps;
 		for (int32 X = 1; X < Grid.NumX; ++X)
 		{
 			const float PX = Grid.ColumnX(X, HalfX * 2.f);
-			if (PX - Grid.StepAfter(X - 1) >= StartX && PX <= EndX)
+			if (PX - Grid.StepAfter(X - 1) >= StartX && PX <= EndX && !Faces[X - 1])
 			{
-				Steps.Add(FMath::Abs(Profile[X] - Profile[X - 1]));
+				// As a StepX-long step: columns inserted at cliff edges make some steps shorter (exact for the others).
+				Steps.Add(FMath::Abs(Profile[X] - Profile[X - 1]) * (Grid.StepX / Grid.StepAfter(X - 1)));
 			}
 		}
 		if (Steps.IsEmpty())
@@ -75,17 +78,19 @@ namespace
 	/**
 	 * Lowers Profile so neighbouring columns never differ by more than MaxSlope times their distance. Lowering only (a
 	 * forward and a backward pass) keeps every value inside its range and gives min_j(P[j] + MaxSlope * |x_i - x_j|),
-	 * which is slope-limited.
+	 * which is slope-limited. A cliff face (Faces[X]: the cell X -> X + 1) counts as zero length: the smooth profile is
+	 * level across it, so the face gets exactly its cliff's slope once the step is added.
 	 */
-	void LimitProfileSlope(const FTerrainGrid& Grid, float MaxSlope, TArray<float>& Profile)
+	void LimitProfileSlope(const FTerrainGrid& Grid, float MaxSlope, const TBitArray<>& Faces, TArray<float>& Profile)
 	{
+		auto Length = [&](int32 X) { return Faces[X] ? 0.f : Grid.StepAfter(X); };
 		for (int32 X = 1; X < Profile.Num(); ++X)
 		{
-			Profile[X] = FMath::Min(Profile[X], Profile[X - 1] + MaxSlope * Grid.StepAfter(X - 1));
+			Profile[X] = FMath::Min(Profile[X], Profile[X - 1] + MaxSlope * Length(X - 1));
 		}
 		for (int32 X = Profile.Num() - 2; X >= 0; --X)
 		{
-			Profile[X] = FMath::Min(Profile[X], Profile[X + 1] + MaxSlope * Grid.StepAfter(X));
+			Profile[X] = FMath::Min(Profile[X], Profile[X + 1] + MaxSlope * Length(X));
 		}
 	}
 
@@ -94,6 +99,8 @@ namespace
 	 * set), clamped (or with bRemapToRange, rescaled from its own min..max over StartX..EndX) to the corridor's range,
 	 * then slope-limited. With RemapPasses > 1, rescale and limit again to win back the span the limit took. With
 	 * SlopeFitShare, each rescale is followed by a uniform lowering that keeps the hills' shape (FitProfileSlope).
+	 * Cliffs: the smooth profile is shaped inside the range shrunk by the cliffs' cumulative step envelope, level across
+	 * each face, then the steps are added, so the result stays in range and every face has its cliff's exact rise.
 	 */
 	void BuildCorridorProfile(const FTerrainHeightParams& Params, const FVector2D& NoiseOffset, const FTerrainGrid& Grid,
 		const FTerrainCorridor& Corridor, TArray<float>& OutProfile)
@@ -123,6 +130,38 @@ namespace
 			OutProfile[X] = FTerrainHeightField::SampleBase(ProfileParams, NoiseOffset, Grid.ColumnX(X, Params.SizeX), Corridor.CenterY, bApplyMask);
 		}
 
+		// Step offset per column (sum of the rises behind it, linear across a face) and the face cells.
+		TArray<float> Steps;
+		Steps.Init(0.f, Grid.NumX);
+		TBitArray<> Faces(false, Grid.NumX);
+		for (const FTerrainCliff& Cliff : Corridor.Cliffs)
+		{
+			const float Run = FMath::Max(Cliff.Run, 1.f);
+			for (int32 X = 0; X < Grid.NumX; ++X)
+			{
+				Steps[X] += Cliff.Rise * FMath::Clamp((Grid.ColumnX(X, Params.SizeX) - Cliff.StartX) / Run, 0.f, 1.f);
+			}
+			const int32 Top = Grid.FindColumn(Cliff.StartX, Params.SizeX);
+			if (Top != INDEX_NONE && Grid.FindColumn(Cliff.EndX(), Params.SizeX) == Top + 1)
+			{
+				Faces[Top] = true;
+			}
+		}
+		float StepsMin = 0.f;
+		float StepsMax = 0.f;
+		for (const float S : Steps)
+		{
+			StepsMin = FMath::Min(StepsMin, S);
+			StepsMax = FMath::Max(StepsMax, S);
+		}
+		float SmoothLow = Low - StepsMin;
+		float SmoothHigh = High - StepsMax;
+		if (SmoothHigh < SmoothLow)
+		{
+			// Steps taller than the range: the smooth part goes flat in the middle of what is left.
+			SmoothLow = SmoothHigh = (SmoothLow + SmoothHigh) * 0.5f;
+		}
+
 		const float MaxSlope = FMath::Tan(FMath::DegreesToRadians(FMath::Clamp(Corridor.MaxSlopeDeg, 0.f, 89.f)));
 		// The fine end starts past the lane, so every step over StartX..EndX is StepX long.
 		const float MaxStep = MaxSlope * Grid.StepX;
@@ -131,17 +170,22 @@ namespace
 		{
 			if (Corridor.bRemapToRange)
 			{
-				RemapProfile(Grid, HalfX, StartX, EndX, Low, High, OutProfile);
+				RemapProfile(Grid, HalfX, StartX, EndX, SmoothLow, SmoothHigh, OutProfile);
 				if (Corridor.SlopeFitShare > 0.f)
 				{
-					FitProfileSlope(Grid, HalfX, StartX, EndX, Low, MaxStep, Corridor.SlopeFitShare, OutProfile);
+					FitProfileSlope(Grid, HalfX, StartX, EndX, SmoothLow, MaxStep, Corridor.SlopeFitShare, Faces, OutProfile);
 				}
 			}
 			for (float& H : OutProfile)
 			{
-				H = FMath::Clamp(H, Low, High);
+				H = FMath::Clamp(H, SmoothLow, SmoothHigh);
 			}
-			LimitProfileSlope(Grid, MaxSlope, OutProfile);
+			LimitProfileSlope(Grid, MaxSlope, Faces, OutProfile);
+		}
+
+		for (int32 X = 0; X < Grid.NumX; ++X)
+		{
+			OutProfile[X] += Steps[X];
 		}
 	}
 
@@ -489,15 +533,86 @@ FTerrainGrid FTerrainGrid::Make(float SizeX, float SizeY, float CellSizeX, float
 	return Grid;
 }
 
+void FTerrainGrid::InsertColumns(TConstArrayView<float> LocalXs, float SizeX, float MinGap)
+{
+	const float HalfX = SizeX * 0.5f;
+	TArray<float> Added;
+	for (const float LocalX : LocalXs)
+	{
+		const float FromStart = LocalX + HalfX;
+		if (FromStart > 0.f && FromStart < SizeX)
+		{
+			Added.Add(FromStart);
+		}
+	}
+	if (Added.IsEmpty() || NumX < 2)
+	{
+		return;
+	}
+	Added.Sort();
+
+	const float FineStart = HasFineEnd() ? ColumnX(FineFrom, SizeX) + HalfX : TNumericLimits<float>::Max();
+	TArray<float> Result;
+	Result.Reserve(NumX + Added.Num());
+	for (int32 X = 0; X < NumX; ++X)
+	{
+		const float FromStart = ColumnX(X, SizeX) + HalfX;
+		bool bKeep = true;
+		for (int32 Index = 0; Index < Added.Num() && bKeep; ++Index)
+		{
+			const bool bNear = FMath::Abs(FromStart - Added[Index]) < MinGap;
+			const bool bInsideCell = Index % 2 == 0 && Added.IsValidIndex(Index + 1)
+				&& FromStart > Added[Index] && FromStart < Added[Index + 1];
+			bKeep = !bNear && !bInsideCell;
+		}
+		// The mesh edges always stay.
+		if (bKeep || X == 0 || X == NumX - 1)
+		{
+			Result.Add(FromStart);
+		}
+	}
+	Result.Append(Added);
+	Result.Sort();
+	Columns.Reset(Result.Num());
+	for (const float FromStart : Result)
+	{
+		if (Columns.IsEmpty() || FromStart - Columns.Last() > 0.01f)
+		{
+			Columns.Add(FromStart);
+		}
+	}
+	NumX = Columns.Num();
+	if (FineFrom != INDEX_NONE)
+	{
+		FineFrom = FMath::Min(Algo::LowerBound(Columns, FineStart - 0.01f), NumX - 1);
+	}
+}
+
+int32 FTerrainGrid::FindColumn(float LocalX, float SizeX, float Tolerance) const
+{
+	const int32 X = FMath::RoundToInt(ColumnAt(LocalX, SizeX));
+	return X >= 0 && X < NumX && FMath::Abs(ColumnX(X, SizeX) - LocalX) <= Tolerance ? X : INDEX_NONE;
+}
+
 float FTerrainGrid::ColumnX(int32 X, float SizeX) const
 {
 	const float HalfX = SizeX * 0.5f;
+	if (!Columns.IsEmpty())
+	{
+		return -HalfX + Columns[X];
+	}
 	return HasFineEnd() && X > FineFrom ? -HalfX + FineFrom * StepX + (X - FineFrom) * FineStepX : -HalfX + X * StepX;
 }
 
 float FTerrainGrid::ColumnAt(float LocalX, float SizeX) const
 {
 	const float FromStart = LocalX + SizeX * 0.5f;
+	if (!Columns.IsEmpty())
+	{
+		const int32 X0 = FMath::Clamp(Algo::UpperBound(Columns, FromStart) - 1, 0, NumX - 2);
+		const float Step = Columns[X0 + 1] - Columns[X0];
+		return FMath::Clamp(X0 + (FromStart - Columns[X0]) / FMath::Max(Step, UE_KINDA_SMALL_NUMBER), 0.f, float(NumX - 1));
+	}
 	const float Column = HasFineEnd() && FromStart > FineFrom * StepX
 		? FineFrom + (FromStart - FineFrom * StepX) / FineStepX
 		: FromStart / StepX;
@@ -634,6 +749,20 @@ void FTerrainHeightField::ComputeOcclusion(const TArray<float>& Heights, const F
 			OutOcclusion[Index] = FMath::Clamp((Sum / UE_ARRAY_COUNT(Offsets) - Heights[Index]) / Depth, 0.f, 1.f);
 		}
 	}
+}
+
+TArray<float> FTerrainHeightField::CliffColumnXs(TConstArrayView<FTerrainCorridor> Corridors)
+{
+	TArray<float> Xs;
+	for (const FTerrainCorridor& Corridor : Corridors)
+	{
+		for (const FTerrainCliff& Cliff : Corridor.Cliffs)
+		{
+			Xs.Add(Cliff.StartX);
+			Xs.Add(Cliff.EndX());
+		}
+	}
+	return Xs;
 }
 
 float FTerrainHeightField::PathWeight(const FTerrainCorridor& Corridor, float HalfWidth, float LocalX, float LocalY)

@@ -29,6 +29,31 @@ enum class ETerrainCorridorBankMode : uint8
 };
 
 /**
+ * An abrupt step in a corridor's profile: over [StartX, StartX + Run] the ground changes by Rise (negative = drops going
+ * +X). It runs across the whole terrain width; the face is one grid cell (ATerrainGenerator::MakeGrid puts columns at both
+ * edges). Actor-local cm.
+ */
+USTRUCT(BlueprintType)
+struct TERRAINGENERATOR_API FTerrainCliff
+{
+	GENERATED_BODY()
+
+	/** X where the face starts. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cliff")
+	float StartX = 0.f;
+
+	/** Horizontal width of the face, cm. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cliff", meta = (ClampMin = "1"))
+	float Run = 200.f;
+
+	/** Height change over the face going +X, cm: negative drops, positive climbs. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cliff")
+	float Rise = -500.f;
+
+	float EndX() const { return StartX + FMath::Max(Run, 1.f); }
+};
+
+/**
  * A strip of shaped ground running along X at a fixed Y, in actor-local space.
  * Inside it the ground follows a smooth profile: clamped to [MinHeight, MaxHeight] above water and slope-limited
  * along X. Outside it blends back to the raw terrain over Falloff, or follows the profile (BankMode). Optionally caps
@@ -185,4 +210,42 @@ struct TERRAINGENERATOR_API FTerrainCorridor
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Corridor|Side Cap", meta = (EditCondition = "bUseSideCap", ClampMin = "0"))
 	float CapFalloff = 3000.f;
+
+	/**
+	 * Cliffs a run plans for this corridor (HeliAce TerrainRuntime::PlanCliffs): how many per island, at most
+	 * CliffCountMax (0 = no cliffs), one per CliffLengthPerCount of the wave's length but at least CliffCountMin.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Corridor|Cliffs", meta = (ClampMin = "0", ClampMax = "8"))
+	int32 CliffCountMin = 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Corridor|Cliffs", meta = (ClampMin = "0", ClampMax = "8"))
+	int32 CliffCountMax = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Corridor|Cliffs", meta = (ClampMin = "1", Units = "cm"))
+	float CliffLengthPerCount = 50000.f;
+
+	/** Drop height range, cm. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Corridor|Cliffs", meta = (ClampMin = "1", Units = "cm"))
+	float CliffHeightMin = 400.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Corridor|Cliffs", meta = (ClampMin = "1", Units = "cm"))
+	float CliffHeightMax = 1500.f;
+
+	/** Face slope range, degrees. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Corridor|Cliffs", meta = (ClampMin = "16", ClampMax = "89"))
+	float CliffSlopeMinDeg = 60.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Corridor|Cliffs", meta = (ClampMin = "16", ClampMax = "89"))
+	float CliffSlopeMaxDeg = 75.f;
+
+	/** Room kept free of enemies past a face's low (bottom) and high (top) edge, cm. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Corridor|Cliffs", meta = (ClampMin = "0", Units = "cm"))
+	float CliffMarginLow = 1000.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Corridor|Cliffs", meta = (ClampMin = "0", Units = "cm"))
+	float CliffMarginHigh = 300.f;
+
+	/** The cliffs this corridor has now: set at run time per island, never saved. */
+	UPROPERTY(Transient, VisibleInstanceOnly, BlueprintReadOnly, Category = "Corridor|Cliffs")
+	TArray<FTerrainCliff> Cliffs;
 };
