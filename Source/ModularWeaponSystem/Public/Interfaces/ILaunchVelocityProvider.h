@@ -24,4 +24,13 @@ class MODULARWEAPONSYSTEM_API ILaunchVelocityProvider
 public:
     /** Velocity a projectile fired along ShotDirection (normalized, already lane-flattened) would launch with. */
     virtual FVector GetPredictedLaunchVelocity(const FVector& ShotDirection) const = 0;
+
+    /**
+     * Two-phase flight of the real projectile: no gravity for OutStraightTime seconds, then gravity scaled by
+     * OutFallGravityScale until OutLifeSpan. false = plain one-gravity flight (the preview keeps its MaxSimTime path).
+     */
+    virtual bool GetPredictedFlightProfile(float& OutStraightTime, float& OutFallGravityScale, float& OutLifeSpan) const
+    {
+        return false;
+    }
 };

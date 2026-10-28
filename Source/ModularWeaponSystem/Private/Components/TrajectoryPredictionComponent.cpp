@@ -175,26 +175,41 @@ void UTrajectoryPredictionComponent::PredictAndDrawTrajectory(const FVector& Sta
     Params.ProjectileRadius = ProjectileRadius;
     Params.MaxSimTime = MaxSimTime;
     Params.SimFrequency = MaxSteps;
-    // The rocket's real gravity comes from its movement component's ProjectileGravityScale, so read
-    // it from the projectile class defaults; otherwise the preview drops faster than a
-    // reduced-gravity rocket actually flies.
-    float GravityScale = 1.f;
-    if (const TSubclassOf<AProjectileBase> ProjectileClass = Weapon->GetProjectileClass())
-    {
-        if (const AProjectileBase* ProjectileCDO = ProjectileClass->GetDefaultObject<AProjectileBase>())
-        {
-            if (const UProjectileMovementComponent* Movement = ProjectileCDO->FindComponentByClass<UProjectileMovementComponent>())
-            {
-                GravityScale = Movement->ProjectileGravityScale;
-            }
-        }
-    }
-    Params.OverrideGravityZ = bHasGravity ? GetWorld()->GetGravityZ() * GravityScale : 0;
     Params.TraceChannel = ECC_Visibility;
     Params.ActorsToIgnore.Add(GetOwner());
 
     FPredictProjectilePathResult Result;
-    UGameplayStatics::PredictProjectilePath(this, Params, Result);
+    float StraightTime = 0.f;
+    float FallGravityScale = 0.f;
+    float LifeSpan = 0.f;
+    const ILaunchVelocityProvider* ProfileProvider = Cast<ILaunchVelocityProvider>(Weapon.Get());
+    if (ProfileProvider && ProfileProvider->GetPredictedFlightProfile(StraightTime, FallGravityScale, LifeSpan))
+    {
+        // The weapon switches its rockets' gravity mid-flight: predict the same two phases, all the way to the first
+        // blocking hit (ground, enemy, cover), so the dots end where the rocket lands.
+        const float FallGravityZ = bHasGravity ? GetWorld()->GetGravityZ() * FallGravityScale : 0.f;
+        Params.bTraceWithCollision = true;
+        PredictTwoPhasePath(this, Params, StraightTime, FallGravityZ, LifeSpan, FallSimFrequency, Result);
+    }
+    else
+    {
+        // The rocket's real gravity comes from its movement component's ProjectileGravityScale, so read
+        // it from the projectile class defaults; otherwise the preview drops faster than a
+        // reduced-gravity rocket actually flies.
+        float GravityScale = 1.f;
+        if (const TSubclassOf<AProjectileBase> ProjectileClass = Weapon->GetProjectileClass())
+        {
+            if (const AProjectileBase* ProjectileCDO = ProjectileClass->GetDefaultObject<AProjectileBase>())
+            {
+                if (const UProjectileMovementComponent* Movement = ProjectileCDO->FindComponentByClass<UProjectileMovementComponent>())
+                {
+                    GravityScale = Movement->ProjectileGravityScale;
+                }
+            }
+        }
+        Params.OverrideGravityZ = bHasGravity ? GetWorld()->GetGravityZ() * GravityScale : 0;
+        UGameplayStatics::PredictProjectilePath(this, Params, Result);
+    }
     LastPath = Result;
     LastStartLocation = StartLocation;
     LastLaunchVelocity = LaunchVelocity;
@@ -207,8 +222,18 @@ void UTrajectoryPredictionComponent::PredictAndDrawTrajectory(const FVector& Sta
         const FVector FallbackFacing = -GetOwner()->GetActorForwardVector();
         const float Scale = DotSize / 100.f;
 
-        for (int32 i = 0; i < Result.PathData.Num(); ++i)
+        // A long path draws every DotStride-th sample, always ending on the last one (the hit point).
+        const int32 NumPoints = Result.PathData.Num();
+        const int32 DotStride = (MaxDots > 0 && NumPoints > MaxDots) ? FMath::DivideAndRoundUp(NumPoints, MaxDots) : 1;
+        int32 PreviousDrawn = INDEX_NONE;
+
+        for (int32 i = 0; i < NumPoints; ++i)
         {
+            if (i % DotStride != 0 && i != NumPoints - 1)
+            {
+                continue;
+            }
+
             const FVector& DotLocation = Result.PathData[i].Location;
             FVector FacingDirection = FallbackFacing;
             if (bHasCamera)
@@ -225,11 +250,11 @@ void UTrajectoryPredictionComponent::PredictAndDrawTrajectory(const FVector& Sta
             const bool bWorldSpace = true;
             DotInstances->AddInstance(DotTransform, bWorldSpace);
 
-            if (bDrawDebug && i > 0)
+            if (bDrawDebug && PreviousDrawn != INDEX_NONE)
             {
                 DrawDebugLine(
                     GetWorld(),
-                    Result.PathData[i - 1].Location,
+                    Result.PathData[PreviousDrawn].Location,
                     Result.PathData[i].Location,
                     DebugColor,
                     bDebugPersistentLines,
@@ -238,6 +263,78 @@ void UTrajectoryPredictionComponent::PredictAndDrawTrajectory(const FVector& Sta
                     DebugThickness
                 );
             }
+            PreviousDrawn = i;
         }
     }
+}
+
+void UTrajectoryPredictionComponent::PredictTwoPhasePath(const UObject* WorldContextObject, const FPredictProjectilePathParams& Params,
+    float StraightTime, float FallGravityZ, float LifeSpan, float InFallSimFrequency, FPredictProjectilePathResult& OutResult)
+{
+    OutResult.Reset();
+    const UWorld* World = GEngine ? GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull) : nullptr;
+    if (World == nullptr)
+    {
+        return;
+    }
+
+    const FVector Velocity = Params.LaunchVelocity;
+    const float FallEndTime = LifeSpan > 0.f ? LifeSpan : FMath::Max(StraightTime, 0.f) + Params.MaxSimTime;
+    StraightTime = FMath::Clamp(StraightTime, 0.f, FallEndTime);
+
+    // Straight part: velocity is constant, so one sweep finds its hit; the samples only space the dots.
+    const FVector StraightEnd = Params.StartLocation + Velocity * StraightTime;
+    FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(PredictTwoPhasePath), Params.bTraceComplex);
+    QueryParams.AddIgnoredActors(Params.ActorsToIgnore);
+    FHitResult StraightHit;
+    bool bStraightHit = false;
+    if (StraightTime > 0.f && Params.bTraceWithCollision && Params.bTraceWithChannel)
+    {
+        bStraightHit = Params.ProjectileRadius > 0.f
+            ? World->SweepSingleByChannel(StraightHit, Params.StartLocation, StraightEnd, FQuat::Identity, Params.TraceChannel,
+                FCollisionShape::MakeSphere(Params.ProjectileRadius), QueryParams)
+            : World->LineTraceSingleByChannel(StraightHit, Params.StartLocation, StraightEnd, Params.TraceChannel, QueryParams);
+    }
+    const float StraightEndTime = bStraightHit ? StraightTime * StraightHit.Time : StraightTime;
+
+    const float SampleStep = 1.f / FMath::Max(Params.SimFrequency, 1.f);
+    for (float Time = 0.f; Time < StraightEndTime; Time += SampleStep)
+    {
+        OutResult.PathData.Emplace(Params.StartLocation + Velocity * Time, Velocity, Time);
+    }
+    OutResult.PathData.Emplace(Params.StartLocation + Velocity * StraightEndTime, Velocity, StraightEndTime);
+    OutResult.LastTraceDestination = OutResult.PathData.Last();
+
+    if (bStraightHit)
+    {
+        OutResult.HitResult = StraightHit;
+        return;
+    }
+
+    const float FallTime = FallEndTime - StraightTime;
+    if (FallTime <= UE_KINDA_SMALL_NUMBER)
+    {
+        return;
+    }
+
+    // Fall part: the stock predictor from the straight part's end, under the stronger gravity, to the first hit.
+    // OverrideGravityZ 0 means "world gravity" to PredictProjectilePath, so a gravity-free fall uses a tiny value.
+    FPredictProjectilePathParams FallParams = Params;
+    FallParams.StartLocation = StraightEnd;
+    FallParams.MaxSimTime = FallTime;
+    FallParams.SimFrequency = FMath::Max(InFallSimFrequency, 1.f);
+    FallParams.OverrideGravityZ = FallGravityZ != 0.f ? FallGravityZ : -UE_KINDA_SMALL_NUMBER;
+    FPredictProjectilePathResult FallResult;
+    UGameplayStatics::PredictProjectilePath(WorldContextObject, FallParams, FallResult);
+
+    // Its first point is the straight part's end, already in the path.
+    for (int32 Index = 1; Index < FallResult.PathData.Num(); ++Index)
+    {
+        FPredictProjectilePathPointData Point = FallResult.PathData[Index];
+        Point.Time += StraightTime;
+        OutResult.PathData.Add(Point);
+    }
+    OutResult.HitResult = FallResult.HitResult;
+    OutResult.LastTraceDestination = FallResult.LastTraceDestination;
+    OutResult.LastTraceDestination.Time += StraightTime;
 }

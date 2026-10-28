@@ -39,6 +39,15 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trajectory")
     int32 MaxSteps = 30;
 
+    // Samples per second of the falling part of a two-phase path (weapons with a flight profile, see
+    // ILaunchVelocityProvider::GetPredictedFlightProfile). The steep fall is short, so it needs fewer than MaxSteps.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trajectory", meta = (ClampMin = "1"))
+    float FallSimFrequency = 15.f;
+
+    // Most dots drawn per frame: a longer path draws every Nth sample (the path itself stays complete). 0 = no cap.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trajectory", meta = (ClampMin = "0"))
+    int32 MaxDots = 60;
+
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trajectory")
     float DotSize = 10.f;
 
@@ -78,6 +87,13 @@ public:
     const FVector& GetLastStartLocation() const { return LastStartLocation; }
     const FVector& GetLastLaunchVelocity() const { return LastLaunchVelocity; }
     uint64 GetLastPathFrame() const { return LastPathFrame; }
+
+    // Two-phase path: a straight sweep for StraightTime, then a fall under FallGravityZ from where it ended, until the
+    // first blocking hit or LifeSpan (<= 0: no cap beyond the straight part's end + Params.MaxSimTime). Params gives the
+    // start, launch velocity, radius, trace channel, ignored actors and the straight part's sample spacing
+    // (SimFrequency). Times in OutResult.PathData count from the launch.
+    static void PredictTwoPhasePath(const UObject* WorldContextObject, const FPredictProjectilePathParams& Params,
+        float StraightTime, float FallGravityZ, float LifeSpan, float InFallSimFrequency, FPredictProjectilePathResult& OutResult);
 
 private:
     TObjectPtr<UInstancedStaticMeshComponent> DotInstances;
