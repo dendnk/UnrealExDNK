@@ -13,6 +13,18 @@
 
 namespace
 {
+	/** Adds the scope's wall-clock time to a stage of FTerrainGenerateTimings. */
+	struct FStageTimer
+	{
+		double& Ms;
+		double Start = FPlatformTime::Seconds();
+		explicit FStageTimer(double& InMs) : Ms(InMs) {}
+		~FStageTimer() { Ms += (FPlatformTime::Seconds() - Start) * 1000.0; }
+	};
+}
+
+namespace
+{
 	// WaterFloor box thickness, cm. Its top face sits at WaterLevel.
 	constexpr float WaterFloorThickness = 100.f;
 
@@ -214,21 +226,36 @@ FTerrainGrid ATerrainGenerator::MakeGrid() const
 		EndDetailLength, EndDetailCellSizeX);
 	// A cliff face is exactly one cell, with columns on both edges.
 	Grid.InsertColumns(FTerrainHeightField::CliffColumnXs(Corridors), SizeX);
+	// Fewer rows on background ground (lane-ground-dressing T29).
+	if (CoarseCellSizeY > Grid.StepY && Corridors.IsValidIndex(DecorationCorridorIndex))
+	{
+		const FTerrainCorridor& Lane = Corridors[DecorationCorridorIndex];
+		// The land-width edges stay rows: the lane check samples them exactly (dry minimum).
+		TArray<float, TInlineAllocator<2>> KeepYs;
+		if (Lane.bDefineLandWidth)
+		{
+			KeepYs.Add(Lane.CenterY - Lane.LandMinusY);
+			KeepYs.Add(Lane.CenterY + Lane.LandPlusY);
+		}
+		Grid.ThinRows(Lane.CenterY - FineRowsMinusY, Lane.CenterY + FineRowsPlusY, FMath::RoundToInt(CoarseCellSizeY / Grid.StepY), SizeY,
+			KeepYs);
+	}
 	return Grid;
 }
 
 uint32 ATerrainGenerator::MakeGridKey() const
 {
 	uint32 Key = HashCombine(GetTypeHash(SizeX), GetTypeHash(SizeY));
-	for (const float Value : { CellSize, CellSizeX, CellSizeY, StepX, StepY })
+	for (const float Value : { CellSize, CellSizeX, CellSizeY, StepX, StepY, CoarseCellSizeY, FineRowsMinusY, FineRowsPlusY })
 	{
 		Key = HashCombine(Key, GetTypeHash(Value));
 	}
 	Key = HashCombine(Key, HashCombine(GetTypeHash(NumX), GetTypeHash(NumY)));
-	Key = HashCombine(Key, GetTypeHash(static_cast<uint8>(TerrainType)));
+	Key = HashCombine(Key, HashCombine(GetTypeHash(static_cast<uint8>(TerrainType)), GetTypeHash(DecorationCorridorIndex)));
 	for (const FTerrainCorridor& Corridor : Corridors)
 	{
 		Key = HashCombine(Key, HashCombine(GetTypeHash(Corridor.StartX), GetTypeHash(Corridor.EndX)));
+		Key = HashCombine(Key, GetTypeHash(Corridor.CenterY));
 		Key = HashCombine(Key, GetTypeHash(Corridor.bDefineLandWidth));
 		for (const FTerrainCliff& Cliff : Corridor.Cliffs)
 		{
@@ -254,12 +281,32 @@ const FTerrainGrid& ATerrainGenerator::GetGrid() const
 
 void ATerrainGenerator::Generate()
 {
-	BuildGroundMesh();
-	UpdateWater();
+	GenerateGround();
 	GenerateDecorations();
 }
 
-void ATerrainGenerator::BuildGroundMesh()
+void ATerrainGenerator::GenerateGround()
+{
+	GenerateTimings = FTerrainGenerateTimings();
+	// GenerateDecorations() ends with the ground darkness, contact patches included (lane-ground-dressing T23).
+	BuildGroundMesh(/*bUpdateDarkness*/ false);
+	UpdateWater();
+}
+
+bool ATerrainGenerator::HasGroundCollision() const
+{
+	if (Ground == nullptr || Ground->GetNumSections() == 0)
+	{
+		return true;
+	}
+	// Until an async cook finishes, the component has no collision shapes and the trace misses.
+	const FVector Centre = GetActorLocation();
+	FHitResult Hit;
+	return Ground->LineTraceComponent(Hit, Centre + FVector(0.f, 0.f, 1.0e6f), Centre - FVector(0.f, 0.f, 1.0e6f),
+		FCollisionQueryParams(SCENE_QUERY_STAT(TerrainGroundCollisionReady)));
+}
+
+void ATerrainGenerator::BuildGroundMesh(bool bUpdateDarkness)
 {
 	SpawnStream.Initialize(Seed);
 	Ground->bUseAsyncCooking = bAsyncCollisionCooking;
@@ -278,9 +325,12 @@ void ATerrainGenerator::BuildGroundMesh()
 	NumY = Grid.NumY;
 	StepX = Grid.StepX;
 	StepY = Grid.StepY;
-	FTerrainHeightField::Build(MakeHeightParams(), Grid, Heights);
-
-	const float HalfY = SizeY * 0.5f;
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE(TerrainGenerator_HeightField);
+		FStageTimer Timer(GenerateTimings.HeightFieldMs);
+		FTerrainHeightField::Build(MakeHeightParams(), Grid, Heights);
+	}
+	const double ArraysStart = FPlatformTime::Seconds();
 
 	const int32 NumVerts = NumX * NumY;
 	TArray<FVector> Vertices;
@@ -326,14 +376,14 @@ void ATerrainGenerator::BuildGroundMesh()
 		for (int32 X = 0; X < NumX; ++X)
 		{
 			const float PX = Grid.ColumnX(X, SizeX);
-			const float PY = -HalfY + Y * StepY;
+			const float PY = Grid.RowY(Y, SizeY);
 			const float PZ = H(X, Y);
 
 			// Central differences for smooth shading.
 			const int32 X0 = FMath::Max(X - 1, 0), X1 = FMath::Min(X + 1, NumX - 1);
 			const int32 Y0 = FMath::Max(Y - 1, 0), Y1 = FMath::Min(Y + 1, NumY - 1);
 			const float DHdX = (H(X1, Y) - H(X0, Y)) / (Grid.ColumnX(X1, SizeX) - Grid.ColumnX(X0, SizeX));
-			const float DHdY = (H(X, Y1) - H(X, Y0)) / ((Y1 - Y0) * StepY);
+			const float DHdY = (H(X, Y1) - H(X, Y0)) / (Grid.RowY(Y1, SizeY) - Grid.RowY(Y0, SizeY));
 			const FVector Normal = FVector(-DHdX, -DHdY, 1.f).GetSafeNormal();
 
 			Vertices.Add(FVector(PX, PY, PZ));
@@ -369,9 +419,17 @@ void ATerrainGenerator::BuildGroundMesh()
 		}
 	}
 
-	Ground->CreateMeshSection_LinearColor(0, Vertices, Triangles, Normals, UV0, Colors, Tangents, /*bCreateCollision*/ true);
+	GenerateTimings.MeshArraysMs += (FPlatformTime::Seconds() - ArraysStart) * 1000.0;
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE(TerrainGenerator_MeshSection);
+		FStageTimer Timer(GenerateTimings.MeshSectionMs);
+		Ground->CreateMeshSection_LinearColor(0, Vertices, Triangles, Normals, UV0, Colors, Tangents, /*bCreateCollision*/ true);
+	}
 	// Keeps the contact patches of decorations that survive a ground rebuild (construction reruns).
-	UpdateGroundDarkness();
+	if (bUpdateDarkness)
+	{
+		UpdateGroundDarkness();
+	}
 	if (GroundMaterial)
 	{
 		Ground->SetMaterial(0, GroundMaterial);
@@ -383,6 +441,8 @@ void ATerrainGenerator::BuildGroundMesh()
 
 void ATerrainGenerator::UpdateWater()
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE(TerrainGenerator_Water);
+	FStageTimer Timer(GenerateTimings.WaterMs);
 	// Engine plane mesh is 100x100 cm.
 	const float WaterSize = FMath::Max(SizeX, SizeY) * WaterExtent;
 	Water->SetRelativeLocation(FVector(0.f, 0.f, WaterLevel));
@@ -431,6 +491,8 @@ void ATerrainGenerator::ClearDecorations()
 
 void ATerrainGenerator::UpdateGroundDarkness()
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE(TerrainGenerator_GroundDarkness);
+	FStageTimer Timer(GenerateTimings.GroundDarknessMs);
 	FProcMeshSection* Section = Ground->GetProcMeshSection(0);
 	if (Section == nullptr || NumX < 2 || NumY < 2 || Heights.Num() != NumX * NumY || Section->ProcVertexBuffer.Num() != Heights.Num())
 	{
@@ -530,7 +592,12 @@ void ATerrainGenerator::GenerateDecorations()
 
 	FRandomStream Stream(HashCombine(GetTypeHash(Seed), GetTypeHash(DecorationSeedSalt)));
 	TArray<TArray<FTransform>> PerEntry;
-	FTerrainDecorationScatter::Scatter(*DecorationSet, MeshInfo, Lane, GroundQuery, Stream, PerEntry);
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE(TerrainGenerator_Scatter);
+		FStageTimer Timer(GenerateTimings.ScatterMs);
+		FTerrainDecorationScatter::Scatter(*DecorationSet, MeshInfo, Lane, GroundQuery, Stream, PerEntry);
+	}
+	const double InstancesStart = FPlatformTime::Seconds();
 
 	// One HISM per mesh and material override, shared by entries that use the same pair.
 	TMap<TPair<UStaticMesh*, UMaterialInterface*>, UHierarchicalInstancedStaticMeshComponent*> ByMesh;
@@ -572,6 +639,7 @@ void ATerrainGenerator::GenerateDecorations()
 		}
 		Component->AddInstances(PerEntry[Index], /*bShouldReturnIndices*/ false, /*bWorldSpace*/ false);
 	}
+	GenerateTimings.InstancesMs += (FPlatformTime::Seconds() - InstancesStart) * 1000.0;
 
 	UpdateGroundDarkness();
 }

@@ -232,9 +232,11 @@ void FTerrainDecorationScatter::Scatter(const UTerrainDecorationSet& Set, TConst
 					continue;
 				}
 				// Nothing stands on a cliff face, which runs across the whole terrain (specs/<status>-terrain-cliff-drops).
+				// The clearance covers the bounds centre moving a little when the mesh tilts to the ground.
 				if (Lane.Cliffs.ContainsByPredicate([X, Radius](const FTerrainCliff& Cliff)
 					{
-						return X - Radius < Cliff.EndX() && X + Radius > Cliff.StartX;
+						constexpr float CliffClearance = 50.f;
+						return X - Radius - CliffClearance < Cliff.EndX() && X + Radius + CliffClearance > Cliff.StartX;
 					}))
 				{
 					continue;

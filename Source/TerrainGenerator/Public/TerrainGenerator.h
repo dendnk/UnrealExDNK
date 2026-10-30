@@ -12,6 +12,20 @@ class UProceduralMeshComponent;
 class UStaticMeshComponent;
 class UMaterialInterface;
 
+/** Wall-clock time of each Generate() stage in ms, for the generation budget test (not saved). */
+struct FTerrainGenerateTimings
+{
+	double HeightFieldMs = 0.0;
+	double MeshArraysMs = 0.0;
+	/** CreateMeshSection: render data and, with sync cooking, the collision cook. */
+	double MeshSectionMs = 0.0;
+	/** Both UpdateGroundDarkness() passes: occlusion plus the contact patches. */
+	double GroundDarknessMs = 0.0;
+	double WaterMs = 0.0;
+	double ScatterMs = 0.0;
+	double InstancesMs = 0.0;
+};
+
 /**
  * Generates a noise terrain centered at the actor origin (place the actor at 0,0,0), optionally with a water plane.
  * Island: interior heights from fBm Perlin noise; near the borders the ground smoothly sinks below the water.
@@ -59,6 +73,21 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Ground Size", meta = (ClampMin = "0"))
 	float CellSizeY = 0.f;
 
+	/**
+	 * Background rows: farther than FineRowsMinusY / FineRowsPlusY from the decoration corridor's centre line, rows are
+	 * about this far apart instead of CellSizeY (rounded to a whole number of rows). 0 = every row CellSizeY apart.
+	 * Ground near the lane keeps its rows exactly; the rest gets fewer triangles.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Ground Size", meta = (ClampMin = "0"))
+	float CoarseCellSizeY = 0.f;
+
+	/** How far from the decoration corridor's centre line, toward -Y, rows keep CellSizeY (see CoarseCellSizeY). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Ground Size", meta = (ClampMin = "0"))
+	float FineRowsMinusY = 0.f;
+
+	/** How far from the decoration corridor's centre line, toward +Y, rows keep CellSizeY (see CoarseCellSizeY). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Ground Size", meta = (ClampMin = "0"))
+	float FineRowsPlusY = 0.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Shape")
 	int32 Seed = 1337;
@@ -192,6 +221,15 @@ public:
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Terrain")
 	void Generate();
 
+	/**
+	 * Generate() without the decorations: ground mesh, collision (cooked per bAsyncCollisionCooking) and water. The ground
+	 * darkness comes with GenerateDecorations(), so call that next (a frame later is fine).
+	 */
+	void GenerateGround();
+
+	/** True once the ground can be traced against: its collision is cooked (or there is no ground to wait for). */
+	bool HasGroundCollision() const;
+
 	/** Re-scatters decorations only (the ground must already be generated). */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Terrain")
 	void GenerateDecorations();
@@ -237,6 +275,9 @@ public:
 	/** Decoration components built by GenerateDecorations(), one per mesh. */
 	const TArray<TObjectPtr<UHierarchicalInstancedStaticMeshComponent>>& GetDecorationComponents() const { return DecorationComponents; }
 
+	/** Stage times of the last Generate(). */
+	const FTerrainGenerateTimings& GetGenerateTimings() const { return GenerateTimings; }
+
 protected:
 	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void BeginPlay() override;
@@ -245,7 +286,8 @@ protected:
 #endif
 
 private:
-	void BuildGroundMesh();
+	/** bUpdateDarkness = false when the caller updates the ground darkness itself right after (Generate). */
+	void BuildGroundMesh(bool bUpdateDarkness = true);
 	void UpdateWater();
 	void ClearDecorations();
 
@@ -258,6 +300,8 @@ private:
 
 	UPROPERTY(VisibleAnywhere, Category = "Terrain")
 	TObjectPtr<UProceduralMeshComponent> Ground;
+
+	FTerrainGenerateTimings GenerateTimings;
 
 	/** Visual only; collision comes from WaterFloor. */
 	UPROPERTY(VisibleAnywhere, Category = "Terrain")

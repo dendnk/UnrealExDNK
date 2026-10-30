@@ -1,5 +1,6 @@
 #include "TerrainHeightField.h"
 
+#include "Algo/AnyOf.h"
 #include "Algo/BinarySearch.h"
 #include "Math/RandomStream.h"
 
@@ -201,25 +202,25 @@ namespace
 		auto MaxStepAt = [&](float Past)
 		{
 			const float T = Corridor.BankRamp > 0.f ? FMath::Clamp(Past / Corridor.BankRamp, 0.f, 1.f) : 1.f;
-			return FMath::Tan(FMath::DegreesToRadians(FMath::Lerp(EdgeDeg, MaxDeg, T))) * Grid.StepY;
+			return FMath::Tan(FMath::DegreesToRadians(FMath::Lerp(EdgeDeg, MaxDeg, T)));
 		};
-		auto PastAt = [&](int32 Y) { return FMath::Abs(-HalfY + Y * Grid.StepY - Corridor.CenterY) - Corridor.HalfWidth; };
+		auto PastAt = [&](int32 Y) { return FMath::Abs(Grid.RowY(Y, HalfY * 2.f) - Corridor.CenterY) - Corridor.HalfWidth; };
 		auto Limit = [&](int32 Y, int32 Prev)
 		{
 			// The step's inner end sets its slope, so the first row past the edge gets exactly BankEdgeSlopeDeg.
-			const float Step = MaxStepAt(PastAt(Prev));
+			const float Step = MaxStepAt(PastAt(Prev)) * FMath::Abs(Grid.RowY(Y, HalfY * 2.f) - Grid.RowY(Prev, HalfY * 2.f));
 			Column[Y] = FMath::Clamp(Column[Y], Column[Prev] - Step, Column[Prev] + Step);
 		};
 		for (int32 Y = 1; Y < Grid.NumY; ++Y)
 		{
-			if (-HalfY + Y * Grid.StepY > Corridor.CenterY && PastAt(Y) > 0.f)
+			if (Grid.RowY(Y, HalfY * 2.f) > Corridor.CenterY && PastAt(Y) > 0.f)
 			{
 				Limit(Y, Y - 1);
 			}
 		}
 		for (int32 Y = Grid.NumY - 2; Y >= 0; --Y)
 		{
-			if (-HalfY + Y * Grid.StepY < Corridor.CenterY && PastAt(Y) > 0.f)
+			if (Grid.RowY(Y, HalfY * 2.f) < Corridor.CenterY && PastAt(Y) > 0.f)
 			{
 				Limit(Y, Y + 1);
 			}
@@ -465,7 +466,7 @@ namespace
 				Column.SetNumUninitialized(Grid.NumY);
 				for (int32 Y = 0; Y < Grid.NumY; ++Y)
 				{
-					const float PY = -HalfY + Y * Grid.StepY;
+					const float PY = Grid.RowY(Y, HalfY * 2.f);
 					const float Offset = PY - Corridor.CenterY;
 					const float Past = FMath::Abs(Offset) - Corridor.HalfWidth;
 					Column[Y] = Profile[X];
@@ -484,7 +485,7 @@ namespace
 
 			for (int32 Y = 0; Y < Grid.NumY; ++Y)
 			{
-				const float PY = -HalfY + Y * Grid.StepY;
+				const float PY = Grid.RowY(Y, HalfY * 2.f);
 				const float Offset = PY - Corridor.CenterY;
 				float& H = Heights[Y * Grid.NumX + X];
 
@@ -604,6 +605,43 @@ float FTerrainGrid::ColumnX(int32 X, float SizeX) const
 	return HasFineEnd() && X > FineFrom ? -HalfX + FineFrom * StepX + (X - FineFrom) * FineStepX : -HalfX + X * StepX;
 }
 
+float FTerrainGrid::RowAt(float LocalY, float SizeY) const
+{
+	const float FromStart = LocalY + SizeY * 0.5f;
+	if (!Rows.IsEmpty())
+	{
+		const int32 Y0 = FMath::Clamp(Algo::UpperBound(Rows, FromStart) - 1, 0, NumY - 2);
+		const float Step = Rows[Y0 + 1] - Rows[Y0];
+		return FMath::Clamp(Y0 + (FromStart - Rows[Y0]) / FMath::Max(Step, UE_KINDA_SMALL_NUMBER), 0.f, float(NumY - 1));
+	}
+	return FMath::Clamp(FromStart / StepY, 0.f, float(NumY - 1));
+}
+
+void FTerrainGrid::ThinRows(float FineFromY, float FineToY, int32 Every, float SizeY, TConstArrayView<float> KeepYs)
+{
+	if (Every <= 1 || NumY < 3 || !Rows.IsEmpty())
+	{
+		return;
+	}
+	const float HalfY = SizeY * 0.5f;
+	TArray<float> Kept;
+	for (int32 Y = 0; Y < NumY; ++Y)
+	{
+		const float PY = -HalfY + Y * StepY;
+		const bool bFine = PY >= FineFromY - StepY - UE_KINDA_SMALL_NUMBER && PY <= FineToY + StepY + UE_KINDA_SMALL_NUMBER;
+		const bool bKeep = Algo::AnyOf(KeepYs, [PY, this](float KeepY) { return FMath::Abs(PY - KeepY) <= StepY * 0.5f; });
+		if (bFine || bKeep || Y % Every == 0 || Y == NumY - 1)
+		{
+			Kept.Add(Y * StepY);
+		}
+	}
+	if (Kept.Num() < NumY)
+	{
+		Rows = MoveTemp(Kept);
+		NumY = Rows.Num();
+	}
+}
+
 float FTerrainGrid::ColumnAt(float LocalX, float SizeX) const
 {
 	const float FromStart = LocalX + SizeX * 0.5f;
@@ -697,14 +735,13 @@ void FTerrainHeightField::Build(const FTerrainHeightParams& Params, const FTerra
 
 	const FVector2D NoiseOffset = MakeNoiseOffset(Params.Seed);
 	const bool bApplyMask = Params.Type == ETerrainType::Island;
-	const float HalfY = Params.SizeY * 0.5f;
 
 	OutHeights.SetNumUninitialized(Grid.NumX * Grid.NumY);
 	for (int32 Y = 0; Y < Grid.NumY; ++Y)
 	{
 		for (int32 X = 0; X < Grid.NumX; ++X)
 		{
-			OutHeights[Y * Grid.NumX + X] = SampleBase(Params, NoiseOffset, Grid.ColumnX(X, Params.SizeX), -HalfY + Y * Grid.StepY, bApplyMask);
+			OutHeights[Y * Grid.NumX + X] = SampleBase(Params, NoiseOffset, Grid.ColumnX(X, Params.SizeX), Grid.RowY(Y, Params.SizeY), bApplyMask);
 		}
 	}
 
@@ -733,17 +770,30 @@ void FTerrainHeightField::ComputeOcclusion(const TArray<float>& Heights, const F
 		Offsets[Dir * 2 + 1] = Unit * (Radius * 0.5f);
 	}
 
-	const float HalfY = SizeY * 0.5f;
+	// A sample's fractional column depends only on its vertex column and offset, so it is looked up once per column,
+	// not once per vertex: on a grid with cliff columns ColumnAt is a binary search (lane-ground-dressing T24).
+	constexpr int32 NumOffsets = UE_ARRAY_COUNT(Offsets);
+	TArray<float> SampleColumns;
+	SampleColumns.SetNumUninitialized(Grid.NumX * NumOffsets);
+	for (int32 X = 0; X < Grid.NumX; ++X)
+	{
+		const float ColumnX = Grid.ColumnX(X, SizeX);
+		for (int32 Sample = 0; Sample < NumOffsets; ++Sample)
+		{
+			SampleColumns[X * NumOffsets + Sample] = Grid.ColumnAt(ColumnX + Offsets[Sample].X, SizeX);
+		}
+	}
+
 	for (int32 Y = 0; Y < Grid.NumY; ++Y)
 	{
 		for (int32 X = 0; X < Grid.NumX; ++X)
 		{
-			const FVector2D P(Grid.ColumnX(X, SizeX), -HalfY + Y * Grid.StepY);
+			const float PY = Grid.RowY(Y, SizeY);
 			float Sum = 0.f;
 			// Samples past the edge clamp to it (SampleGrid), so borders read as open, never as enclosed.
-			for (const FVector2D& Offset : Offsets)
+			for (int32 Sample = 0; Sample < NumOffsets; ++Sample)
 			{
-				Sum += SampleGrid(Heights, Grid, SizeX, SizeY, P.X + Offset.X, P.Y + Offset.Y);
+				Sum += SampleGridAtColumn(Heights, Grid, SizeY, SampleColumns[X * NumOffsets + Sample], PY + Offsets[Sample].Y);
 			}
 			const int32 Index = Y * Grid.NumX + X;
 			OutOcclusion[Index] = FMath::Clamp((Sum / UE_ARRAY_COUNT(Offsets) - Heights[Index]) / Depth, 0.f, 1.f);
@@ -785,16 +835,15 @@ void FTerrainHeightField::AddContactDarkening(const FTerrainGrid& Grid, float Si
 		return;
 	}
 
-	const float HalfY = SizeY * 0.5f;
 	const int32 X0 = FMath::Clamp(FMath::FloorToInt(Grid.ColumnAt(Center.X - Radius, SizeX)), 0, Grid.NumX - 1);
 	const int32 X1 = FMath::Clamp(FMath::CeilToInt(Grid.ColumnAt(Center.X + Radius, SizeX)), 0, Grid.NumX - 1);
-	const int32 Y0 = FMath::Clamp(FMath::FloorToInt((Center.Y - Radius + HalfY) / Grid.StepY), 0, Grid.NumY - 1);
-	const int32 Y1 = FMath::Clamp(FMath::CeilToInt((Center.Y + Radius + HalfY) / Grid.StepY), 0, Grid.NumY - 1);
+	const int32 Y0 = FMath::Clamp(FMath::FloorToInt(Grid.RowAt(Center.Y - Radius, SizeY)), 0, Grid.NumY - 1);
+	const int32 Y1 = FMath::Clamp(FMath::CeilToInt(Grid.RowAt(Center.Y + Radius, SizeY)), 0, Grid.NumY - 1);
 	for (int32 Y = Y0; Y <= Y1; ++Y)
 	{
 		for (int32 X = X0; X <= X1; ++X)
 		{
-			const float Dist = FVector2D::Distance(Center, FVector2D(Grid.ColumnX(X, SizeX), -HalfY + Y * Grid.StepY));
+			const float Dist = FVector2D::Distance(Center, FVector2D(Grid.ColumnX(X, SizeX), Grid.RowY(Y, SizeY)));
 			if (Dist < Radius)
 			{
 				float& Darkness = InOutDarkness[Y * Grid.NumX + X];
@@ -811,8 +860,12 @@ float FTerrainHeightField::SampleGrid(const TArray<float>& Heights, const FTerra
 		return 0.f;
 	}
 
-	const float FX = Grid.ColumnAt(LocalX, SizeX);
-	const float FY = FMath::Clamp((LocalY + SizeY * 0.5f) / Grid.StepY, 0.f, float(Grid.NumY - 1));
+	return SampleGridAtColumn(Heights, Grid, SizeY, Grid.ColumnAt(LocalX, SizeX), LocalY);
+}
+
+float FTerrainHeightField::SampleGridAtColumn(const TArray<float>& Heights, const FTerrainGrid& Grid, float SizeY, float FX, float LocalY)
+{
+	const float FY = Grid.RowAt(LocalY, SizeY);
 	const int32 X0 = FMath::Min(FMath::FloorToInt(FX), Grid.NumX - 2);
 	const int32 Y0 = FMath::Min(FMath::FloorToInt(FY), Grid.NumY - 2);
 	const float TX = FX - X0;

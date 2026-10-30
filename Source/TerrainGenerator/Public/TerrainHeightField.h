@@ -50,6 +50,8 @@ struct TERRAINGENERATOR_API FTerrainGrid
 	float FineStepX = 0.f;
 	/** Explicit column positions, distance from the -X edge, ascending; empty = the regular layout above. */
 	TArray<float> Columns;
+	/** Explicit row positions, distance from the -Y edge, ascending; empty = every row StepY apart (see ThinRows). */
+	TArray<float> Rows;
 
 	/**
 	 * FineLength > 0 with FineCellSizeX > 0: the columns over the last FineLength of the grid (starting at the first
@@ -81,6 +83,23 @@ struct TERRAINGENERATOR_API FTerrainGrid
 
 	/** Fractional column at local X, clamped to [0, NumX - 1]. */
 	float ColumnAt(float LocalX, float SizeX) const;
+
+	/** Local Y of row Y. */
+	float RowY(int32 Y, float SizeY) const
+	{
+		return -SizeY * 0.5f + (!Rows.IsEmpty() ? Rows[Y] : Y * StepY);
+	}
+
+	/** Fractional row at local Y, clamped to [0, NumY - 1]. */
+	float RowAt(float LocalY, float SizeY) const;
+
+	/**
+	 * Keeps every row with local Y in [FineFromY, FineToY] (and one row past each end, so the band's edge cells stay
+	 * StepY wide), plus every Every-th row and both edges elsewhere: fewer triangles on background ground. The kept rows
+	 * sit exactly where the regular grid has them, so ground inside the band is unchanged. StepY stays the fine spacing.
+	 * Rows at KeepYs (local Y, nearest row) stay too: lines a check samples exactly, like a land-width edge.
+	 */
+	void ThinRows(float FineFromY, float FineToY, int32 Every, float SizeY, TConstArrayView<float> KeepYs = {});
 };
 
 /** Pure height maths: no world, no components, so it can be tested headless. */
@@ -95,6 +114,9 @@ struct TERRAINGENERATOR_API FTerrainHeightField
 
 	/** Height at a local XY point, interpolated on the same triangle split the mesh uses (diagonal V1 -> V2). */
 	static float SampleGrid(const TArray<float>& Heights, const FTerrainGrid& Grid, float SizeX, float SizeY, float LocalX, float LocalY);
+
+	/** SampleGrid with the fractional column (Grid.ColumnAt) already known. The grid must be valid for Heights. */
+	static float SampleGridAtColumn(const TArray<float>& Heights, const FTerrainGrid& Grid, float SizeY, float FX, float LocalY);
 
 	/** Noise offset derived from the seed, exactly as the generator has always done it. */
 	static FVector2D MakeNoiseOffset(int32 Seed);
