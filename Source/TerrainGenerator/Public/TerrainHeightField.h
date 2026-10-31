@@ -142,9 +142,17 @@ struct TERRAINGENERATOR_API FTerrainHeightField
 
 	/**
 	 * Local X of every cliff column of every corridor, where ATerrainGenerator::MakeGrid inserts them: both face edges, and
-	 * with CliffRoughness the zone's outer edges and 2-3 columns inside the face (positions fixed per cliff).
+	 * with CliffRoughness the zone's outer edges, 3-5 columns inside the face, a mid lip column and the toe apron's columns
+	 * (positions fixed per cliff).
 	 */
 	static TArray<float> CliffColumnXs(TConstArrayView<FTerrainCorridor> Corridors);
+
+	/**
+	 * A rough cliff's zone columns (local X, as CliffColumnXs) and how much of the face's rock each one takes, 0..1: 1 from
+	 * the top edge to the bottom edge, easing to 0 at the zone's outer columns across the lip and the toe (finding #74).
+	 * Empty without CliffRoughness.
+	 */
+	static void CliffZoneRockRamp(const FTerrainCorridor& Corridor, const FTerrainCliff& Cliff, TArray<float>& OutXs, TArray<float>& OutRamp);
 
 	/** Every cliff's zone (CliffZone) as (min X, max X): no other column stays inside one. */
 	static TArray<FVector2D> CliffZoneSpans(TConstArrayView<FTerrainCorridor> Corridors);

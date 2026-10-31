@@ -256,11 +256,14 @@ struct TERRAINGENERATOR_API FTerrainCorridor
 
 	/** How far the rough zone reaches past the top edge into the high ground, cm. Keep it inside CliffMarginHigh. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Corridor|Cliffs", meta = (ClampMin = "0", Units = "cm"))
-	float CliffLipDepth = 150.f;
+	float CliffLipDepth = 250.f;
 
-	/** How far the rough zone reaches past the bottom edge into the low ground, cm. Keep it inside CliffMarginLow. */
+	/**
+	 * How far the rough zone reaches past the bottom edge into the low ground, cm: the apron that eases the face into the
+	 * low ground (finding #74). Keep it inside CliffMarginLow.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Corridor|Cliffs", meta = (ClampMin = "0", Units = "cm"))
-	float CliffToeDepth = 300.f;
+	float CliffToeDepth = 800.f;
 
 	/** The cliffs this corridor has now: set at run time per island, never saved. */
 	UPROPERTY(Transient, VisibleInstanceOnly, BlueprintReadOnly, Category = "Corridor|Cliffs")

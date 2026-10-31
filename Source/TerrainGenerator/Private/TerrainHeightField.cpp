@@ -438,19 +438,25 @@ namespace
 
 	/**
 	 * Rough cliffs (HeliAce specs/<status>-terrain-cliff-drops REQ-10). Facet slopes allowed down a rough face, and how far
-	 * the lip may break (lowered) and the toe pile up (raised): absolute caps and shares of the drop, so even the lowest
-	 * cliff keeps a mean face slope of at least ~55 deg between its edges.
+	 * the lip may break (lowered) and the toe pile up (raised): absolute caps and shares of the drop (finding #74: twice
+	 * #67's), cut back per cliff so its mean face slope between the edges stays at least CliffMinMeanFaceDeg.
 	 */
-	constexpr float CliffFacetMinDeg = 45.f;
+	constexpr float CliffFacetMinDeg = 35.f;
 	constexpr float CliffFacetMaxDeg = 85.f;
-	constexpr float CliffLipMaxDrop = 100.f;
-	constexpr float CliffLipDropShare = 0.07f;
-	constexpr float CliffToeMaxRise = 150.f;
-	constexpr float CliffToeRiseShare = 0.09f;
+	constexpr float CliffLipMaxDrop = 200.f;
+	constexpr float CliffLipDropShare = 0.14f;
+	constexpr float CliffToeMaxRise = 300.f;
+	constexpr float CliffToeRiseShare = 0.18f;
+	/** The lane check allows a 55 deg mean face (TerrainRuntime's RoughFaceMinMeanDeg); one degree of headroom. */
+	constexpr float CliffMinMeanFaceDeg = 56.f;
+	/** The toe mound never drops below this share of its cap, so the face always eases into the low ground. */
+	constexpr float CliffToeMinShare = 0.4f;
 	/** How far an inner face column's height may move, as a share of the drop per face cell, at roughness 1. */
-	constexpr float CliffLedgeJitter = 0.9f;
+	constexpr float CliffLedgeJitter = 1.8f;
 	/** Wavelength of the shape's variation along the cliff (Y), cm; a per-row random part rides on top. */
-	constexpr float CliffNoiseWavelength = 1500.f;
+	constexpr float CliffNoiseWavelength = 750.f;
+	/** Toe columns between the bottom edge and the zone's outer edge, as shares of CliffToeDepth (the apron's breaks). */
+	constexpr float CliffToeColumnShares[] = { 0.2f, 0.45f, 0.7f };
 	constexpr float CliffRowRandomShare = 0.35f;
 	/** Over this height above the water the shaping fades in, cm: the cliff runs into the sea without a ragged seabed. */
 	constexpr float CliffWaterFade = 150.f;
@@ -466,14 +472,21 @@ namespace
 		float Run = 1.f;
 		uint32 Seed = 0;
 		/** Distance of each column from the top edge toward the low side: [lip], top (0), inner..., bottom (Run), [toe]. */
-		TArray<float, TInlineAllocator<8>> Us;
+		TArray<float, TInlineAllocator<16>> Us;
 		int32 TopIndex = 0;
 		int32 BottomIndex = 1;
+		/** Zone depth beyond each edge (0 without roughness). */
+		float LipDepth = 0.f;
+		float ToeDepth = 0.f;
 
 		float ToX(float U) const { return TopX + Dir * U; }
 	};
 
-	/** Inner columns sit evenly down the face, each moved by up to 30% of its cell, fixed per cliff (the grid depends on it). */
+	/**
+	 * Inner columns sit evenly down the face, each moved by up to 30% of its cell, fixed per cliff (the grid depends on it):
+	 * 3 on a face under 6 m of X, 4 under 12 m, 5 beyond. The lip gets a mid column and the toe CliffToeColumnShares, so
+	 * both ease into the flat ground (finding #74).
+	 */
 	FCliffZoneLayout MakeCliffZoneLayout(const FTerrainCorridor& Corridor, const FTerrainCliff& Cliff)
 	{
 		FCliffZoneLayout Layout;
@@ -485,13 +498,15 @@ namespace
 		const bool bRough = Corridor.CliffRoughness > 0.f;
 		if (bRough && Corridor.CliffLipDepth > 0.f)
 		{
+			Layout.LipDepth = Corridor.CliffLipDepth;
 			Layout.Us.Add(-Corridor.CliffLipDepth);
+			Layout.Us.Add(-Corridor.CliffLipDepth * 0.5f);
 		}
 		Layout.TopIndex = Layout.Us.Add(0.f);
 		if (bRough)
 		{
 			FRandomStream Stream(int32(Layout.Seed));
-			const int32 Inner = Layout.Run >= 400.f ? 3 : 2;
+			const int32 Inner = Layout.Run >= 1200.f ? 5 : Layout.Run >= 600.f ? 4 : 3;
 			for (int32 K = 1; K <= Inner; ++K)
 			{
 				const float Jitter = float(Stream.FRandRange(-0.3, 0.3));
@@ -501,6 +516,11 @@ namespace
 		Layout.BottomIndex = Layout.Us.Add(Layout.Run);
 		if (bRough && Corridor.CliffToeDepth > 0.f)
 		{
+			Layout.ToeDepth = Corridor.CliffToeDepth;
+			for (const float Share : CliffToeColumnShares)
+			{
+				Layout.Us.Add(Layout.Run + Corridor.CliffToeDepth * Share);
+			}
 			Layout.Us.Add(Layout.Run + Corridor.CliffToeDepth);
 		}
 		return Layout;
@@ -524,7 +544,9 @@ namespace
 	/**
 	 * Shapes every cliff's zone on every row: the top edge breaks (lowered 0..LipMax), the bottom edge piles up (raised
 	 * 0..ToeMax), and the inner face columns move up and down so the face has ledges and steeper steps, every facet between
-	 * CliffFacetMinDeg and CliffFacetMaxDeg. The zone's outer columns stay, so the drop across the zone stays the cliff's
+	 * CliffFacetMinDeg and CliffFacetMaxDeg. The lip's mid column and the toe columns follow the edges on an eased curve,
+	 * (1 - t)^2 from the edge (t = 0) to the zone's outer column (t = 1), so the face meets the flat ground through a
+	 * gradual concave apron instead of a crease. The zone's outer columns stay, so the drop across the zone stays the cliff's
 	 * Rise and the ground outside it is untouched. Works on the heights as built (a change against the straight face), so
 	 * the relief beside the lane rides along.
 	 */
@@ -544,7 +566,7 @@ namespace
 			{
 				continue;
 			}
-			TArray<int32, TInlineAllocator<8>> Columns;
+			TArray<int32, TInlineAllocator<16>> Columns;
 			for (const float U : Layout.Us)
 			{
 				Columns.Add(Grid.FindColumn(Layout.ToX(U), Params.SizeX));
@@ -554,8 +576,16 @@ namespace
 				continue;
 			}
 
-			const float LipMax = Roughness * FMath::Min(CliffLipMaxDrop, CliffLipDropShare * Layout.Drop);
-			const float ToeMax = Roughness * FMath::Min(CliffToeMaxRise, CliffToeRiseShare * Layout.Drop);
+			float LipMax = Roughness * FMath::Min(CliffLipMaxDrop, CliffLipDropShare * Layout.Drop);
+			float ToeMax = Roughness * FMath::Min(CliffToeMaxRise, CliffToeRiseShare * Layout.Drop);
+			// Lip + toe take that much off the face's change between its edges; keep its mean slope >= CliffMinMeanFaceDeg.
+			const float FaceRoom = FMath::Max(0.f, Layout.Drop - FMath::Tan(FMath::DegreesToRadians(CliffMinMeanFaceDeg)) * Layout.Run);
+			if (LipMax + ToeMax > FaceRoom)
+			{
+				const float Cut = FaceRoom / (LipMax + ToeMax);
+				LipMax *= Cut;
+				ToeMax *= Cut;
+			}
 			const int32 Top = Layout.TopIndex;
 			const int32 Bottom = Layout.BottomIndex;
 			// Height down from the top edge as a share of the drop, per column from Top to Bottom.
@@ -581,7 +611,7 @@ namespace
 				}
 
 				const float Lip = LipMax * (0.5f + 0.5f * CliffNoise(Layout.Seed, PY, 0));
-				const float Toe = ToeMax * (0.5f + 0.5f * CliffNoise(Layout.Seed, PY, 1));
+				const float Toe = ToeMax * (CliffToeMinShare + (1.f - CliffToeMinShare) * (0.5f + 0.5f * CliffNoise(Layout.Seed, PY, 1)));
 				const int32 Last = S.Num() - 1;
 				S[0] = Lip / Layout.Drop;
 				S[Last] = 1.f - Toe / Layout.Drop;
@@ -632,6 +662,19 @@ namespace
 				{
 					const float Straight = Layout.Us[Top + K] / Layout.Run;
 					Row[Columns[Top + K]] += Weight * Layout.Drop * (Straight - S[K]);
+				}
+				// The apron: lip mid column lowered, toe columns raised, easing to 0 at the zone's outer columns.
+				const float LipDrop = Layout.Drop * S[0];
+				const float ToeRise = Layout.Drop * (1.f - S[Last]);
+				for (int32 C = 1; C < Top; ++C)
+				{
+					const float T = -Layout.Us[C] / FMath::Max(Layout.LipDepth, 1.f);
+					Row[Columns[C]] -= Weight * LipDrop * FMath::Square(1.f - T);
+				}
+				for (int32 C = Bottom + 1; C < Columns.Num() - 1; ++C)
+				{
+					const float T = (Layout.Us[C] - Layout.Run) / FMath::Max(Layout.ToeDepth, 1.f);
+					Row[Columns[C]] += Weight * ToeRise * FMath::Square(1.f - T);
 				}
 			}
 		}
@@ -1040,6 +1083,26 @@ TArray<float> FTerrainHeightField::CliffColumnXs(TConstArrayView<FTerrainCorrido
 		}
 	}
 	return Xs;
+}
+
+void FTerrainHeightField::CliffZoneRockRamp(const FTerrainCorridor& Corridor, const FTerrainCliff& Cliff, TArray<float>& OutXs, TArray<float>& OutRamp)
+{
+	OutXs.Reset();
+	OutRamp.Reset();
+	if (Corridor.CliffRoughness <= 0.f)
+	{
+		return;
+	}
+	const FCliffZoneLayout Layout = MakeCliffZoneLayout(Corridor, Cliff);
+	for (int32 C = 0; C < Layout.Us.Num(); ++C)
+	{
+		const float U = Layout.Us[C];
+		// Distance into the flat ground past the nearer edge, as a share of that side's depth: 0 on the face, 1 at the outer column.
+		const float T = C < Layout.TopIndex ? -U / FMath::Max(Layout.LipDepth, 1.f)
+			: C > Layout.BottomIndex ? (U - Layout.Run) / FMath::Max(Layout.ToeDepth, 1.f) : 0.f;
+		OutXs.Add(Layout.ToX(U));
+		OutRamp.Add(FMath::SmoothStep(0.f, 1.f, 1.f - FMath::Clamp(T, 0.f, 1.f)));
+	}
 }
 
 TArray<FVector2D> FTerrainHeightField::CliffZoneSpans(TConstArrayView<FTerrainCorridor> Corridors)
