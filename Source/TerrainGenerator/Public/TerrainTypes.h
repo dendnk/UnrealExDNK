@@ -31,7 +31,7 @@ enum class ETerrainCorridorBankMode : uint8
 /**
  * An abrupt step in a corridor's profile: over [StartX, StartX + Run] the ground changes by Rise (negative = drops going
  * +X). It runs across the whole terrain width; the face is one grid cell (ATerrainGenerator::MakeGrid puts columns at both
- * edges). Actor-local cm.
+ * edges), or with the corridor's CliffRoughness a few cells of a rough zone around it. Actor-local cm.
  */
 USTRUCT(BlueprintType)
 struct TERRAINGENERATOR_API FTerrainCliff
@@ -244,6 +244,23 @@ struct TERRAINGENERATOR_API FTerrainCorridor
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Corridor|Cliffs", meta = (ClampMin = "0", Units = "cm"))
 	float CliffMarginHigh = 300.f;
+
+	/**
+	 * Rough cliffs (HeliAce specs/<status>-terrain-cliff-drops REQ-10), scaling every amplitude: 0 = a flat face, one cell
+	 * between its edges; 1 = a rough zone from CliffLipDepth behind the top edge to CliffToeDepth past the bottom edge,
+	 * with ledges down the face, a broken lip and a scree toe, different on every row. The drop across the zone stays the
+	 * cliff's Rise. FTerrainHeightField::CliffZone gives the zone.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Corridor|Cliffs", meta = (ClampMin = "0", ClampMax = "1"))
+	float CliffRoughness = 0.f;
+
+	/** How far the rough zone reaches past the top edge into the high ground, cm. Keep it inside CliffMarginHigh. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Corridor|Cliffs", meta = (ClampMin = "0", Units = "cm"))
+	float CliffLipDepth = 150.f;
+
+	/** How far the rough zone reaches past the bottom edge into the low ground, cm. Keep it inside CliffMarginLow. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Corridor|Cliffs", meta = (ClampMin = "0", Units = "cm"))
+	float CliffToeDepth = 300.f;
 
 	/** The cliffs this corridor has now: set at run time per island, never saved. */
 	UPROPERTY(Transient, VisibleInstanceOnly, BlueprintReadOnly, Category = "Corridor|Cliffs")

@@ -275,6 +275,12 @@ public:
 	/** Decoration components built by GenerateDecorations(), one per mesh. */
 	const TArray<TObjectPtr<UHierarchicalInstancedStaticMeshComponent>>& GetDecorationComponents() const { return DecorationComponents; }
 
+	/** Component tag on the cliff rocks' components (visible ones in GetDecorationComponents, and the colliders). */
+	static inline const FName CliffRockTag = TEXT("CliffRock");
+
+	/** Blocking collision of the solid cliff rocks, one hidden component per mesh. */
+	const TArray<TObjectPtr<UHierarchicalInstancedStaticMeshComponent>>& GetCliffRockColliders() const { return CliffRockColliders; }
+
 	/** Stage times of the last Generate(). */
 	const FTerrainGenerateTimings& GetGenerateTimings() const { return GenerateTimings; }
 
@@ -313,6 +319,13 @@ private:
 
 	UPROPERTY()
 	TArray<TObjectPtr<UHierarchicalInstancedStaticMeshComponent>> DecorationComponents;
+
+	/**
+	 * Invisible, blocking copies of the solid cliff rocks (UTerrainDecorationSet::CliffRocks), shrunk about each rock's
+	 * bounds centre so the collision sits inside the visible rock. The visible rocks are in DecorationComponents.
+	 */
+	UPROPERTY()
+	TArray<TObjectPtr<UHierarchicalInstancedStaticMeshComponent>> CliffRockColliders;
 
 	// Serialized so height queries work in cooked builds without regenerating.
 	UPROPERTY()

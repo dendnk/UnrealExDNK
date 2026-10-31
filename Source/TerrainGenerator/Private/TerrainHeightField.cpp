@@ -142,10 +142,17 @@ namespace
 			{
 				Steps[X] += Cliff.Rise * FMath::Clamp((Grid.ColumnX(X, Params.SizeX) - Cliff.StartX) / Run, 0.f, 1.f);
 			}
-			const int32 Top = Grid.FindColumn(Cliff.StartX, Params.SizeX);
-			if (Top != INDEX_NONE && Grid.FindColumn(Cliff.EndX(), Params.SizeX) == Top + 1)
+			// The whole zone (the face, plus a rough cliff's lip and toe) is level in the smooth profile: across it the
+			// ground changes by exactly the cliff's Rise, and ApplyCliffRoughness shapes it from there.
+			const FVector2D Zone = FTerrainHeightField::CliffZone(Corridor, Cliff);
+			const int32 First = Grid.FindColumn(Zone.X, Params.SizeX);
+			const int32 Last = Grid.FindColumn(Zone.Y, Params.SizeX);
+			if (First != INDEX_NONE && Last != INDEX_NONE)
 			{
-				Faces[Top] = true;
+				for (int32 X = First; X < Last; ++X)
+				{
+					Faces[X] = true;
+				}
 			}
 		}
 		float StepsMin = 0.f;
@@ -429,6 +436,207 @@ namespace
 		H = FMath::Lerp(H, Shaped, Weight);
 	}
 
+	/**
+	 * Rough cliffs (HeliAce specs/<status>-terrain-cliff-drops REQ-10). Facet slopes allowed down a rough face, and how far
+	 * the lip may break (lowered) and the toe pile up (raised): absolute caps and shares of the drop, so even the lowest
+	 * cliff keeps a mean face slope of at least ~55 deg between its edges.
+	 */
+	constexpr float CliffFacetMinDeg = 45.f;
+	constexpr float CliffFacetMaxDeg = 85.f;
+	constexpr float CliffLipMaxDrop = 100.f;
+	constexpr float CliffLipDropShare = 0.07f;
+	constexpr float CliffToeMaxRise = 150.f;
+	constexpr float CliffToeRiseShare = 0.09f;
+	/** How far an inner face column's height may move, as a share of the drop per face cell, at roughness 1. */
+	constexpr float CliffLedgeJitter = 0.9f;
+	/** Wavelength of the shape's variation along the cliff (Y), cm; a per-row random part rides on top. */
+	constexpr float CliffNoiseWavelength = 1500.f;
+	constexpr float CliffRowRandomShare = 0.35f;
+	/** Over this height above the water the shaping fades in, cm: the cliff runs into the sea without a ragged seabed. */
+	constexpr float CliffWaterFade = 150.f;
+
+	/** A cliff's zone columns and orientation. */
+	struct FCliffZoneLayout
+	{
+		/** Face edge on the high side. */
+		float TopX = 0.f;
+		/** +1: the ground drops going +X (the low side is at +X). */
+		float Dir = 1.f;
+		float Drop = 0.f;
+		float Run = 1.f;
+		uint32 Seed = 0;
+		/** Distance of each column from the top edge toward the low side: [lip], top (0), inner..., bottom (Run), [toe]. */
+		TArray<float, TInlineAllocator<8>> Us;
+		int32 TopIndex = 0;
+		int32 BottomIndex = 1;
+
+		float ToX(float U) const { return TopX + Dir * U; }
+	};
+
+	/** Inner columns sit evenly down the face, each moved by up to 30% of its cell, fixed per cliff (the grid depends on it). */
+	FCliffZoneLayout MakeCliffZoneLayout(const FTerrainCorridor& Corridor, const FTerrainCliff& Cliff)
+	{
+		FCliffZoneLayout Layout;
+		Layout.Run = FMath::Max(Cliff.Run, 1.f);
+		Layout.Drop = FMath::Abs(Cliff.Rise);
+		Layout.Dir = Cliff.Rise <= 0.f ? 1.f : -1.f;
+		Layout.TopX = Layout.Dir > 0.f ? Cliff.StartX : Cliff.EndX();
+		Layout.Seed = HashCombine(HashCombine(GetTypeHash(Cliff.StartX), GetTypeHash(Cliff.Run)), GetTypeHash(Cliff.Rise));
+		const bool bRough = Corridor.CliffRoughness > 0.f;
+		if (bRough && Corridor.CliffLipDepth > 0.f)
+		{
+			Layout.Us.Add(-Corridor.CliffLipDepth);
+		}
+		Layout.TopIndex = Layout.Us.Add(0.f);
+		if (bRough)
+		{
+			FRandomStream Stream(int32(Layout.Seed));
+			const int32 Inner = Layout.Run >= 400.f ? 3 : 2;
+			for (int32 K = 1; K <= Inner; ++K)
+			{
+				const float Jitter = float(Stream.FRandRange(-0.3, 0.3));
+				Layout.Us.Add(Layout.Run * (K + Jitter) / (Inner + 1));
+			}
+		}
+		Layout.BottomIndex = Layout.Us.Add(Layout.Run);
+		if (bRough && Corridor.CliffToeDepth > 0.f)
+		{
+			Layout.Us.Add(Layout.Run + Corridor.CliffToeDepth);
+		}
+		return Layout;
+	}
+
+	/** Deterministic value in [-1, 1] per cliff, row and channel. */
+	float CliffRowRandom(uint32 Seed, float PY, int32 Channel)
+	{
+		const uint32 Hash = HashCombine(HashCombine(Seed, GetTypeHash(FMath::RoundToInt(PY))), GetTypeHash(Channel));
+		return float(Hash & 0xFFFF) / 65535.f * 2.f - 1.f;
+	}
+
+	/** Smooth along Y with a per-row random part, roughly in [-1, 1]. */
+	float CliffNoise(uint32 Seed, float PY, int32 Channel)
+	{
+		const float Phase = float(Seed % 8192u) * 0.731f + Channel * 17.3f;
+		const float Smooth = FMath::PerlinNoise1D(PY / CliffNoiseWavelength + Phase);
+		return FMath::Clamp((1.f - CliffRowRandomShare) * Smooth + CliffRowRandomShare * CliffRowRandom(Seed, PY, Channel), -1.f, 1.f);
+	}
+
+	/**
+	 * Shapes every cliff's zone on every row: the top edge breaks (lowered 0..LipMax), the bottom edge piles up (raised
+	 * 0..ToeMax), and the inner face columns move up and down so the face has ledges and steeper steps, every facet between
+	 * CliffFacetMinDeg and CliffFacetMaxDeg. The zone's outer columns stay, so the drop across the zone stays the cliff's
+	 * Rise and the ground outside it is untouched. Works on the heights as built (a change against the straight face), so
+	 * the relief beside the lane rides along.
+	 */
+	void ApplyCliffRoughness(const FTerrainHeightParams& Params, const FTerrainGrid& Grid, const FTerrainCorridor& Corridor, TArray<float>& Heights)
+	{
+		const float Roughness = FMath::Clamp(Corridor.CliffRoughness, 0.f, 1.f);
+		if (Roughness <= 0.f)
+		{
+			return;
+		}
+		const float FacetMin = FMath::Tan(FMath::DegreesToRadians(CliffFacetMinDeg));
+		const float FacetMax = FMath::Tan(FMath::DegreesToRadians(CliffFacetMaxDeg));
+		for (const FTerrainCliff& Cliff : Corridor.Cliffs)
+		{
+			const FCliffZoneLayout Layout = MakeCliffZoneLayout(Corridor, Cliff);
+			if (Layout.Drop <= 1.f)
+			{
+				continue;
+			}
+			TArray<int32, TInlineAllocator<8>> Columns;
+			for (const float U : Layout.Us)
+			{
+				Columns.Add(Grid.FindColumn(Layout.ToX(U), Params.SizeX));
+			}
+			if (Columns.Contains(INDEX_NONE))
+			{
+				continue;
+			}
+
+			const float LipMax = Roughness * FMath::Min(CliffLipMaxDrop, CliffLipDropShare * Layout.Drop);
+			const float ToeMax = Roughness * FMath::Min(CliffToeMaxRise, CliffToeRiseShare * Layout.Drop);
+			const int32 Top = Layout.TopIndex;
+			const int32 Bottom = Layout.BottomIndex;
+			// Height down from the top edge as a share of the drop, per column from Top to Bottom.
+			TArray<float, TInlineAllocator<8>> S;
+			TArray<float, TInlineAllocator<8>> Lo;
+			TArray<float, TInlineAllocator<8>> Hi;
+			S.SetNum(Bottom - Top + 1);
+			Lo.SetNum(S.Num());
+			Hi.SetNum(S.Num());
+
+			for (int32 Y = 0; Y < Grid.NumY; ++Y)
+			{
+				const float PY = Grid.RowY(Y, Params.SizeY);
+				float* Row = Heights.GetData() + Y * Grid.NumX;
+				// Shaped in proportion to the drop this row really has: toward the banks the corridor blends into the island's
+				// sides and the cliff shrinks, and the full drop's ledges would dig pits and raise spikes there.
+				const float RowDrop = Row[Columns[Top]] - Row[Columns[Bottom]];
+				const float Weight = FMath::Clamp((FMath::Min(Row[Columns[0]], Row[Columns.Last()]) - Params.WaterLevel) / CliffWaterFade, 0.f, 1.f)
+					* FMath::Clamp(RowDrop / Layout.Drop, 0.f, 1.f);
+				if (Weight <= 0.f)
+				{
+					continue;
+				}
+
+				const float Lip = LipMax * (0.5f + 0.5f * CliffNoise(Layout.Seed, PY, 0));
+				const float Toe = ToeMax * (0.5f + 0.5f * CliffNoise(Layout.Seed, PY, 1));
+				const int32 Last = S.Num() - 1;
+				S[0] = Lip / Layout.Drop;
+				S[Last] = 1.f - Toe / Layout.Drop;
+				for (int32 K = 1; K < Last; ++K)
+				{
+					const float Cell = (Layout.Us[Top + K + 1] - Layout.Us[Top + K - 1]) * 0.5f / Layout.Run;
+					S[K] = Layout.Us[Top + K] / Layout.Run + Roughness * CliffLedgeJitter * Cell * CliffNoise(Layout.Seed, PY, 2 + K);
+				}
+
+				// Steps between neighbours, clamped to the facet slopes, then the remainder spread over the slack so the
+				// steps still add up to the drop between the edges.
+				float Sum = 0.f;
+				float LoSum = 0.f;
+				float HiSum = 0.f;
+				for (int32 K = 1; K <= Last; ++K)
+				{
+					const float Width = Layout.Us[Top + K] - Layout.Us[Top + K - 1];
+					Lo[K] = FacetMin * Width / Layout.Drop;
+					Hi[K] = FacetMax * Width / Layout.Drop;
+					LoSum += Lo[K];
+					HiSum += Hi[K];
+				}
+				const float Target = FMath::Clamp(S[Last] - S[0], LoSum, HiSum);
+				TArray<float, TInlineAllocator<8>> Step;
+				Step.SetNum(S.Num());
+				for (int32 K = 1; K <= Last; ++K)
+				{
+					Step[K] = FMath::Clamp(S[K] - S[K - 1], Lo[K], Hi[K]);
+					Sum += Step[K];
+				}
+				const float Rest = Target - Sum;
+				float Slack = 0.f;
+				for (int32 K = 1; K <= Last; ++K)
+				{
+					Slack += Rest > 0.f ? Hi[K] - Step[K] : Step[K] - Lo[K];
+				}
+				for (int32 K = 1; K <= Last; ++K)
+				{
+					const float Room = Rest > 0.f ? Hi[K] - Step[K] : Step[K] - Lo[K];
+					Step[K] += Slack > UE_KINDA_SMALL_NUMBER ? Rest * Room / Slack : 0.f;
+				}
+				for (int32 K = 1; K <= Last; ++K)
+				{
+					S[K] = S[K - 1] + Step[K];
+				}
+
+				for (int32 K = 0; K <= Last; ++K)
+				{
+					const float Straight = Layout.Us[Top + K] / Layout.Run;
+					Row[Columns[Top + K]] += Weight * Layout.Drop * (Straight - S[K]);
+				}
+			}
+		}
+	}
+
 	void ApplyCorridor(const FTerrainHeightParams& Params, const FVector2D& NoiseOffset, const FTerrainGrid& Grid,
 		const FTerrainCorridor& Corridor, TArray<float>& Heights)
 	{
@@ -534,7 +742,7 @@ FTerrainGrid FTerrainGrid::Make(float SizeX, float SizeY, float CellSizeX, float
 	return Grid;
 }
 
-void FTerrainGrid::InsertColumns(TConstArrayView<float> LocalXs, float SizeX, float MinGap)
+void FTerrainGrid::InsertColumns(TConstArrayView<float> LocalXs, float SizeX, float MinGap, TConstArrayView<FVector2D> ClearSpans)
 {
 	const float HalfX = SizeX * 0.5f;
 	TArray<float> Added;
@@ -562,9 +770,13 @@ void FTerrainGrid::InsertColumns(TConstArrayView<float> LocalXs, float SizeX, fl
 		for (int32 Index = 0; Index < Added.Num() && bKeep; ++Index)
 		{
 			const bool bNear = FMath::Abs(FromStart - Added[Index]) < MinGap;
-			const bool bInsideCell = Index % 2 == 0 && Added.IsValidIndex(Index + 1)
+			const bool bInsideCell = ClearSpans.IsEmpty() && Index % 2 == 0 && Added.IsValidIndex(Index + 1)
 				&& FromStart > Added[Index] && FromStart < Added[Index + 1];
 			bKeep = !bNear && !bInsideCell;
+		}
+		for (const FVector2D& Span : ClearSpans)
+		{
+			bKeep = bKeep && !(FromStart > Span.X + HalfX && FromStart < Span.Y + HalfX);
 		}
 		// The mesh edges always stay.
 		if (bKeep || X == 0 || X == NumX - 1)
@@ -749,6 +961,11 @@ void FTerrainHeightField::Build(const FTerrainHeightParams& Params, const FTerra
 	{
 		ApplyCorridor(Params, NoiseOffset, Grid, Corridor, OutHeights);
 	}
+	// After every corridor: the cliffs are shaped on the final ground, shore included.
+	for (const FTerrainCorridor& Corridor : Params.Corridors)
+	{
+		ApplyCliffRoughness(Params, Grid, Corridor, OutHeights);
+	}
 }
 
 void FTerrainHeightField::ComputeOcclusion(const TArray<float>& Heights, const FTerrainGrid& Grid, float SizeX, float SizeY, float Radius, float Depth,
@@ -808,11 +1025,46 @@ TArray<float> FTerrainHeightField::CliffColumnXs(TConstArrayView<FTerrainCorrido
 	{
 		for (const FTerrainCliff& Cliff : Corridor.Cliffs)
 		{
-			Xs.Add(Cliff.StartX);
-			Xs.Add(Cliff.EndX());
+			if (Corridor.CliffRoughness <= 0.f)
+			{
+				// Exactly the face edges, in the (start, end) pairs InsertColumns expects without spans.
+				Xs.Add(Cliff.StartX);
+				Xs.Add(Cliff.EndX());
+				continue;
+			}
+			const FCliffZoneLayout Layout = MakeCliffZoneLayout(Corridor, Cliff);
+			for (const float U : Layout.Us)
+			{
+				Xs.Add(Layout.ToX(U));
+			}
 		}
 	}
 	return Xs;
+}
+
+TArray<FVector2D> FTerrainHeightField::CliffZoneSpans(TConstArrayView<FTerrainCorridor> Corridors)
+{
+	TArray<FVector2D> Spans;
+	for (const FTerrainCorridor& Corridor : Corridors)
+	{
+		for (const FTerrainCliff& Cliff : Corridor.Cliffs)
+		{
+			Spans.Add(CliffZone(Corridor, Cliff));
+		}
+	}
+	return Spans;
+}
+
+FVector2D FTerrainHeightField::CliffZone(const FTerrainCorridor& Corridor, const FTerrainCliff& Cliff)
+{
+	if (Corridor.CliffRoughness <= 0.f)
+	{
+		return FVector2D(Cliff.StartX, Cliff.EndX());
+	}
+	const FCliffZoneLayout Layout = MakeCliffZoneLayout(Corridor, Cliff);
+	const float A = Layout.ToX(Layout.Us[0]);
+	const float B = Layout.ToX(Layout.Us.Last());
+	return FVector2D(FMath::Min(A, B), FMath::Max(A, B));
 }
 
 float FTerrainHeightField::PathWeight(const FTerrainCorridor& Corridor, float HalfWidth, float LocalX, float LocalY)

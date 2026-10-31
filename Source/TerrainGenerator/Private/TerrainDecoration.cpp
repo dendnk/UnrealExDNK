@@ -1,5 +1,7 @@
 #include "TerrainDecoration.h"
 
+#include "TerrainHeightField.h"
+
 namespace
 {
 	struct FPlacedDecoration
@@ -231,12 +233,14 @@ void FTerrainDecorationScatter::Scatter(const UTerrainDecorationSet& Set, TConst
 				{
 					continue;
 				}
-				// Nothing stands on a cliff face, which runs across the whole terrain (specs/<status>-terrain-cliff-drops).
-				// The clearance covers the bounds centre moving a little when the mesh tilts to the ground.
-				if (Lane.Cliffs.ContainsByPredicate([X, Radius](const FTerrainCliff& Cliff)
+				// Nothing stands on a cliff face or in a rough cliff's zone, which run across the whole terrain
+				// (specs/<status>-terrain-cliff-drops; the zone's own rocks come from ScatterCliffRocks). The clearance covers
+				// the bounds centre moving a little when the mesh tilts to the ground.
+				if (Lane.Cliffs.ContainsByPredicate([X, Radius, &Lane](const FTerrainCliff& Cliff)
 					{
 						constexpr float CliffClearance = 50.f;
-						return X - Radius - CliffClearance < Cliff.EndX() && X + Radius + CliffClearance > Cliff.StartX;
+						const FVector2D Zone = FTerrainHeightField::CliffZone(Lane, Cliff);
+						return X - Radius - CliffClearance < Zone.Y && X + Radius + CliffClearance > Zone.X;
 					}))
 				{
 					continue;
@@ -283,6 +287,177 @@ void FTerrainDecorationScatter::Scatter(const UTerrainDecorationSet& Set, TConst
 
 				OutPerEntry[EntryIndex].Add(FTransform(Tilt * Yaw, Location, FVector(Scale)));
 			}
+		}
+	}
+}
+
+FTransform FTerrainDecorationScatter::CollisionTransform(const FTransform& Visual, const FVector& MeshCenter, float CollisionScale)
+{
+	// Same rotation; the bounds centre stays where it is while everything shrinks toward it.
+	const FVector Scale = Visual.GetScale3D();
+	const FVector Shift = Visual.GetRotation().RotateVector(Scale * MeshCenter * (1.f - CollisionScale));
+	return FTransform(Visual.GetRotation(), Visual.GetLocation() + Shift, Scale * CollisionScale);
+}
+
+void FTerrainDecorationScatter::ScatterCliffRocks(const UTerrainDecorationSet& Set, TConstArrayView<FTerrainDecorationMeshInfo> MeshInfo,
+	const FTerrainCorridor& Lane, const FTerrainDecorationGround& Ground, int32 Seed, TArray<FTerrainCliffRock>& OutRocks)
+{
+	OutRocks.Reset();
+	const FTerrainCliffRockSettings& Rocks = Set.CliffRocks;
+	if (Lane.Cliffs.IsEmpty() || MeshInfo.Num() != Set.Entries.Num() || !Ground.HeightAboveWater)
+	{
+		return;
+	}
+
+	TArray<int32> Candidates;
+	float TotalWeight = 0.f;
+	for (const int32 Index : Rocks.EntryIndices)
+	{
+		if (Set.Entries.IsValidIndex(Index) && Set.Entries[Index].Mesh != nullptr && Set.Entries[Index].Weight > 0.f
+			&& MeshInfo[Index].RadiusXY > 0.f && !Candidates.Contains(Index))
+		{
+			Candidates.Add(Index);
+			TotalWeight += Set.Entries[Index].Weight;
+		}
+	}
+	const float ToeWeight = FMath::Max(Rocks.ToeWeight, 0.f);
+	const float FaceWeight = FMath::Max(Rocks.FaceWeight, 0.f);
+	const float KindTotal = ToeWeight + FaceWeight + FMath::Max(Rocks.LipWeight, 0.f);
+	if (Candidates.IsEmpty() || KindTotal <= 0.f)
+	{
+		return;
+	}
+	const float SpacingMin = FMath::Max(FMath::Min(Rocks.Spacing.X, Rocks.Spacing.Y), 50.f);
+	const float SpacingMax = FMath::Max(FMath::Max(Rocks.Spacing.X, Rocks.Spacing.Y), SpacingMin);
+	const float YFrom = Lane.CenterY - Rocks.ReachMinusY;
+	const float YTo = Lane.CenterY + Rocks.ReachPlusY;
+	const FVector Up = FVector::UpVector;
+	auto GroundZ = [&Ground](float X, float Y) { return Ground.WaterZ + Ground.HeightAboveWater(FVector2D(X, Y)); };
+	// Lowest ground under a footprint: centre, rim and half way, 8 directions.
+	auto LowestZ = [&GroundZ](float X, float Y, float Radius)
+	{
+		float Low = GroundZ(X, Y);
+		for (int32 Ring = 1; Ring <= 2; ++Ring)
+		{
+			for (int32 Point = 0; Point < 8; ++Point)
+			{
+				const float Angle = UE_PI * 0.25f * Point;
+				const float R = Radius * Ring * 0.5f;
+				Low = FMath::Min(Low, GroundZ(X + R * FMath::Cos(Angle), Y + R * FMath::Sin(Angle)));
+			}
+		}
+		return Low;
+	};
+
+	for (const FTerrainCliff& Cliff : Lane.Cliffs)
+	{
+		FRandomStream Stream(int32(HashCombine(GetTypeHash(Seed), HashCombine(GetTypeHash(Cliff.StartX), GetTypeHash(Cliff.Rise)))));
+		// Dir points from the high side to the low side along X.
+		const float Dir = Cliff.Rise <= 0.f ? 1.f : -1.f;
+		const float TopX = Dir > 0.f ? Cliff.StartX : Cliff.EndX();
+		const float BottomX = Dir > 0.f ? Cliff.EndX() : Cliff.StartX;
+		const float Run = FMath::Max(Cliff.Run, 1.f);
+		const float FaceAngle = FMath::Atan(FMath::Abs(Cliff.Rise) / Run);
+		const FVector FaceNormal(Dir * FMath::Sin(FaceAngle), 0.f, FMath::Cos(FaceAngle));
+		// The enemy keep-out on X (HeliAce MakeKeepOuts): the face plus the high and low margins.
+		const float KeepFrom = Cliff.StartX - (Dir > 0.f ? Lane.CliffMarginHigh : Lane.CliffMarginLow);
+		const float KeepTo = Cliff.EndX() + (Dir > 0.f ? Lane.CliffMarginLow : Lane.CliffMarginHigh);
+
+		for (float Y = YFrom + float(Stream.FRandRange(0.0, SpacingMin)); Y <= YTo; Y += float(Stream.FRandRange(SpacingMin, SpacingMax)))
+		{
+			// Always the same draws per sample, so a rejected rock never shifts the rest of the cliff.
+			const float KindPick = Stream.FRand() * KindTotal;
+			const float EntryPick = Stream.FRand() * TotalWeight;
+			const float SizeAlpha = Stream.FRand();
+			const float PosAlpha = Stream.FRand();
+			const float YawAlpha = Stream.FRand();
+			const float TiltAlpha = Stream.FRand();
+			const float TiltDirAlpha = Stream.FRand();
+			const float JitterY = float(Stream.FRandRange(-0.25, 0.25)) * SpacingMin;
+
+			const ETerrainCliffRockKind Kind = KindPick < ToeWeight ? ETerrainCliffRockKind::Toe
+				: KindPick < ToeWeight + FaceWeight ? ETerrainCliffRockKind::Face : ETerrainCliffRockKind::Lip;
+			int32 EntryIndex = Candidates.Last();
+			float Accumulated = 0.f;
+			for (const int32 Candidate : Candidates)
+			{
+				Accumulated += Set.Entries[Candidate].Weight;
+				if (EntryPick < Accumulated)
+				{
+					EntryIndex = Candidate;
+					break;
+				}
+			}
+			const FTerrainDecorationMeshInfo& Info = MeshInfo[EntryIndex];
+			const FVector2f SizeRange = Kind == ETerrainCliffRockKind::Toe ? Rocks.ToeSize
+				: Kind == ETerrainCliffRockKind::Face ? Rocks.FaceSize : Rocks.LipSize;
+			const float Width = FMath::Max(FMath::Lerp(SizeRange.X, SizeRange.Y, SizeAlpha), 10.f);
+			const float Scale = Width / (2.f * Info.RadiusXY);
+			const float Radius = Info.RadiusXY * Scale;
+			const float HalfZ = FMath::Max(Info.ExtentZ * Scale, 1.f);
+			// Bounds can tilt: the farthest a corner gets from the centre across X.
+			const float Reach = FMath::Sqrt(FMath::Square(Radius) + FMath::Square(HalfZ));
+			const float PY = Y + JitterY;
+
+			FVector Center;
+			switch (Kind)
+			{
+			case ETerrainCliffRockKind::Toe:
+			{
+				// Fallen boulders just past the bottom edge, leaning into the toe; a fifth of their height sunk.
+				const float CX = BottomX + Dir * Radius * (0.3f + 0.8f * PosAlpha);
+				Center = FVector(CX, PY, LowestZ(CX, PY, Radius) - 0.4f * HalfZ + HalfZ);
+				break;
+			}
+			case ETerrainCliffRockKind::Face:
+			{
+				// Down the face, mostly sunk into it: the centre sits a little out along the face normal.
+				const float CX = TopX + Dir * Run * (0.2f + 0.6f * PosAlpha);
+				Center = FVector(CX, PY, GroundZ(CX, PY)) + FaceNormal * (0.2f * FMath::Min(Radius, HalfZ));
+				break;
+			}
+			default:
+			{
+				// On the high ground right behind the top edge, its front over the broken lip; a third of its height sunk.
+				const float CX = TopX - Dir * Radius * (0.1f + 0.4f * PosAlpha);
+				Center = FVector(CX, PY, GroundZ(CX, PY) - 0.6f * HalfZ + HalfZ);
+				break;
+			}
+			}
+
+			if (Center.X - Reach < KeepFrom || Center.X + Reach > KeepTo)
+			{
+				continue;
+			}
+			// The ground right under the centre must cut the rock: a face rock pushed out along the nominal normal is kept
+			// part sunk on a facet steeper than the mean face, and a toe rock whose footprint reaches far below its centre
+			// (a ledge, the shore) would be buried on its high side, so it is dropped.
+			const float CenterGround = GroundZ(Center.X, Center.Y);
+			if (Kind == ETerrainCliffRockKind::Face)
+			{
+				Center.Z = FMath::Clamp(Center.Z, CenterGround - 0.6f * HalfZ, CenterGround + 0.6f * HalfZ);
+			}
+			else if (Center.Z + 0.6f * HalfZ < CenterGround || Center.Z - HalfZ > CenterGround)
+			{
+				continue;
+			}
+			if (Ground.bHasWater && Ground.HeightAboveWater(FVector2D(Center.X, PY)) < 30.f)
+			{
+				continue;
+			}
+
+			const float TiltDir = TiltDirAlpha * 2.f * UE_PI;
+			const FQuat Tilt(FVector(FMath::Cos(TiltDir), FMath::Sin(TiltDir), 0.f), FMath::DegreesToRadians(TiltAlpha * Rocks.MaxTiltDeg));
+			const FQuat Rotation = Tilt * FQuat(Up, YawAlpha * 2.f * UE_PI);
+			const FVector MeshCenter(Info.CenterXY, Info.CenterZ);
+
+			FTerrainCliffRock& Rock = OutRocks.AddDefaulted_GetRef();
+			Rock.EntryIndex = EntryIndex;
+			Rock.Kind = Kind;
+			Rock.Radius = Radius;
+			Rock.Center = Center;
+			Rock.Transform = FTransform(Rotation, Center - Rotation.RotateVector(MeshCenter * Scale), FVector(Scale));
+			Rock.bSolid = FMath::Abs(PY - Lane.CenterY) - Reach <= Rocks.SolidHalfWidth;
 		}
 	}
 }

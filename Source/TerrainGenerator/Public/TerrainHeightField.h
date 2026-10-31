@@ -75,8 +75,10 @@ struct TERRAINGENERATOR_API FTerrainGrid
 	 * Adds a column at each local X in LocalXs (inside the grid) and drops the other columns closer than MinGap to one.
 	 * LocalXs are cliff faces' edge pairs that don't overlap (start, end, start, end, ...); columns between a pair go too,
 	 * so each face is one cell. FineFrom keeps pointing at the same position.
+	 * With ClearSpans (local X min, max), the columns strictly inside a span go instead and LocalXs may be any columns
+	 * (a rough cliff zone's: FTerrainHeightField::CliffColumnXs / CliffZoneSpans).
 	 */
-	void InsertColumns(TConstArrayView<float> LocalXs, float SizeX, float MinGap = 100.f);
+	void InsertColumns(TConstArrayView<float> LocalXs, float SizeX, float MinGap = 100.f, TConstArrayView<FVector2D> ClearSpans = {});
 
 	/** Index of the column at local X (within Tolerance), INDEX_NONE if there is none. */
 	int32 FindColumn(float LocalX, float SizeX, float Tolerance = 1.f) const;
@@ -138,8 +140,20 @@ struct TERRAINGENERATOR_API FTerrainHeightField
 	 */
 	static float PathWeight(const FTerrainCorridor& Corridor, float HalfWidth, float LocalX, float LocalY);
 
-	/** Local X of both face edges of every cliff of every corridor: where ATerrainGenerator::MakeGrid inserts columns. */
+	/**
+	 * Local X of every cliff column of every corridor, where ATerrainGenerator::MakeGrid inserts them: both face edges, and
+	 * with CliffRoughness the zone's outer edges and 2-3 columns inside the face (positions fixed per cliff).
+	 */
 	static TArray<float> CliffColumnXs(TConstArrayView<FTerrainCorridor> Corridors);
+
+	/** Every cliff's zone (CliffZone) as (min X, max X): no other column stays inside one. */
+	static TArray<FVector2D> CliffZoneSpans(TConstArrayView<FTerrainCorridor> Corridors);
+
+	/**
+	 * Local X range (min, max) of a cliff's shaped ground: the face, plus with the corridor's CliffRoughness the lip on the
+	 * high side and the toe on the low side (REQ-10 of HeliAce's terrain-cliff-drops). Nothing but the cliff goes in here.
+	 */
+	static FVector2D CliffZone(const FTerrainCorridor& Corridor, const FTerrainCliff& Cliff);
 
 	/** Darkens a soft round patch: InOutDarkness[v] = max(itself, Strength * (1 - d / Radius)^2) for vertices within Radius of Center. */
 	static void AddContactDarkening(const FTerrainGrid& Grid, float SizeX, float SizeY, const FVector2D& Center, float Radius, float Strength,

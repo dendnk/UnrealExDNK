@@ -224,8 +224,8 @@ FTerrainGrid ATerrainGenerator::MakeGrid() const
 	}
 	FTerrainGrid Grid = FTerrainGrid::Make(SizeX, SizeY, CellSizeX > 0.f ? CellSizeX : CellSize, CellSizeY > 0.f ? CellSizeY : CellSize,
 		EndDetailLength, EndDetailCellSizeX);
-	// A cliff face is exactly one cell, with columns on both edges.
-	Grid.InsertColumns(FTerrainHeightField::CliffColumnXs(Corridors), SizeX);
+	// A cliff face is exactly one cell, with columns on both edges; a rough cliff's zone has its own columns only.
+	Grid.InsertColumns(FTerrainHeightField::CliffColumnXs(Corridors), SizeX, 100.f, FTerrainHeightField::CliffZoneSpans(Corridors));
 	// Fewer rows on background ground (lane-ground-dressing T29).
 	if (CoarseCellSizeY > Grid.StepY && Corridors.IsValidIndex(DecorationCorridorIndex))
 	{
@@ -257,9 +257,11 @@ uint32 ATerrainGenerator::MakeGridKey() const
 		Key = HashCombine(Key, HashCombine(GetTypeHash(Corridor.StartX), GetTypeHash(Corridor.EndX)));
 		Key = HashCombine(Key, GetTypeHash(Corridor.CenterY));
 		Key = HashCombine(Key, GetTypeHash(Corridor.bDefineLandWidth));
+		Key = HashCombine(Key, HashCombine(GetTypeHash(Corridor.CliffRoughness > 0.f), HashCombine(GetTypeHash(Corridor.CliffLipDepth),
+			GetTypeHash(Corridor.CliffToeDepth))));
 		for (const FTerrainCliff& Cliff : Corridor.Cliffs)
 		{
-			Key = HashCombine(Key, HashCombine(GetTypeHash(Cliff.StartX), GetTypeHash(Cliff.Run)));
+			Key = HashCombine(Key, HashCombine(GetTypeHash(Cliff.StartX), HashCombine(GetTypeHash(Cliff.Run), GetTypeHash(Cliff.Rise))));
 		}
 	}
 	return Key;
@@ -351,15 +353,20 @@ void ATerrainGenerator::BuildGroundMesh(bool bUpdateDarkness)
 
 	// Columns on a cliff face's edge and the side of their flat neighbour (-1 / +1, 0 = not a cliff column). Their
 	// steepness (vertex colour G) comes from that flat side, so the rock layer doesn't bleed a cell into the flat ground;
-	// the face itself gets its rock from the material (geometric normal).
+	// the face itself gets its rock from the material (geometric normal). A rough cliff's zone (CliffZone) counts as the
+	// face: its outer columns take the flat side, and the columns inside it the face's mean steepness (CliffZoneSteep,
+	// < 0 = none), so ledges and the broken lip stay rock too.
 	TArray<int8> CliffSide;
 	CliffSide.Init(0, NumX);
+	TArray<float> CliffZoneSteep;
+	CliffZoneSteep.Init(-1.f, NumX);
 	for (const FTerrainCorridor& Corridor : Corridors)
 	{
 		for (const FTerrainCliff& Cliff : Corridor.Cliffs)
 		{
-			const int32 Top = Grid.FindColumn(Cliff.StartX, SizeX);
-			const int32 Bottom = Grid.FindColumn(Cliff.EndX(), SizeX);
+			const FVector2D Zone = FTerrainHeightField::CliffZone(Corridor, Cliff);
+			const int32 Top = Grid.FindColumn(Zone.X, SizeX);
+			const int32 Bottom = Grid.FindColumn(Zone.Y, SizeX);
 			if (Top != INDEX_NONE && Top > 0)
 			{
 				CliffSide[Top] = -1;
@@ -367,6 +374,14 @@ void ATerrainGenerator::BuildGroundMesh(bool bUpdateDarkness)
 			if (Bottom != INDEX_NONE && Bottom < NumX - 1)
 			{
 				CliffSide[Bottom] = 1;
+			}
+			if (Top != INDEX_NONE && Bottom != INDEX_NONE)
+			{
+				const float Steep = 1.f - FMath::Cos(FMath::Atan(FMath::Abs(Cliff.Rise) / FMath::Max(Cliff.Run, 1.f)));
+				for (int32 X = Top + 1; X < Bottom; ++X)
+				{
+					CliffZoneSteep[X] = Steep;
+				}
 			}
 		}
 	}
@@ -400,7 +415,8 @@ void ATerrainGenerator::BuildGroundMesh(bool bUpdateDarkness)
 				const float FlatDHdX = (H(Flat, Y) - H(X, Y)) / (Grid.ColumnX(Flat, SizeX) - PX);
 				SteepZ = FVector(-FlatDHdX, -DHdY, 1.f).GetSafeNormal().Z;
 			}
-			Colors.Add(FLinearColor(HeightAlpha, 1.f - SteepZ, 0.f, 1.f - Path));
+			const float Steepness = CliffZoneSteep[X] >= 0.f ? FMath::Max(1.f - SteepZ, CliffZoneSteep[X]) : 1.f - SteepZ;
+			Colors.Add(FLinearColor(HeightAlpha, Steepness, 0.f, 1.f - Path));
 			Tangents.Add(FProcMeshTangent(FVector(1.f, 0.f, DHdX).GetSafeNormal(), false));
 		}
 	}
@@ -478,15 +494,18 @@ void ATerrainGenerator::UpdateWater()
 
 void ATerrainGenerator::ClearDecorations()
 {
-	for (UHierarchicalInstancedStaticMeshComponent* Component : DecorationComponents)
+	for (TArray<TObjectPtr<UHierarchicalInstancedStaticMeshComponent>>* Components : { &DecorationComponents, &CliffRockColliders })
 	{
-		if (IsValid(Component))
+		for (UHierarchicalInstancedStaticMeshComponent* Component : *Components)
 		{
-			RemoveInstanceComponent(Component);
-			Component->DestroyComponent();
+			if (IsValid(Component))
+			{
+				RemoveInstanceComponent(Component);
+				Component->DestroyComponent();
+			}
 		}
+		Components->Reset();
 	}
-	DecorationComponents.Reset();
 }
 
 void ATerrainGenerator::UpdateGroundDarkness()
@@ -569,6 +588,8 @@ void ATerrainGenerator::GenerateDecorations()
 			MeshInfo[Index].CenterXY = FVector2D(Box.GetCenter());
 			MeshInfo[Index].RadiusXY = FVector2D(Box.GetExtent()).Size();
 			MeshInfo[Index].Height = FMath::Max(0.f, Box.Max.Z);
+			MeshInfo[Index].CenterZ = Box.GetCenter().Z;
+			MeshInfo[Index].ExtentZ = Box.GetExtent().Z;
 		}
 	}
 
@@ -597,47 +618,105 @@ void ATerrainGenerator::GenerateDecorations()
 		FStageTimer Timer(GenerateTimings.ScatterMs);
 		FTerrainDecorationScatter::Scatter(*DecorationSet, MeshInfo, Lane, GroundQuery, Stream, PerEntry);
 	}
+	// Cliff rocks (HeliAce terrain-cliff-drops REQ-11), from their own seed so the rest of the layout doesn't move.
+	TArray<FTerrainCliffRock> CliffRocks;
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE(TerrainGenerator_CliffRocks);
+		FStageTimer Timer(GenerateTimings.ScatterMs);
+		FTerrainDecorationScatter::ScatterCliffRocks(*DecorationSet, MeshInfo, Lane, GroundQuery,
+			int32(HashCombine(HashCombine(GetTypeHash(Seed), GetTypeHash(DecorationSeedSalt)), 0x434C4946u)), CliffRocks);
+	}
 	const double InstancesStart = FPlatformTime::Seconds();
+
+	auto MakeComponent = [this](UStaticMesh* Mesh, const TCHAR* Prefix)
+	{
+		const FName Name = MakeUniqueObjectName(this, UHierarchicalInstancedStaticMeshComponent::StaticClass(),
+			*FString::Printf(TEXT("%s_%s"), Prefix, *Mesh->GetName()));
+		UHierarchicalInstancedStaticMeshComponent* Component = NewObject<UHierarchicalInstancedStaticMeshComponent>(this, Name, RF_Transactional);
+		Component->CreationMethod = EComponentCreationMethod::Instance;
+		Component->SetStaticMesh(Mesh);
+		Component->SetGenerateOverlapEvents(false);
+		Component->SetCanEverAffectNavigation(false);
+		Component->SetupAttachment(Ground);
+		return Component;
+	};
+	// Visible and purely visual (REQ-16 in HeliAce): nothing hits, blocks or navigates on decorations.
+	auto MakeVisual = [&](int32 Index, const TCHAR* Prefix)
+	{
+		UStaticMesh* Mesh = Entries[Index].Mesh;
+		UHierarchicalInstancedStaticMeshComponent* Component = MakeComponent(Mesh, Prefix);
+		if (UMaterialInterface* Material = Entries[Index].Material)
+		{
+			for (int32 Slot = 0; Slot < Mesh->GetStaticMaterials().Num(); ++Slot)
+			{
+				Component->SetMaterial(Slot, Material);
+			}
+		}
+		Component->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
+		Component->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Component->SetCastShadow(Entries[Index].bCastShadow);
+		Component->SetCullDistances(0, FMath::RoundToInt(Entries[Index].CullDistance));
+		Component->RegisterComponent();
+		AddInstanceComponent(Component);
+		DecorationComponents.Add(Component);
+		return Component;
+	};
 
 	// One HISM per mesh and material override, shared by entries that use the same pair.
 	TMap<TPair<UStaticMesh*, UMaterialInterface*>, UHierarchicalInstancedStaticMeshComponent*> ByMesh;
 	for (int32 Index = 0; Index < Entries.Num(); ++Index)
 	{
-		UStaticMesh* Mesh = Entries[Index].Mesh;
-		if (Mesh == nullptr || PerEntry[Index].IsEmpty())
+		if (Entries[Index].Mesh == nullptr || PerEntry[Index].IsEmpty())
 		{
 			continue;
 		}
-
-		UMaterialInterface* Material = Entries[Index].Material;
-		UHierarchicalInstancedStaticMeshComponent*& Component = ByMesh.FindOrAdd(MakeTuple(Mesh, Material));
+		UHierarchicalInstancedStaticMeshComponent*& Component = ByMesh.FindOrAdd(MakeTuple(Entries[Index].Mesh.Get(), Entries[Index].Material.Get()));
 		if (Component == nullptr)
 		{
-			const FName Name = MakeUniqueObjectName(this, UHierarchicalInstancedStaticMeshComponent::StaticClass(),
-				*FString::Printf(TEXT("Decor_%s"), *Mesh->GetName()));
-			Component = NewObject<UHierarchicalInstancedStaticMeshComponent>(this, Name, RF_Transactional);
-			Component->CreationMethod = EComponentCreationMethod::Instance;
-			Component->SetStaticMesh(Mesh);
-			if (Material != nullptr)
-			{
-				for (int32 Slot = 0; Slot < Mesh->GetStaticMaterials().Num(); ++Slot)
-				{
-					Component->SetMaterial(Slot, Material);
-				}
-			}
-			// Purely visual (REQ-16 in HeliAce): nothing hits, blocks or navigates on decorations.
-			Component->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
-			Component->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-			Component->SetGenerateOverlapEvents(false);
-			Component->SetCanEverAffectNavigation(false);
-			Component->SetCastShadow(Entries[Index].bCastShadow);
-			Component->SetCullDistances(0, FMath::RoundToInt(Entries[Index].CullDistance));
-			Component->SetupAttachment(Ground);
-			Component->RegisterComponent();
-			AddInstanceComponent(Component);
-			DecorationComponents.Add(Component);
+			Component = MakeVisual(Index, TEXT("Decor"));
 		}
 		Component->AddInstances(PerEntry[Index], /*bShouldReturnIndices*/ false, /*bWorldSpace*/ false);
+	}
+
+	// Cliff rocks get their own components (tagged CliffRockTag): they stand where other decorations may not. The solid ones
+	// also get an invisible copy that blocks like the ground (BlockAll, WorldStatic) with the mesh's simple collision, scaled
+	// to CollisionScale about the bounds centre so it sits inside the visible rock.
+	TMap<TPair<UStaticMesh*, UMaterialInterface*>, TArray<FTransform>> RockVisuals;
+	TMap<TPair<UStaticMesh*, UMaterialInterface*>, int32> RockEntry;
+	TMap<UStaticMesh*, TArray<FTransform>> RockColliders;
+	const float CollisionScale = FMath::Clamp(DecorationSet->CliffRocks.CollisionScale, 0.1f, 1.f);
+	for (const FTerrainCliffRock& Rock : CliffRocks)
+	{
+		const FTerrainDecorationEntry& Entry = Entries[Rock.EntryIndex];
+		const TPair<UStaticMesh*, UMaterialInterface*> Key = MakeTuple(Entry.Mesh.Get(), Entry.Material.Get());
+		RockVisuals.FindOrAdd(Key).Add(Rock.Transform);
+		RockEntry.FindOrAdd(Key, Rock.EntryIndex);
+		if (Rock.bSolid)
+		{
+			const FTerrainDecorationMeshInfo& Info = MeshInfo[Rock.EntryIndex];
+			RockColliders.FindOrAdd(Entry.Mesh).Add(FTerrainDecorationScatter::CollisionTransform(Rock.Transform,
+				FVector(Info.CenterXY, Info.CenterZ), CollisionScale));
+		}
+	}
+	for (TPair<TPair<UStaticMesh*, UMaterialInterface*>, TArray<FTransform>>& Pair : RockVisuals)
+	{
+		UHierarchicalInstancedStaticMeshComponent* Component = MakeVisual(RockEntry[Pair.Key], TEXT("CliffRock"));
+		Component->ComponentTags.Add(CliffRockTag);
+		Component->AddInstances(Pair.Value, /*bShouldReturnIndices*/ false, /*bWorldSpace*/ false);
+	}
+	for (TPair<UStaticMesh*, TArray<FTransform>>& Pair : RockColliders)
+	{
+		UHierarchicalInstancedStaticMeshComponent* Component = MakeComponent(Pair.Key, TEXT("CliffRockCollision"));
+		Component->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
+		Component->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		Component->SetCastShadow(false);
+		Component->SetVisibility(false);
+		Component->SetHiddenInGame(true);
+		Component->ComponentTags.Add(CliffRockTag);
+		Component->RegisterComponent();
+		AddInstanceComponent(Component);
+		CliffRockColliders.Add(Component);
+		Component->AddInstances(Pair.Value, /*bShouldReturnIndices*/ false, /*bWorldSpace*/ false);
 	}
 	GenerateTimings.InstancesMs += (FPlatformTime::Seconds() - InstancesStart) * 1000.0;
 

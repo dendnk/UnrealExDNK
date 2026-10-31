@@ -122,6 +122,65 @@ struct TERRAINGENERATOR_API FTerrainDecorationBand
 	bool bPlaceByInnerEdge = false;
 };
 
+/**
+ * Rock pieces on the decoration corridor's cliffs (HeliAce specs/<status>-terrain-cliff-drops REQ-11): boulders at the
+ * toe, rocks half sunk into the face and a few on the lip, all inside the cliff's enemy keep-out (the corridor's
+ * CliffMarginLow / CliffMarginHigh). Unlike the other decorations, rocks near the lane are solid: they block like the
+ * ground, through an invisible copy shrunk to CollisionScale, so the collision sits inside the visible rock.
+ */
+USTRUCT(BlueprintType)
+struct TERRAINGENERATOR_API FTerrainCliffRockSettings
+{
+	GENERATED_BODY()
+
+	/** Entries (indices into the set's Entries) to build the rocks from: mesh, weight, material, shadow and cull distance. Empty = off. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cliff Rocks")
+	TArray<int32> EntryIndices;
+
+	/** Distance between neighbouring rocks along a cliff (across the island, Y), cm (min, max). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cliff Rocks")
+	FVector2f Spacing = FVector2f(300.f, 600.f);
+
+	/** Relative shares of toe, face and lip rocks. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cliff Rocks", meta = (ClampMin = "0"))
+	float ToeWeight = 0.5f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cliff Rocks", meta = (ClampMin = "0"))
+	float FaceWeight = 0.3f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cliff Rocks", meta = (ClampMin = "0"))
+	float LipWeight = 0.2f;
+
+	/** Width of a rock (its scaled bounds across XY), cm (min, max), per kind. A lip rock is also kept small enough for CliffMarginHigh. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cliff Rocks")
+	FVector2f ToeSize = FVector2f(150.f, 400.f);
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cliff Rocks")
+	FVector2f FaceSize = FVector2f(150.f, 350.f);
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cliff Rocks")
+	FVector2f LipSize = FVector2f(80.f, 200.f);
+
+	/** How far the rocks run along each cliff from the corridor centre line toward -Y and +Y, cm. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cliff Rocks", meta = (ClampMin = "0"))
+	float ReachMinusY = 8000.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cliff Rocks", meta = (ClampMin = "0"))
+	float ReachPlusY = 8000.f;
+
+	/** Rocks whose bounds come within this of the corridor centre line (Y) are solid; farther ones only show (nothing flies there). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cliff Rocks", meta = (ClampMin = "0"))
+	float SolidHalfWidth = 3000.f;
+
+	/** Size of the collision against the visible rock, about its bounds centre (0.9 = 10% inside the silhouette). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cliff Rocks", meta = (ClampMin = "0.1", ClampMax = "1"))
+	float CollisionScale = 0.9f;
+
+	/** Random tilt of each rock, degrees. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cliff Rocks", meta = (ClampMin = "0", ClampMax = "45"))
+	float MaxTiltDeg = 20.f;
+};
+
 /** Seeded decoration layout along a terrain corridor, in bands on either side of it. */
 UCLASS(BlueprintType)
 class TERRAINGENERATOR_API UTerrainDecorationSet : public UPrimaryDataAsset
@@ -142,6 +201,30 @@ public:
 	/** Default side for bands that don't set their own Side: -1 = -Y, +1 = +Y. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Decoration", meta = (ClampMin = "-1", ClampMax = "1"))
 	int32 BandSideSign = -1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Decoration")
+	FTerrainCliffRockSettings CliffRocks;
+};
+
+/** Where a cliff rock sits on its cliff. */
+enum class ETerrainCliffRockKind : uint8
+{
+	Toe,
+	Face,
+	Lip
+};
+
+/** One cliff rock: its entry, actor-local transform, and whether it blocks (near the lane). */
+struct FTerrainCliffRock
+{
+	int32 EntryIndex = INDEX_NONE;
+	FTransform Transform;
+	ETerrainCliffRockKind Kind = ETerrainCliffRockKind::Toe;
+	bool bSolid = false;
+	/** Horizontal reach of the scaled rock from its bounds centre (X, Y), cm. */
+	float Radius = 0.f;
+	/** Bounds centre, actor-local. */
+	FVector Center = FVector::ZeroVector;
 };
 
 /** Mesh measurements the scatter needs, one per entry. */
@@ -156,6 +239,9 @@ struct FTerrainDecorationMeshInfo
 	 * so meshes imported with a far-off pivot (e.g. a pack's scene position) still land where they were placed.
 	 */
 	FVector2D CenterXY = FVector2D::ZeroVector;
+	/** Bounds centre Z and half height of the unscaled mesh, cm (cliff rocks are placed by their bounds centre). */
+	float CenterZ = 0.f;
+	float ExtentZ = 0.f;
 };
 
 /** Ground queries in actor-local space. */
@@ -187,4 +273,15 @@ struct TERRAINGENERATOR_API FTerrainDecorationScatter
 
 	/** Jittered-grid cell size for a density per hectare, cm. */
 	static float CellSizeForDensity(float DensityPerHectare);
+
+	/**
+	 * Rocks along every cliff of Lane (Set.CliffRocks), seeded per cliff from Seed. Every rock's bounds stay inside its
+	 * cliff's keep-out on X ([zone edge - margin, zone edge + margin]), none stands in the water, and each sits on its
+	 * lowest ground (toe, lip) or half sunk into the face, so nothing floats.
+	 */
+	static void ScatterCliffRocks(const UTerrainDecorationSet& Set, TConstArrayView<FTerrainDecorationMeshInfo> MeshInfo,
+		const FTerrainCorridor& Lane, const FTerrainDecorationGround& Ground, int32 Seed, TArray<FTerrainCliffRock>& OutRocks);
+
+	/** Transform of a rock's collision copy: scaled by CollisionScale about the mesh's bounds centre (MeshCenter, unscaled local). */
+	static FTransform CollisionTransform(const FTransform& Visual, const FVector& MeshCenter, float CollisionScale);
 };
