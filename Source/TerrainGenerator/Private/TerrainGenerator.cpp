@@ -231,11 +231,24 @@ FTerrainGrid ATerrainGenerator::MakeGrid() const
 	{
 		const FTerrainCorridor& Lane = Corridors[DecorationCorridorIndex];
 		// The land-width edges stay rows: the lane check samples them exactly (dry minimum).
-		TArray<float, TInlineAllocator<2>> KeepYs;
+		TArray<float> KeepYs;
 		if (Lane.bDefineLandWidth)
 		{
-			KeepYs.Add(Lane.CenterY - Lane.LandMinusY);
-			KeepYs.Add(Lane.CenterY + Lane.LandPlusY);
+			const float MinusEdge = Lane.CenterY - Lane.LandMinusY;
+			const float PlusEdge = Lane.CenterY + Lane.LandPlusY;
+			KeepYs.Add(MinusEdge);
+			KeepYs.Add(PlusEdge);
+			// Finding #77: the shore (beach, shelf, drop to the seabed) keeps every row from a bit inside the land edge out to
+			// the mesh border, or the drop is one long 15 m triangle whose straight edge shows through the water.
+			constexpr float ShoreFineInland = 1000.f;
+			const float HalfY = SizeY * 0.5f;
+			for (float Y = -HalfY; Y <= HalfY + UE_KINDA_SMALL_NUMBER; Y += Grid.StepY)
+			{
+				if (Y <= MinusEdge + ShoreFineInland || Y >= PlusEdge - ShoreFineInland)
+				{
+					KeepYs.Add(Y);
+				}
+			}
 		}
 		Grid.ThinRows(Lane.CenterY - FineRowsMinusY, Lane.CenterY + FineRowsPlusY, FMath::RoundToInt(CoarseCellSizeY / Grid.StepY), SizeY,
 			KeepYs);
