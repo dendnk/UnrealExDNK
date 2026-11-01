@@ -9,6 +9,9 @@
 #include "NiagaraFunctionLibrary.h"
 #include "Projectiles/ProjectileCollisionRuleUtils.h"
 #include "Types/WeaponTypes.h"
+#include "Water/WaterHitLibrary.h"
+#include "Water/WaterImpactThrottle.h"
+#include "Water/WeaponSystemWaterSettings.h"
 
 DEFINE_LOG_CATEGORY(LogProjectile);
 
@@ -136,7 +139,9 @@ void AProjectileBase::ExplodeProjectile(const FHitResult& Hit, bool bSuppressFx,
 
     ApplyAoEDamage(Hit);
 
-    if (!bSuppressFx && ExplosionEffect != nullptr)
+    // Only hits whose component is the water switch effects; airbursts and interceptions keep theirs (REQ-11).
+    const bool bWaterImpact = !bSuppressFx && TrySpawnWaterImpact(Hit);
+    if (!bSuppressFx && !bWaterImpact && ExplosionEffect != nullptr)
     {
         UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, ExplosionEffect, Hit.Location);
     }
@@ -152,6 +157,42 @@ void AProjectileBase::ExplodeProjectile(const FHitResult& Hit, bool bSuppressFx,
     }
 
     Destroy();
+}
+
+bool AProjectileBase::TrySpawnWaterImpact(const FHitResult& Hit)
+{
+    if (WaterImpact == EProjectileWaterImpact::None || !UWaterHitLibrary::IsWaterHit(Hit))
+    {
+        return false;
+    }
+
+    const UWeaponSystemWaterSettings* Settings = UWeaponSystemWaterSettings::Get();
+    const bool bBulletPuff = WaterImpact == EProjectileWaterImpact::BulletPuff;
+    if (bBulletPuff)
+    {
+        // Per weapon: the weapon's owner fires every bullet of a burst. A throttled puff still counts as a water
+        // impact, so the bullet's ground effect doesn't show on the water instead.
+        UWaterImpactThrottle* Throttle = GetWorld() != nullptr ? GetWorld()->GetSubsystem<UWaterImpactThrottle>() : nullptr;
+        const UObject* ThrottleKey = GetOwner() != nullptr ? static_cast<const UObject*>(GetOwner())
+            : GetInstigator() != nullptr ? static_cast<const UObject*>(GetInstigator()) : static_cast<const UObject*>(GetClass());
+        if (Throttle != nullptr && !Throttle->TryConsume(ThrottleKey, Settings->BulletWaterImpactMinInterval))
+        {
+            return true;
+        }
+    }
+
+    UNiagaraSystem* Effect = WaterImpactEffect != nullptr ? WaterImpactEffect.Get()
+        : (bBulletPuff ? Settings->BulletWaterEffect : Settings->ProjectileWaterEffect).LoadSynchronous();
+    USoundBase* Sound = WaterImpactSound != nullptr ? WaterImpactSound.Get()
+        : (bBulletPuff ? Settings->BulletWaterSound : Settings->ProjectileWaterSound).LoadSynchronous();
+    const FVector Point = Hit.ImpactPoint.IsNearlyZero() ? FVector(Hit.Location) : FVector(Hit.ImpactPoint);
+    const FVector SurfacePoint = UWaterHitLibrary::ProjectOntoWaterSurface(Hit.GetComponent(), Point);
+    UWaterHitLibrary::SpawnWaterEffect(this, Effect, SurfacePoint);
+    if (Sound != nullptr)
+    {
+        CustomPlaySoundAtLocation(this, Sound, SurfacePoint);
+    }
+    return true;
 }
 
 void AProjectileBase::HandleProjectileCollisionHit(AActor* HitActor, const FHitResult& Hit)

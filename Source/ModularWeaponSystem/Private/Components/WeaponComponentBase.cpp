@@ -10,6 +10,37 @@
 #include "Projectiles/ProjectileBase.h"
 #include "Projectiles/ProjectileCollisionRuleUtils.h"
 #include "UnrealExDNKUtils.h"
+#include "Water/WaterHitLibrary.h"
+#include "Water/WaterImpactThrottle.h"
+#include "Water/WeaponSystemWaterSettings.h"
+
+namespace
+{
+	// Hitscan hit on the water: the bullet water puff instead of ImpactFX, at most one per weapon per
+	// BulletWaterImpactMinInterval (HeliAce specs/implementing-water-surface-and-splash REQ-10).
+	void SpawnHitscanWaterPuff(UActorComponent* Weapon, const FHitResult& Hit)
+	{
+		UWorld* World = Weapon != nullptr ? Weapon->GetWorld() : nullptr;
+		if (World == nullptr)
+		{
+			return;
+		}
+
+		const UWeaponSystemWaterSettings* Settings = UWeaponSystemWaterSettings::Get();
+		UWaterImpactThrottle* Throttle = World->GetSubsystem<UWaterImpactThrottle>();
+		if (Throttle != nullptr && !Throttle->TryConsume(Weapon, Settings->BulletWaterImpactMinInterval))
+		{
+			return;
+		}
+
+		const FVector SurfacePoint = UWaterHitLibrary::ProjectOntoWaterSurface(Hit.GetComponent(), Hit.ImpactPoint);
+		UWaterHitLibrary::SpawnWaterEffect(Weapon, Settings->BulletWaterEffect.LoadSynchronous(), SurfacePoint);
+		if (USoundBase* Sound = Settings->BulletWaterSound.LoadSynchronous())
+		{
+			UGameplayStatics::PlaySoundAtLocation(Weapon, Sound, SurfacePoint);
+		}
+	}
+}
 
 
 void UWeaponComponentBase::BeginPlay()
@@ -363,8 +394,15 @@ bool UWeaponComponentBase::HandleProjectileCollisionHit(const FHitResult& Hit)
 			nullptr
 		);
 
-		SpawnFXAtLocation(WeaponDataRuntime->FXData.ImpactFX, Hit.Location,
-		                  Hit.ImpactNormal.Rotation().GetInverse());
+		if (UWaterHitLibrary::IsWaterHit(Hit))
+		{
+			SpawnHitscanWaterPuff(this, Hit);
+		}
+		else
+		{
+			SpawnFXAtLocation(WeaponDataRuntime->FXData.ImpactFX, Hit.Location,
+			                  Hit.ImpactNormal.Rotation().GetInverse());
+		}
 
 		return true;
 	}

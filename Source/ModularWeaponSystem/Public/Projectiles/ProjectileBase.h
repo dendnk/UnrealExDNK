@@ -7,6 +7,18 @@
 #include "ProjectileBase.generated.h"
 
 class AProjectileBase;
+
+// What a projectile shows when it explodes on the water (HeliAce specs/implementing-water-surface-and-splash REQ-9-11).
+UENUM(BlueprintType)
+enum class EProjectileWaterImpact : uint8
+{
+	// The water column (rockets, grenades, flak); WaterImpactEffect or the settings default.
+	Splash,
+	// A small, per-weapon rate-limited spray puff (bullets).
+	BulletPuff,
+	// Keeps its own ExplosionEffect on water (e.g. the flame rocket).
+	None
+};
 class UAudioComponent;
 class UInitialActiveSoundParams;
 class UNiagaraSystem;
@@ -113,6 +125,18 @@ public:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = BaseRocket)
     TObjectPtr<USoundBase> IdleSound;
 
+    // Exploding on the water spawns this instead of ExplosionEffect; damage, AoE and ExplosionSound are unchanged.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "BaseRocket|Water")
+    EProjectileWaterImpact WaterImpact = EProjectileWaterImpact::Splash;
+
+    // Overrides the UWeaponSystemWaterSettings default for WaterImpact. Null = the default.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "BaseRocket|Water")
+    TObjectPtr<UNiagaraSystem> WaterImpactEffect;
+
+    // Played with the water effect, in addition to ExplosionSound. Null = the settings default (empty = silent).
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "BaseRocket|Water")
+    TObjectPtr<USoundBase> WaterImpactSound;
+
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = BaseRocket)
     FProjectileConfig Config;
 
@@ -129,6 +153,9 @@ protected:
     void SetPendingEndReason(EProjectileEndReason Reason) { PendingEndReason = Reason; }
 
 private:
+    // True if it handled the water impact (the hit is the water and WaterImpact isn't None).
+    bool TrySpawnWaterImpact(const FHitResult& Hit);
+
     EProjectileEndReason PendingEndReason = EProjectileEndReason::Other;
 
     UPROPERTY()

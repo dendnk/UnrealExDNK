@@ -118,6 +118,9 @@ ATerrainGenerator::ATerrainGenerator()
 	WaterFloor->SetGenerateOverlapEvents(false);
 	WaterFloor->SetCanEverAffectNavigation(false);
 	WaterFloor->SetHiddenInGame(true);
+	// UWaterHitLibrary::WaterTag (ModularWeaponSystem): splashes and water impacts check this tag
+	// (HeliAce specs/implementing-water-surface-and-splash REQ-5). TerrainGenerator doesn't depend on that plugin.
+	WaterFloor->ComponentTags.AddUnique(TEXT("Water"));
 }
 
 void ATerrainGenerator::OnConstruction(const FTransform& Transform)

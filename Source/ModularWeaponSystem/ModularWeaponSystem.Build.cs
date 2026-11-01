@@ -43,7 +43,8 @@ public class ModularWeaponSystem : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
-                "GameplayTags"
+                "GameplayTags",
+                "DeveloperSettings"
 				// ... add private dependencies that you statically link with here ...
 			}
 			);
