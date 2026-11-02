@@ -15,6 +15,18 @@
 #include "Projectiles/ProjectileBase.h"
 #include "Kismet/GameplayStatics.h"
 #include "UnrealExDNKUtils.h"
+#include "HAL/IConsoleManager.h"
+
+namespace
+{
+    // HeliAce's master debug-helper switch (heli.Helpers). Looked up by name so the plugin doesn't depend on the
+    // game module; when the game doesn't register it, the debug line follows bDrawDebug alone.
+    bool AreGameHelpersOn()
+    {
+        static IConsoleVariable* const HelpersVar = IConsoleManager::Get().FindConsoleVariable(TEXT("heli.Helpers"));
+        return HelpersVar == nullptr || HelpersVar->GetInt() != 0;
+    }
+}
 
 DEFINE_LOG_CATEGORY(LogTrajectoryPrediction);
 
@@ -250,7 +262,7 @@ void UTrajectoryPredictionComponent::PredictAndDrawTrajectory(const FVector& Sta
             const bool bWorldSpace = true;
             DotInstances->AddInstance(DotTransform, bWorldSpace);
 
-            if (bDrawDebug && PreviousDrawn != INDEX_NONE)
+            if (bDrawDebug && PreviousDrawn != INDEX_NONE && AreGameHelpersOn())
             {
                 DrawDebugLine(
                     GetWorld(),
