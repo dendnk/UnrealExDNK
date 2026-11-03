@@ -206,6 +206,7 @@ FTerrainHeightParams ATerrainGenerator::MakeHeightParams() const
 	Params.ShoreWidth = ShoreWidth;
 	Params.SeaDepth = SeaDepth;
 	Params.CoastlineNoise = CoastlineNoise;
+	Params.NoiseOriginY = NoiseOriginY;
 	Params.WaterLevel = WaterLevel;
 	Params.Corridors = Corridors;
 	return Params;

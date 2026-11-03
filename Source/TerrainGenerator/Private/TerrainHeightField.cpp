@@ -379,7 +379,7 @@ namespace
 			return 0.f;
 		}
 		// Coastline noise only moves the drop within the shore, never into the land.
-		const float Coast = FMath::PerlinNoise2D(FVector2D(PX, PY) * (Params.NoiseScale * 3.f) - NoiseOffset) * 0.5f + 0.5f;
+		const float Coast = FMath::PerlinNoise2D(FVector2D(PX, PY + Params.NoiseOriginY) * (Params.NoiseScale * 3.f) - NoiseOffset) * 0.5f + 0.5f;
 		return FMath::Clamp(Point.Past / Point.Shore * (1.f + Params.CoastlineNoise * Coast), 0.f, 1.f);
 	}
 
@@ -936,7 +936,7 @@ float FTerrainHeightField::SampleBase(const FTerrainHeightParams& Params, const 
 	const bool bRidges = Params.RidgeWeight > 0.f;
 	for (int32 Octave = 0; Octave < Params.Octaves; ++Octave)
 	{
-		const float Noise = FMath::PerlinNoise2D(FVector2D(X, Y) * Frequency + NoiseOffset);
+		const float Noise = FMath::PerlinNoise2D(FVector2D(X, Y + Params.NoiseOriginY) * Frequency + NoiseOffset);
 		Sum += Amplitude * Noise;
 		if (bRidges)
 		{
@@ -973,7 +973,7 @@ float FTerrainHeightField::SampleBase(const FTerrainHeightParams& Params, const 
 	float Edge = FMath::Min(EdgeX, EdgeY);
 
 	// Only ever pushes the shore inward, so the mesh border always stays under water.
-	const float Coast = FMath::PerlinNoise2D(FVector2D(X, Y) * (Params.NoiseScale * 3.f) - NoiseOffset);
+	const float Coast = FMath::PerlinNoise2D(FVector2D(X, Y + Params.NoiseOriginY) * (Params.NoiseScale * 3.f) - NoiseOffset);
 	Edge -= Params.CoastlineNoise * (Coast * 0.5f + 0.5f);
 
 	const float Mask = FMath::SmoothStep(0.f, 1.f, Edge);

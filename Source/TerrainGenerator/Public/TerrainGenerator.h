@@ -140,6 +140,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Shore", meta = (ClampMin = "0", ClampMax = "1"))
 	float CoastlineNoise = 0.6f;
 
+	/** Offset (cm) added to Y wherever the height and coastline noise is sampled. When the actor moves across Y by -D,
+	 * NoiseOriginY = D keeps every seed's ground where it was; only the mesh extents move. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Shape")
+	float NoiseOriginY = 0.f;
+
 
 	/** Builds the water plane and its solid floor. The water surface blocks like the ground does. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Water")

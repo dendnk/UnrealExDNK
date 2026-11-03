@@ -29,6 +29,10 @@ struct TERRAINGENERATOR_API FTerrainHeightParams
 	float SeaDepth = 1000.f;
 	float CoastlineNoise = 0.6f;
 
+	/** Added to Y wherever the 2D height and coastline noise is sampled (not the shore mask's distances). Lets the mesh
+	 * move across Y while every seed keeps its ground: a shift of the actor by -D is cancelled by NoiseOriginY = D. */
+	float NoiseOriginY = 0.f;
+
 	float WaterLevel = 0.f;
 
 	TArray<FTerrainCorridor> Corridors;
