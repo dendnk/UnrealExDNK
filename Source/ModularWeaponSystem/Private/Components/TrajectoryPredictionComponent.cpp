@@ -14,6 +14,7 @@
 #include "Interfaces/IWeaponUserInterface.h"
 #include "Projectiles/ProjectileBase.h"
 #include "Kismet/GameplayStatics.h"
+#include "EngineUtils.h"
 #include "UnrealExDNKUtils.h"
 #include "HAL/IConsoleManager.h"
 
@@ -198,6 +199,19 @@ void UTrajectoryPredictionComponent::PredictAndDrawTrajectory(const FVector& Sta
     Params.SimFrequency = MaxSteps;
     Params.TraceChannel = ECC_Visibility;
     Params.ActorsToIgnore.Add(GetOwner());
+    // The helper must not react to the player's own shots: rockets (and their submunitions) still in flight
+    // would otherwise block the path trace and cut the arc short at the nearest rocket.
+    for (TActorIterator<AProjectileBase> It(GetWorld()); It; ++It)
+    {
+        for (const AActor* Chain = It->GetOwner(); Chain != nullptr; Chain = Chain->GetOwner())
+        {
+            if (Chain == GetOwner())
+            {
+                Params.ActorsToIgnore.Add(*It);
+                break;
+            }
+        }
+    }
 
     FPredictProjectilePathResult Result;
     float StraightTime = 0.f;
