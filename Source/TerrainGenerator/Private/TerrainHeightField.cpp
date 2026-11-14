@@ -104,7 +104,7 @@ namespace
 	 * each face, then the steps are added, so the result stays in range and every face has its cliff's exact rise.
 	 */
 	void BuildCorridorProfile(const FTerrainHeightParams& Params, const FVector2D& NoiseOffset, const FTerrainGrid& Grid,
-		const FTerrainCorridor& Corridor, TArray<float>& OutProfile)
+		const FTerrainCorridor& Corridor, TArray<float>& OutProfile, TArray<float>* OutSmooth = nullptr)
 	{
 		const float HalfX = Params.SizeX * 0.5f;
 		const bool bApplyMask = Params.Type == ETerrainType::Island && !Corridor.bOverrideShoreMask;
@@ -191,6 +191,10 @@ namespace
 			LimitProfileSlope(Grid, MaxSlope, Faces, OutProfile);
 		}
 
+		if (OutSmooth != nullptr)
+		{
+			*OutSmooth = OutProfile;
+		}
 		for (int32 X = 0; X < Grid.NumX; ++X)
 		{
 			OutProfile[X] += Steps[X];
@@ -541,6 +545,42 @@ namespace
 		return FMath::Clamp((1.f - CliffRowRandomShare) * Smooth + CliffRowRandomShare * CliffRowRandom(Seed, PY, Channel), -1.f, 1.f);
 	}
 
+	// Far-row cliff merge (HeliAce specs/<status>-findings-2026-11-10/<status>-far-row-cliff-merge, user 2026-11-10 D1/D2):
+	// on the far side (-Y from the lane, away from the camera) the cliff stays whole for FarCliffNearBand past the lane
+	// edge, then over FarCliffBlend its face widens to at most FarCliffSlopeDeg and its centre line wanders by up to
+	// FarCliffWander along X, so the step melts into the hills instead of running on as a wall. The camera side and the
+	// lane keep the exact cliff.
+	constexpr float FarCliffNearBand = 2000.f;
+	constexpr float FarCliffBlend = 4000.f;
+	constexpr float FarCliffSlopeDeg = 35.f;
+	constexpr float FarCliffWander = 1000.f;
+	constexpr float FarCliffWanderWavelength = 6000.f;
+
+	/** 0 on the camera side and within the near band, easing to 1 over FarCliffBlend on the far side. */
+	float FarCliffBlendWeight(const FTerrainCorridor& Corridor, float PY)
+	{
+		const float Past = (Corridor.CenterY - PY) - Corridor.HalfWidth - FarCliffNearBand;
+		return Past <= 0.f ? 0.f : FMath::SmoothStep(0.f, FarCliffBlend, Past);
+	}
+
+	/** The cliffs' summed step at PX on a far row with blend weight W (> 0): wider, eased, wandering faces. */
+	float FarCliffStepAt(const FTerrainCorridor& Corridor, float PX, float PY, float W)
+	{
+		const float FarSlope = FMath::Tan(FMath::DegreesToRadians(FarCliffSlopeDeg));
+		float Sum = 0.f;
+		for (const FTerrainCliff& Cliff : Corridor.Cliffs)
+		{
+			const float Run = FMath::Max(Cliff.Run, 1.f);
+			// Smoothstep's steepest point is 1.5x its mean slope: widen by 1.5 so the steepest part is FarCliffSlopeDeg.
+			const float RunW = FMath::Lerp(Run, FMath::Max(Run, 1.5f * FMath::Abs(Cliff.Rise) / FarSlope), W);
+			const float Phase = float(GetTypeHash(FMath::RoundToInt(Cliff.StartX)) % 4096u) * 0.613f;
+			const float Centre = Cliff.StartX + Run * 0.5f + W * FarCliffWander * FMath::PerlinNoise1D(PY / FarCliffWanderWavelength + Phase);
+			const float T = FMath::Clamp((PX - (Centre - RunW * 0.5f)) / RunW, 0.f, 1.f);
+			Sum += Cliff.Rise * FMath::Lerp(T, FMath::SmoothStep(0.f, 1.f, T), W);
+		}
+		return Sum;
+	}
+
 	/**
 	 * Shapes every cliff's zone on every row: the top edge breaks (lowered 0..LipMax), the bottom edge piles up (raised
 	 * 0..ToeMax), and the inner face columns move up and down so the face has ledges and steeper steps, every facet between
@@ -603,8 +643,9 @@ namespace
 				// Shaped in proportion to the drop this row really has: toward the banks the corridor blends into the island's
 				// sides and the cliff shrinks, and the full drop's ledges would dig pits and raise spikes there.
 				const float RowDrop = Row[Columns[Top]] - Row[Columns[Bottom]];
+				// The far rows' widened face (FarCliffStepAt) isn't a cliff any more: the rough shaping fades out with it.
 				const float Weight = FMath::Clamp((FMath::Min(Row[Columns[0]], Row[Columns.Last()]) - Params.WaterLevel) / CliffWaterFade, 0.f, 1.f)
-					* FMath::Clamp(RowDrop / Layout.Drop, 0.f, 1.f);
+					* FMath::Clamp(RowDrop / Layout.Drop, 0.f, 1.f) * (1.f - FarCliffBlendWeight(Corridor, PY));
 				if (Weight <= 0.f)
 				{
 					continue;
@@ -684,7 +725,10 @@ namespace
 		const FTerrainCorridor& Corridor, TArray<float>& Heights)
 	{
 		TArray<float> Profile;
-		BuildCorridorProfile(Params, NoiseOffset, Grid, Corridor, Profile);
+		TArray<float> Smooth;
+		BuildCorridorProfile(Params, NoiseOffset, Grid, Corridor, Profile, &Smooth);
+		const bool bFarCliffMerge = !Corridor.Cliffs.IsEmpty();
+		TArray<float> RowProfile;
 
 		const float HalfY = Params.SizeY * 0.5f;
 		const float StartX = FMath::Min(Corridor.StartX, Corridor.EndX);
@@ -709,6 +753,15 @@ namespace
 				continue;
 			}
 
+			// The profile per row: the lane's own, or on far rows the smooth part plus the widened steps.
+			RowProfile.SetNumUninitialized(Grid.NumY);
+			for (int32 Y = 0; Y < Grid.NumY; ++Y)
+			{
+				const float PY = Grid.RowY(Y, HalfY * 2.f);
+				const float W = bFarCliffMerge ? FarCliffBlendWeight(Corridor, PY) : 0.f;
+				RowProfile[Y] = W > 0.f ? Smooth[X] + FarCliffStepAt(Corridor, PX, PY, W) : Profile[X];
+			}
+
 			if (bFollow)
 			{
 				// FollowProfile: the strip's profile plus the terrain's relief (against its own centre line, unmasked),
@@ -720,7 +773,7 @@ namespace
 					const float PY = Grid.RowY(Y, HalfY * 2.f);
 					const float Offset = PY - Corridor.CenterY;
 					const float Past = FMath::Abs(Offset) - Corridor.HalfWidth;
-					Column[Y] = Profile[X];
+					Column[Y] = RowProfile[Y];
 					if (Past > 0.f)
 					{
 						const float Ramp = Corridor.BankRamp > 0.f ? FMath::SmoothStep(0.f, 1.f, Past / Corridor.BankRamp) : 1.f;
@@ -744,8 +797,8 @@ namespace
 				{
 					// BlendToRaw: unchanged from before banks existed, so existing presets keep their heights.
 					const float Weight = WeightX * FalloffWeight(FMath::Abs(Offset), Corridor.HalfWidth, Corridor.Falloff);
-					H = FMath::Lerp(H, Profile[X], Weight);
-					ApplySideCap(Corridor, Profile[X], Offset, CapDir, CapLength, WeightX, H);
+					H = FMath::Lerp(H, RowProfile[Y], Weight);
+					ApplySideCap(Corridor, RowProfile[Y], Offset, CapDir, CapLength, WeightX, H);
 					if (bLandWidth)
 					{
 						ApplyLandWidth(Params, NoiseOffset, Corridor, EndBumps, Low, EndX, PX, PY, Offset, WeightX, H);
@@ -754,7 +807,7 @@ namespace
 				}
 
 				float Shaped = Column[Y];
-				ApplySideCap(Corridor, Profile[X], Offset, CapDir, CapLength, 1.f, Shaped);
+				ApplySideCap(Corridor, RowProfile[Y], Offset, CapDir, CapLength, 1.f, Shaped);
 				if (bLandWidth)
 				{
 					ApplyLandWidth(Params, NoiseOffset, Corridor, EndBumps, Low, EndX, PX, PY, Offset, 1.f, Shaped);
@@ -1083,6 +1136,17 @@ TArray<float> FTerrainHeightField::CliffColumnXs(TConstArrayView<FTerrainCorrido
 		}
 	}
 	return Xs;
+}
+
+float FTerrainHeightField::FarCliffBlend(const FTerrainCorridor& Corridor, float PY)
+{
+	return Corridor.Cliffs.IsEmpty() ? 0.f : FarCliffBlendWeight(Corridor, PY);
+}
+
+float FTerrainHeightField::FarCliffStep(const FTerrainCorridor& Corridor, float PX, float PY)
+{
+	const float W = FarCliffBlend(Corridor, PY);
+	return W > 0.f ? FarCliffStepAt(Corridor, PX, PY, W) : 0.f;
 }
 
 void FTerrainHeightField::CliffZoneRockRamp(const FTerrainCorridor& Corridor, const FTerrainCliff& Cliff, TArray<float>& OutXs, TArray<float>& OutRamp)

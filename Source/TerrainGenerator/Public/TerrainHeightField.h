@@ -158,6 +158,19 @@ struct TERRAINGENERATOR_API FTerrainHeightField
 	 */
 	static void CliffZoneRockRamp(const FTerrainCorridor& Corridor, const FTerrainCliff& Cliff, TArray<float>& OutXs, TArray<float>& OutRamp);
 
+	/**
+	 * How far a row at PY has softened the corridor's cliffs, 0..1: 0 in the lane, on the camera side (+Y) and in the near
+	 * band beside the lane; 1 where the far rows' cliffs have widened into hills (HeliAce far-row-cliff-merge). The
+	 * cliff's rock texture and rough shaping fade by 1 - this. 0 for a corridor without cliffs.
+	 */
+	static float FarCliffBlend(const FTerrainCorridor& Corridor, float PY);
+
+	/**
+	 * The corridor cliffs' summed step at local (PX, PY) as a far row builds it: the widened, eased, wandering faces that
+	 * replace the lane's step where FarCliffBlend > 0. 0 where the blend is 0 (lane, near band, camera side).
+	 */
+	static float FarCliffStep(const FTerrainCorridor& Corridor, float PX, float PY);
+
 	/** Every cliff's zone (CliffZone) as (min X, max X): no other column stays inside one. */
 	static TArray<FVector2D> CliffZoneSpans(TConstArrayView<FTerrainCorridor> Corridors);
 
