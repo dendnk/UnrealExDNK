@@ -21,6 +21,98 @@ namespace
 		explicit FStageTimer(double& InMs) : Ms(InMs) {}
 		~FStageTimer() { Ms += (FPlatformTime::Seconds() - Start) * 1000.0; }
 	};
+
+	// HeliAce findings-2026-11-10 #12 (cliff-texture-blend): the rock around a cliff fades into the ground over
+	// CliffRockFadeHigh past the zone's high edge (above the lip) and CliffRockFadeLow past its low edge (below the toe),
+	// each jittered +-CliffRockFadeJitter along Y, so the grass/rock edge is soft and not a straight line, like the island
+	// end. Texture only (vertex colour G); geometry gets fade columns every CliffRockFadeColumnStep so the fade isn't
+	// squeezed into one 10 m cell.
+	constexpr float CliffRockFadeHigh = 600.f;
+	constexpr float CliffRockFadeLow = 800.f;
+	constexpr float CliffRockFadeJitter = 0.3f;
+	constexpr float CliffRockFadeJitterWavelength = 1500.f;
+	constexpr float CliffRockFadeColumnStep = 200.f;
+	// The material's rock window (M_Terrain_Blend: SlopeStart 0.16, SlopeBlend 0.2, RockContrast 0.5) gives
+	// rock = 2 * saturate((G - 0.16) / 0.2) - 0.5: none at G 0.21, full at G 0.31. The fade runs G across that window, so
+	// the material doesn't squeeze it back into a line; the first CliffRockFadeLead of it only lifts G to the window.
+	constexpr float CliffRockNoneG = 0.21f;
+	constexpr float CliffRockFullG = 0.31f;
+	constexpr float CliffRockFadeLead = 0.15f;
+
+	struct FCliffRockFade
+	{
+		float ZoneMin = 0.f;
+		float ZoneMax = 0.f;
+		bool bHighAtMin = true;
+		float Phase = 0.f;
+	};
+
+	TArray<FCliffRockFade> CliffRockFades(TConstArrayView<FTerrainCorridor> Corridors)
+	{
+		TArray<FCliffRockFade> Fades;
+		for (const FTerrainCorridor& Corridor : Corridors)
+		{
+			for (const FTerrainCliff& Cliff : Corridor.Cliffs)
+			{
+				const FVector2D Zone = FTerrainHeightField::CliffZone(Corridor, Cliff);
+				FCliffRockFade& Fade = Fades.AddDefaulted_GetRef();
+				Fade.ZoneMin = FMath::Min(Zone.X, Zone.Y);
+				Fade.ZoneMax = FMath::Max(Zone.X, Zone.Y);
+				Fade.bHighAtMin = Cliff.Rise < 0.f; // a negative Rise drops along +X: the high side is at the start
+				Fade.Phase = float(GetTypeHash(FMath::RoundToInt(Cliff.StartX)) % 4096u) * 0.377f;
+			}
+		}
+		return Fades;
+	}
+
+	/** Fade columns beside every cliff zone, CliffRockFadeColumnStep apart, out to the longest jittered fade. */
+	void AddCliffRockFadeColumns(TConstArrayView<FCliffRockFade> Fades, TArray<float>& OutXs)
+	{
+		for (const FCliffRockFade& Fade : Fades)
+		{
+			const float HighReach = CliffRockFadeHigh * (1.f + CliffRockFadeJitter);
+			const float LowReach = CliffRockFadeLow * (1.f + CliffRockFadeJitter);
+			const float MinReach = Fade.bHighAtMin ? HighReach : LowReach;
+			const float MaxReach = Fade.bHighAtMin ? LowReach : HighReach;
+			for (float D = CliffRockFadeColumnStep; D < MinReach + CliffRockFadeColumnStep; D += CliffRockFadeColumnStep)
+			{
+				OutXs.Add(Fade.ZoneMin - D);
+			}
+			for (float D = CliffRockFadeColumnStep; D < MaxReach + CliffRockFadeColumnStep; D += CliffRockFadeColumnStep)
+			{
+				OutXs.Add(Fade.ZoneMax + D);
+			}
+		}
+	}
+
+	/** Steepness (vertex colour G) the cliff rock fade asks for at (PX, PY), given the ground's own; never lower. */
+	float CliffRockFadeG(TConstArrayView<FCliffRockFade> Fades, float PX, float PY, float OwnG)
+	{
+		float G = OwnG;
+		for (const FCliffRockFade& Fade : Fades)
+		{
+			if (PX >= Fade.ZoneMin && PX <= Fade.ZoneMax)
+			{
+				G = FMath::Max(G, CliffRockFullG);
+				continue;
+			}
+			const bool bBeforeMin = PX < Fade.ZoneMin;
+			const float D = bBeforeMin ? Fade.ZoneMin - PX : PX - Fade.ZoneMax;
+			const bool bHighSide = bBeforeMin == Fade.bHighAtMin;
+			const float Length = (bHighSide ? CliffRockFadeHigh : CliffRockFadeLow)
+				* (1.f + CliffRockFadeJitter * FMath::Clamp(FMath::PerlinNoise1D(PY / CliffRockFadeJitterWavelength + Fade.Phase + (bHighSide ? 0.f : 7.1f)), -1.f, 1.f));
+			if (D >= Length)
+			{
+				continue;
+			}
+			const float E = FMath::SmoothStep(0.f, 1.f, 1.f - D / Length);
+			const float Target = E < CliffRockFadeLead
+				? FMath::Lerp(OwnG, CliffRockNoneG, E / CliffRockFadeLead)
+				: FMath::Lerp(CliffRockNoneG, CliffRockFullG, (E - CliffRockFadeLead) / (1.f - CliffRockFadeLead));
+			G = FMath::Max(G, Target);
+		}
+		return G;
+	}
 }
 
 namespace
@@ -229,7 +321,10 @@ FTerrainGrid ATerrainGenerator::MakeGrid() const
 	FTerrainGrid Grid = FTerrainGrid::Make(SizeX, SizeY, CellSizeX > 0.f ? CellSizeX : CellSize, CellSizeY > 0.f ? CellSizeY : CellSize,
 		EndDetailLength, EndDetailCellSizeX);
 	// A cliff face is exactly one cell, with columns on both edges; a rough cliff's zone has its own columns only.
-	Grid.InsertColumns(FTerrainHeightField::CliffColumnXs(Corridors), SizeX, 100.f, FTerrainHeightField::CliffZoneSpans(Corridors));
+	// Plus the rock fade's columns beside each zone (#12), so the soft texture edge isn't one 10 m cell.
+	TArray<float> ColumnXs = FTerrainHeightField::CliffColumnXs(Corridors);
+	AddCliffRockFadeColumns(CliffRockFades(Corridors), ColumnXs);
+	Grid.InsertColumns(ColumnXs, SizeX, 100.f, FTerrainHeightField::CliffZoneSpans(Corridors));
 	// Fewer rows on background ground (lane-ground-dressing T29).
 	if (CoarseCellSizeY > Grid.StepY && Corridors.IsValidIndex(DecorationCorridorIndex))
 	{
@@ -416,8 +511,15 @@ void ATerrainGenerator::BuildGroundMesh(bool bUpdateDarkness)
 		}
 	}
 
+	const TArray<FCliffRockFade> RockFades = CliffRockFades(Corridors);
 	for (int32 Y = 0; Y < NumY; ++Y)
 	{
+		// Far rows where the cliffs widened into hills: their forced rock and flat-side steepness fade out with them.
+		float FarBlend = 0.f;
+		for (const FTerrainCorridor& Corridor : Corridors)
+		{
+			FarBlend = FMath::Max(FarBlend, FTerrainHeightField::FarCliffBlend(Corridor, Grid.RowY(Y, SizeY)));
+		}
 		for (int32 X = 0; X < NumX; ++X)
 		{
 			const float PX = Grid.ColumnX(X, SizeX);
@@ -443,7 +545,7 @@ void ATerrainGenerator::BuildGroundMesh(bool bUpdateDarkness)
 			{
 				const int32 Flat = X + CliffSide[X];
 				const float FlatDHdX = (H(Flat, Y) - H(X, Y)) / (Grid.ColumnX(Flat, SizeX) - PX);
-				SteepZ = FVector(-FlatDHdX, -DHdY, 1.f).GetSafeNormal().Z;
+				SteepZ = FMath::Lerp(FVector(-FlatDHdX, -DHdY, 1.f).GetSafeNormal().Z, SteepZ, FarBlend);
 			}
 			float Steepness = 1.f - SteepZ;
 			if (CliffZoneSteep[X] >= 0.f)
@@ -453,7 +555,12 @@ void ATerrainGenerator::BuildGroundMesh(bool bUpdateDarkness)
 				{
 					Ramp = FMath::Clamp(Ramp + CliffRampJitter * FMath::PerlinNoise1D(PY / 1000.f + X * 0.618f), 0.f, 1.f);
 				}
-				Steepness = FMath::Max(Steepness, CliffZoneSteep[X] * Ramp);
+				Steepness = FMath::Max(Steepness, CliffZoneSteep[X] * Ramp * (1.f - FarBlend));
+			}
+			// #12: soft, broken rock fade around the zone; fades out with the far rows' widened face (#20).
+			if (!RockFades.IsEmpty() && FarBlend < 1.f)
+			{
+				Steepness = FMath::Lerp(Steepness, CliffRockFadeG(RockFades, PX, PY, Steepness), 1.f - FarBlend);
 			}
 			Colors.Add(FLinearColor(HeightAlpha, Steepness, 0.f, 1.f - Path));
 			Tangents.Add(FProcMeshTangent(FVector(1.f, 0.f, DHdX).GetSafeNormal(), false));

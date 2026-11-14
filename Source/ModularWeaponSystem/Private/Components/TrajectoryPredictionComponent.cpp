@@ -19,6 +19,12 @@
 
 namespace
 {
+    // Impact-point marker size relative to a path dot (HeliAce findings-2026-11-10 aim-helper-visibility REQ-4).
+    constexpr float ImpactDotScale = 2.f;
+}
+
+namespace
+{
     // HeliAce's master debug-helper switch (heli.Helpers). Looked up by name so the plugin doesn't depend on the
     // game module; when the game doesn't register it, the debug line follows bDrawDebug alone.
     bool AreGameHelpersOn()
@@ -107,6 +113,9 @@ void UTrajectoryPredictionComponent::EnsureInitialized()
         DotInstances->SetMaterial(0, DotMaterial);
         DotInstances->SetMobility(EComponentMobility::Movable);
         DotInstances->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        // Custom data 0 = the dot's place along the path, 0 at the muzzle .. 1 at the impact: drives the material's
+        // running light (HeliAce findings-2026-11-10 aim-helper-visibility REQ-3).
+        DotInstances->NumCustomDataFloats = 1;
         DotInstances->RegisterComponent();
         DotInstances->AttachToComponent(WeaponParentComponent.Get(), FAttachmentTransformRules::KeepRelativeTransform);
     }
@@ -258,9 +267,12 @@ void UTrajectoryPredictionComponent::PredictAndDrawTrajectory(const FVector& Sta
             }
 
             const FRotator DotRotation = FRotationMatrix::MakeFromZ(FacingDirection).Rotator();
-            const FTransform DotTransform(DotRotation, DotLocation, FVector(Scale));
+            // The impact point gets a marker twice the dot size (aim-helper-visibility REQ-4).
+            const bool bImpactDot = i == NumPoints - 1;
+            const FTransform DotTransform(DotRotation, DotLocation, FVector(bImpactDot ? Scale * ImpactDotScale : Scale));
             const bool bWorldSpace = true;
-            DotInstances->AddInstance(DotTransform, bWorldSpace);
+            const int32 Instance = DotInstances->AddInstance(DotTransform, bWorldSpace);
+            DotInstances->SetCustomDataValue(Instance, 0, NumPoints > 1 ? float(i) / float(NumPoints - 1) : 1.f, /*bMarkRenderStateDirty=*/false);
 
             if (bDrawDebug && PreviousDrawn != INDEX_NONE && AreGameHelpersOn())
             {
