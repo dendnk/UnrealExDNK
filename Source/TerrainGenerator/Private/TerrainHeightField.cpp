@@ -244,7 +244,7 @@ namespace
 	/**
 	 * Narrowest beach shelf on any coast (bDefineLandWidth), and the width the island's end grows it to at its tip, cm.
 	 * The mesh's waterline is only smooth where the ground runs through the water on an even slope at least two grid
-	 * cells wide, so every shelf runs on below the water as deep as the beach is high, with the waterline at its middle.
+	 * cells wide, so every shelf runs on below the water to ShelfEndDepth (ShoreHeight).
 	 */
 	constexpr float MinBeachWidth = 1500.f;
 	constexpr float EndCapBeachWidth = 3000.f;
@@ -389,7 +389,7 @@ namespace
 
 	/**
 	 * Shore height at ShoreT T, from the land height Land: a descent to the beach, then a gentle shelf through the waterline
-	 * (from BeachHeight above it to BeachHeight below), then the drop to the seabed.
+	 * (from BeachHeight above it to ShelfEndDepth below), then the drop to the seabed.
 	 */
 	float ShoreHeight(const FTerrainHeightParams& Params, const FTerrainCorridor& Corridor, const FShorePoint& Point, float T, float Land)
 	{
@@ -405,12 +405,21 @@ namespace
 		{
 			return FMath::Lerp(Land, BeachZ, FMath::SmoothStep(0.f, 1.f, T / DescentEnd));
 		}
-		// The shelf: 70 % of the beach, then the drop to the seabed.
-		constexpr float ShelfShare = 0.7f;
-		const float ShelfEndZ = Params.WaterLevel - Corridor.BeachHeight;
+		// The shelf: from BeachZ down to the waterline over 35 % of the beach, then on down to ShelfEndDepth over the next
+		// 50 %, then the drop to the seabed. HeliAce findings-2026-11-10 T28: the shelf used to end BeachHeight (80 cm)
+		// below the water, right where the island water turns opaque (ShoreFadeDepth 80 cm), so the drop's corner showed
+		// through the clear shallows as a triangle-shaped edge. Ending the shelf deeper keeps that corner under opaque water.
+		constexpr float WaterlineShare = 0.35f;
+		constexpr float ShelfShare = 0.85f;
+		constexpr float ShelfEndDepth = 250.f;
+		const float ShelfEndZ = Params.WaterLevel - FMath::Min(FMath::Max(ShelfEndDepth, Corridor.BeachHeight), Params.SeaDepth);
 		const float U = (T - DescentEnd) / Beach;
+		if (U < WaterlineShare)
+		{
+			return FMath::Lerp(BeachZ, Params.WaterLevel, U / WaterlineShare);
+		}
 		return U < ShelfShare
-			? FMath::Lerp(BeachZ, ShelfEndZ, U / ShelfShare)
+			? FMath::Lerp(Params.WaterLevel, ShelfEndZ, (U - WaterlineShare) / (ShelfShare - WaterlineShare))
 			: FMath::Lerp(ShelfEndZ, Seabed, FMath::SmoothStep(0.f, 1.f, (U - ShelfShare) / (1.f - ShelfShare)));
 	}
 
