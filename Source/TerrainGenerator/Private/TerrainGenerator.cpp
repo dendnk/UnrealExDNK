@@ -124,15 +124,22 @@ namespace
 	constexpr float EndDetailCellSizeX = 250.f;
 	constexpr float MaxEndDetailLength = 20000.f;
 
-	// Shore mask (specs/*-water-surface-and-splash REQ-3): texels along the longer ground side, and the water depth, cm,
-	// that maps to mask 0. The water material reads it through the ShoreMask / ShoreMaskBounds / ShoreMaskDepthRange parameters.
+	// Shore mask (specs/*-water-surface-and-splash REQ-3): texels along the longer ground side, the depth span, cm, the
+	// mask covers, and how far of it, cm, lies above the water (land kept signed). The water material reads it through the
+	// ShoreMask / ShoreMaskBounds / ShoreMaskDepthRange / ShoreMaskDepthOffset parameters:
+	// depth = (1 - mask) * Range - Offset.
+	// water-material-mobile T6: land used to be clamped to depth 0 before the bilinear filter, which moved the mask's
+	// waterline up to a texel out to sea; mobile (no scene depth) then showed the mesh's waterline as a hard,
+	// triangle-shaped edge. Signed land heights put the filtered zero line on the real waterline.
 	constexpr int32 ShoreMaskMaxTexels = 512;
-	constexpr float ShoreMaskDepthRange = 1000.f;
+	constexpr float ShoreMaskLandRange = 200.f;
+	constexpr float ShoreMaskDepthRange = 1000.f + ShoreMaskLandRange;
 
 	/**
-	 * G8 mask over the ground rectangle: 1 - depth / ShoreMaskDepthRange, where depth is the water above the ground
-	 * (1 at the waterline and on land, 0 in deep water). The ground slopes into the sea, so depth stands in for the
-	 * distance to the shore. The outer texel ring is 0 so the clamped sampler reads deep water past the ground.
+	 * G8 mask over the ground rectangle: 1 - (depth + ShoreMaskLandRange) / ShoreMaskDepthRange, where depth is the
+	 * water above the ground (negative on land, down to -ShoreMaskLandRange; 0 in deep water). The ground slopes into
+	 * the sea, so depth stands in for the distance to the shore. The outer texel ring is 0 so the clamped sampler reads
+	 * deep water past the ground.
 	 */
 	UTexture2D* BakeShoreMask(const TArray<float>& Heights, const FTerrainGrid& Grid, float SizeX, float SizeY, float WaterLevel)
 	{
@@ -149,7 +156,7 @@ namespace
 			{
 				const float LocalX = -SizeX * 0.5f + (X + 0.5f) * SizeX / Width;
 				const float Depth = WaterLevel - FTerrainHeightField::SampleGrid(Heights, Grid, SizeX, SizeY, LocalX, LocalY);
-				Pixels[Y * Width + X] = static_cast<uint8>(FMath::RoundToInt(255.f * (1.f - FMath::Clamp(Depth / ShoreMaskDepthRange, 0.f, 1.f))));
+				Pixels[Y * Width + X] = static_cast<uint8>(FMath::RoundToInt(255.f * (1.f - FMath::Clamp((Depth + ShoreMaskLandRange) / ShoreMaskDepthRange, 0.f, 1.f))));
 			}
 		}
 
@@ -625,6 +632,7 @@ void ATerrainGenerator::UpdateWater()
 			Instance->SetVectorParameterValue(TEXT("ShoreMaskBounds"),
 				FLinearColor(Origin.X - SizeX * 0.5f, Origin.Y - SizeY * 0.5f, 1.f / SizeX, 1.f / SizeY));
 			Instance->SetScalarParameterValue(TEXT("ShoreMaskDepthRange"), ShoreMaskDepthRange);
+			Instance->SetScalarParameterValue(TEXT("ShoreMaskDepthOffset"), ShoreMaskLandRange);
 			Material = Instance;
 		}
 	}
