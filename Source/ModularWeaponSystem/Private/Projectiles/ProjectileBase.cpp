@@ -5,6 +5,7 @@
 
 #include "Components/AudioComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
+#include "Impact/WeaponSystemHitSettings.h"
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraFunctionLibrary.h"
 #include "Projectiles/ProjectileCollisionRuleUtils.h"
@@ -141,7 +142,10 @@ void AProjectileBase::ExplodeProjectile(const FHitResult& Hit, bool bSuppressFx,
 
     // Only hits whose component is the water switch effects; airbursts and interceptions keep theirs (REQ-11).
     const bool bWaterImpact = !bSuppressFx && TrySpawnWaterImpact(Hit);
-    if (!bSuppressFx && !bWaterImpact && ExplosionEffect != nullptr)
+    // A bullet on the player's pawn shows sparks instead of its ground effect (vfx-review-findings REQ-1).
+    const bool bPlayerHit = !bSuppressFx && !bWaterImpact && ShowsPlayerHitEffect()
+        && UWeaponSystemHitSettings::TrySpawnPlayerHit(this, Hit);
+    if (!bSuppressFx && !bWaterImpact && !bPlayerHit && ExplosionEffect != nullptr)
     {
         UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, ExplosionEffect, Hit.Location);
     }

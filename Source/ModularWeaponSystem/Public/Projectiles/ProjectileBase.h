@@ -152,6 +152,10 @@ protected:
     // the cause; anything that calls ExplodeProjectile without setting it reports Other.
     void SetPendingEndReason(EProjectileEndReason Reason) { PendingEndReason = Reason; }
 
+    // True for bullets: a hit on the player's pawn shows UWeaponSystemHitSettings::PlayerHitEffect instead of
+    // ExplosionEffect (HeliAce vfx-review-findings REQ-1). Default: projectiles without AoE.
+    virtual bool ShowsPlayerHitEffect() const { return !Config.bHasAoEOnExplode; }
+
 private:
     // True if it handled the water impact (the hit is the water and WaterImpact isn't None).
     bool TrySpawnWaterImpact(const FHitResult& Hit);

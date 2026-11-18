@@ -4,6 +4,7 @@
 #include "Blueprint/UserWidget.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "HAL/IConsoleManager.h"
+#include "Impact/WeaponSystemHitSettings.h"
 #include "Interfaces/IWeaponUserInterface.h"
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraFunctionLibrary.h"
@@ -314,7 +315,7 @@ void UWeaponComponentBase::FireProjectile()
 		SetCurrentMagazineAmmo(GetCurrentMagazineAmmo() - WeaponDataRuntime->AmmoPerShot);
 	}
 
-	SpawnFXAtLocation(WeaponDataRuntime->FXData.MuzzleFlashFX, MuzzleTransform.GetLocation());
+	SpawnShotFX(MuzzleTransform);
 	PlaySoundAtLocation(WeaponDataRuntime->FXData.FireSound, MuzzleTransform.GetLocation(), WeaponDataRuntime->FXData.FireSoundVolumeMultiplier);
 	BroadcastWeaponShotFired(MuzzleTransform);
 }
@@ -338,7 +339,7 @@ void UWeaponComponentBase::FireHitscan()
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(GetOwner());
 
-	SpawnFXAtLocation(WeaponDataRuntime->FXData.MuzzleFlashFX, MuzzleTransform.GetLocation());
+	SpawnShotFX(MuzzleTransform);
 	PlaySoundAtLocation(WeaponDataRuntime->FXData.FireSound, MuzzleTransform.GetLocation(), WeaponDataRuntime->FXData.FireSoundVolumeMultiplier);
 
 	if (WeaponDataRuntime->bInfiniteAmmo == false)
@@ -398,10 +399,10 @@ bool UWeaponComponentBase::HandleProjectileCollisionHit(const FHitResult& Hit)
 		{
 			SpawnHitscanWaterPuff(this, Hit);
 		}
-		else
+		else if (!UWeaponSystemHitSettings::TrySpawnPlayerHit(this, Hit))
 		{
 			SpawnFXAtLocation(WeaponDataRuntime->FXData.ImpactFX, Hit.Location,
-			                  Hit.ImpactNormal.Rotation().GetInverse());
+			                  Hit.ImpactNormal.Rotation().GetInverse(), FVector(WeaponDataRuntime->FXData.ImpactFXScale));
 		}
 
 		return true;
@@ -629,6 +630,25 @@ UNiagaraComponent* UWeaponComponentBase::SpawnFXAtLocation_Implementation(
 	AActor* OwnerActor = GetOwner();
 	return UNiagaraFunctionLibrary::SpawnSystemAtLocation(OwnerActor, SystemTemplate, Location, Rotation, Scale,
 	                                                      bAutoDestroy, bShouldAutoActivate);
+}
+
+void UWeaponComponentBase::SpawnShotFX(const FTransform& MuzzleTransform)
+{
+	if (!WeaponDataRuntime)
+	{
+		return;
+	}
+	const FFXData& FX = WeaponDataRuntime->FXData;
+	const FVector Location = MuzzleTransform.GetLocation();
+	const FRotator Rotation = MuzzleTransform.Rotator();
+	if (FX.MuzzleFlashFX != nullptr)
+	{
+		SpawnFXAtLocation(FX.MuzzleFlashFX, Location, Rotation, FVector(FX.MuzzleFlashFXScale));
+	}
+	if (FX.ShellEjectFX != nullptr)
+	{
+		SpawnFXAtLocation(FX.ShellEjectFX, Location, Rotation, FVector(FX.ShellEjectFXScale));
+	}
 }
 
 TFunction<float(const AActor* Owner, const FVector& Location)> UWeaponComponentBase::SoundVolumeScaleProvider;
