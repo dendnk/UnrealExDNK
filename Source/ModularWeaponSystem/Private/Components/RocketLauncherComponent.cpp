@@ -110,7 +110,7 @@ void URocketLauncherComponent::FireProjectile()
         SetCurrentMagazineAmmo(GetCurrentMagazineAmmo() - WeaponDataRuntime->AmmoPerShot);
 	}
 
-	SpawnFXAtLocation(WeaponDataRuntime->FXData.MuzzleFlashFX, MuzzleTransform.GetLocation());
+	SpawnShotFX(MuzzleTransform);
 	PlaySoundAtLocation(WeaponDataRuntime->FXData.FireSound, MuzzleTransform.GetLocation());
 }
 

@@ -141,6 +141,9 @@ public:
     UFUNCTION(BlueprintNativeEvent, Category = "Weapon|FX")
     UNiagaraComponent* SpawnFXAtLocation(UNiagaraSystem* SystemTemplate, FVector Location, FRotator Rotation = FRotator::ZeroRotator, FVector Scale = FVector(1.f), bool bAutoDestroy = true, bool bShouldAutoActivate = true);
 
+    /** Per-shot FX at the muzzle: FXData.MuzzleFlashFX and FXData.ShellEjectFX, oriented along the barrel. */
+    void SpawnShotFX(const FTransform& MuzzleTransform);
+
     UFUNCTION(BlueprintNativeEvent, Category = "Weapon|FX")
     void PlaySoundAtLocation(USoundBase* Sound, FVector Location, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, float StartTime = 0.f);
 

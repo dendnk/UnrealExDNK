@@ -103,6 +103,22 @@ struct FFXData
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TObjectPtr<UNiagaraSystem> ImpactFX = nullptr;
 
+	/** Uniform scale for MuzzleFlashFX (pack VFX are authored at different sizes). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (ClampMin = "0.01"))
+	float MuzzleFlashFXScale = 1.f;
+
+	/** Uniform scale for ImpactFX. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (ClampMin = "0.01"))
+	float ImpactFXScale = 1.f;
+
+	/** Optional shell-casing ejection spawned at the muzzle on every shot. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TObjectPtr<UNiagaraSystem> ShellEjectFX = nullptr;
+
+	/** Uniform scale for ShellEjectFX. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (ClampMin = "0.01"))
+	float ShellEjectFXScale = 1.f;
+
 	/** Optional fire sound */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TObjectPtr<USoundBase> FireSound = nullptr;
